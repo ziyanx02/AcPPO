@@ -116,6 +116,8 @@ def get_cfgs():
         'max_push_vel_xy': 1.0,
         # time (second)
         'episode_length_s': 2.0,
+        'period_length_s': 2.0,
+        'random_init_preriod': True,
         'resampling_time_s': 4.0,
         'command_type': 'ang_vel_yaw',  # 'ang_vel_yaw' or 'heading'
         'action_scale': 0.5,
@@ -145,6 +147,7 @@ def get_cfgs():
         'coupling': False,
     }
     obs_cfg = {
+        'use_time_indicator': False,
         'num_obs': 60,
         'num_history_obs': 1,
         'obs_noise': {
@@ -206,6 +209,9 @@ def main():
         args.offline = True
         args.num_envs = 1
 
+    if not torch.cuda.is_available():
+        args.cpu = True
+
     gs.init(
         backend=gs.cpu if args.cpu else gs.gpu,
         logging_level='warning',
@@ -234,7 +240,7 @@ def main():
         debug=args.debug,
     )
 
-    runner = OnPolicyRunner(env, train_cfg, log_dir, device='cuda:0')
+    runner = OnPolicyRunner(env, train_cfg, log_dir, device=device)
 
     if args.resume is not None:
         resume_dir = f'logs/{args.resume}'

@@ -83,6 +83,10 @@ class Go2(LocoEnv):
         out_of_limits += (self.dof_pos - self.dof_pos_limits[:, 1]).clip(min=0.0)  # upper limit
         return torch.sum(out_of_limits, dim=1)
 
+    def _reward_dof_pos_diff(self):
+        # Penalize dof positions deviate from default pose
+        return torch.square(self.dof_pos - self.default_dof_pos).sum(dim=1)
+
     def _reward_feet_air_time(self):
         # Reward long steps
         contact = self.link_contact_forces[:, self.feet_link_indices, 2] > 1.
@@ -95,6 +99,10 @@ class Go2(LocoEnv):
         self.feet_air_time *= ~contact_filt
         return rew_airTime
     
+    def _reward_alive(self):
+        # Reward for staying alive
+        return 1.0
+
 class Backflip(Go2):
 
     def reset_idx(self, envs_idx):
@@ -171,10 +179,10 @@ class Backflip(Go2):
             [
                 self.base_ang_vel * self.obs_scales['ang_vel'],                     # 3
                 self.projected_gravity,                                             # 3
-                (self.dof_pos - self.default_dof_pos) * self.obs_scales['dof_pos'], # 10
-                self.dof_vel * self.obs_scales['dof_vel'],                          # 10
-                self.actions,                                                       # 10
-                self.last_actions,                                                  # 10
+                (self.dof_pos - self.default_dof_pos) * self.obs_scales['dof_pos'], # 12
+                self.dof_vel * self.obs_scales['dof_vel'],                          # 12
+                self.actions,                                                       # 12
+                self.last_actions,                                                  # 12
                 torch.sin(phase),
                 torch.cos(phase),
                 torch.sin(phase / 2),
@@ -196,10 +204,10 @@ class Backflip(Go2):
                     self.base_lin_vel * self.obs_scales['lin_vel'],                     # 3
                     self.base_ang_vel * self.obs_scales['ang_vel'],                     # 3
                     self.projected_gravity,                                             # 3
-                    (self.dof_pos - self.default_dof_pos) * self.obs_scales['dof_pos'], # 10
-                    self.dof_vel * self.obs_scales['dof_vel'],                          # 10
-                    self.actions,                                                       # 10
-                    self.last_actions,                                                  # 10
+                    (self.dof_pos - self.default_dof_pos) * self.obs_scales['dof_pos'], # 12
+                    self.dof_vel * self.obs_scales['dof_vel'],                          # 12
+                    self.actions,                                                       # 12
+                    self.last_actions,                                                  # 12
                     torch.sin(phase),
                     torch.cos(phase),
                     torch.sin(phase / 2),

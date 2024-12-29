@@ -59,6 +59,7 @@ class OnPolicyRunner:
             num_critic_obs = self.env.num_privileged_obs 
         else:
             num_critic_obs = self.env.num_obs
+        self.action_history = torch.zeros(2 * self.env.period_length, self.env.num_envs, self.env.num_actions, device=self.device)
         actor_critic_class = eval(self.cfg["policy_class_name"]) # ActorCritic
         actor_critic: ActorCritic = actor_critic_class( self.env.num_obs,
                                                         num_critic_obs,
@@ -119,6 +120,8 @@ class OnPolicyRunner:
                     critic_obs = privileged_obs if privileged_obs is not None else obs
                     obs, critic_obs, rewards, dones = obs.to(self.device), critic_obs.to(self.device), rewards.to(self.device), dones.to(self.device)
                     self.alg.process_env_step(rewards, dones, infos)
+                    self.action_history = torch.cat((self.action_history[1:], actions.unsqueeze(0)), dim=0)
+                    self.action_history[:, dones, :] = 0
                     
                     if self.log_dir is not None:
                         # Book keeping
@@ -223,15 +226,16 @@ class OnPolicyRunner:
         wandb_dict['Perf/collection time'] = locs['collection_time']
         wandb_dict['Perf/learning_time'] = locs['learn_time']
 
+        action_diff = torch.square(self.action_history[:self.env.period_length] - self.action_history[self.env.period_length:]).mean().cpu().item()
+
         if len(locs['rewbuffer']) > 0:
-            wandb_dict['Train/mean_reward_step'] = statistics.mean(locs['rewbuffer'])
+            wandb_dict['Train/mean_reward'] = statistics.mean(locs['rewbuffer'])
             wandb_dict['Train/mean_episode_length'] = statistics.mean(locs['lenbuffer'])
+            wandb_dict['Train/time'] = locs['current_time']
+            wandb_dict['Train/tot_timesteps'] = self.tot_timesteps
+            wandb_dict['Train/action_diff'] = action_diff
 
         wandb.log(wandb_dict, step=locs['it'])
-
-        if len(locs['rewbuffer']) > 0:
-            wandb.log({'Train/mean_reward_time': statistics.mean(locs['rewbuffer'])}, step=locs['current_time'])
-            wandb.log({'Train/mean_reward_total': statistics.mean(locs['rewbuffer'])}, step=locs['tot_timesteps'])
 
         str = f" \033[1m Learning iteration {locs['it']}/{self.current_learning_iteration + locs['num_learning_iterations']} \033[0m "
 

@@ -7,7 +7,7 @@ import shutil
 import numpy as np
 import torch
 import wandb
-from reward_wrapper import Go2
+from reward_wrapper import Backflip
 from locomotion_env import LocoEnv
 from rsl_rl.runners import OnPolicyRunner
 
@@ -45,7 +45,7 @@ def get_train_cfg(args):
             'load_run': -1,
             'log_interval': 1,
             'max_iterations': args.max_iterations,
-            'num_steps_per_env': 24,
+            'num_steps_per_env': 3,
             'policy_class_name': 'ActorCritic',
             'record_interval': 50,
             'resume': False,
@@ -182,6 +182,8 @@ def get_cfgs():
             'feet_air_time': 1.0,
             'collision': -1.,
             'action_rate': -0.01,
+            'dof_pos_diff': -0.3,
+            'alive': 0.5,
         },
     }
     command_cfg = {
@@ -199,7 +201,7 @@ def main():
     parser.add_argument('-e', '--exp_name', type=str, default='Go2')
     parser.add_argument('-v', '--vis', action='store_true', default=False)
     parser.add_argument('-c', '--cpu', action='store_true', default=False)
-    parser.add_argument('-B', '--num_envs', type=int, default=10000)
+    parser.add_argument('-B', '--num_envs', type=int, default=32798)
     parser.add_argument('--max_iterations', type=int, default=1000)
     parser.add_argument('--resume', type=str, default=None)
     parser.add_argument('-o', '--offline', action='store_true', default=False)
@@ -213,6 +215,9 @@ def main():
         args.vis = True
         args.offline = True
         args.num_envs = 2
+
+    if not torch.cuda.is_available():
+        args.cpu = True
 
     gs.init(
         backend=gs.cpu if args.cpu else gs.gpu,
@@ -231,7 +236,7 @@ def main():
         shutil.rmtree(log_dir)
     os.makedirs(log_dir, exist_ok=True)
 
-    env = Go2(
+    env = Backflip(
         num_envs=args.num_envs,
         env_cfg=env_cfg,
         obs_cfg=obs_cfg,
@@ -250,7 +255,8 @@ def main():
         print('==> resume training from', resume_path)
         runner.load(resume_path)
 
-    wandb.init(project='genesis', name=args.exp_name, dir=log_dir, mode='offline' if args.offline else 'online')
+    wandb.login(key='1d5fe5b941feff91e5dbb834d4f687fdbec8e516')
+    wandb.init(project='genesis', name=args.exp_name, entity='ziyanx02', dir=log_dir, mode='offline' if args.offline else 'online')
 
     pickle.dump(
         [env_cfg, obs_cfg, reward_cfg, command_cfg],

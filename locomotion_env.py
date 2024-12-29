@@ -47,8 +47,8 @@ class LocoEnv:
             sim_substeps = 1
         self.max_episode_length_s = env_cfg['episode_length_s']
         self.period_length_s = env_cfg['period_length_s']
-        self.max_episode_length = np.ceil(self.max_episode_length_s / self.dt)
-        self.period_length = np.ceil(self.period_length_s / self.dt)
+        self.max_episode_length = int(np.ceil(self.max_episode_length_s / self.dt))
+        self.period_length = int(np.ceil(self.period_length_s / self.dt))
 
         self.obs_cfg = obs_cfg
         self.obs_scales = obs_cfg['obs_scales']
