@@ -147,9 +147,9 @@ def get_cfgs():
         'coupling': False,
     }
     obs_cfg = {
-        'use_time_indicator': False,
-        'num_obs': 60,
-        'num_history_obs': 1,
+        'use_time_indicator': True,
+        'num_obs': 42,
+        'num_history_obs': 3,
         'obs_noise': {
             'ang_vel': 0.1,
             'gravity': 0.02,
@@ -162,14 +162,14 @@ def get_cfgs():
             'dof_pos': 1.0,
             'dof_vel': 0.05,
         },
-        'num_priv_obs': 64,
+        'num_priv_obs': 58,
     }
     reward_cfg = {
         'soft_dof_pos_limit': 0.9,
         'reward_scales': {
             'ang_vel_y': 5.0,
             'ang_vel_z': -1.0,
-            'lin_vel_z': 20.0,
+            'lin_vel_z': 30.0,
             'orientation_control': -1.0,
             'feet_height_before_backflip': -30.0,
             'height_control': -10.0,
@@ -177,6 +177,7 @@ def get_cfgs():
             'gravity_y': -10.0,
             'feet_distance': -1.0,
             'action_rate': -0.001,
+            # 'dof_pos_diff': -0.1,
         },
     }
     command_cfg = {
@@ -194,7 +195,7 @@ def main():
     parser.add_argument('-e', '--exp_name', type=str, default='backflip')
     parser.add_argument('-v', '--vis', action='store_true', default=False)
     parser.add_argument('-c', '--cpu', action='store_true', default=False)
-    parser.add_argument('-B', '--num_envs', type=int, default=10000)
+    parser.add_argument('-B', '--num_envs', type=int, default=16384)
     parser.add_argument('--max_iterations', type=int, default=1000)
     parser.add_argument('--resume', type=str, default=None)
     parser.add_argument('-o', '--offline', action='store_true', default=False)
@@ -216,7 +217,7 @@ def main():
         backend=gs.cpu if args.cpu else gs.gpu,
         logging_level='warning',
     )
-    device = 'cpu' if args.cpu else 'gpu'
+    device = 'cpu' if args.cpu else 'cuda'
 
     log_dir = f'logs/{args.exp_name}'
     train_cfg = get_train_cfg(args)

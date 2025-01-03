@@ -172,51 +172,40 @@ class Backflip(Go2):
         if self.env_cfg['send_timeouts']:
             self.extras['time_outs'] = self.time_out_buf
 
-    def compute_observations(self):
+    def _prepare_obs_noise(self):
+        self.obs_noise[:3] = self.obs_cfg['obs_noise']['ang_vel']
+        self.obs_noise[3:6] = self.obs_cfg['obs_noise']['gravity']
+        self.obs_noise[6:18] = self.obs_cfg['obs_noise']['dof_pos']
+        self.obs_noise[18:30] = self.obs_cfg['obs_noise']['dof_vel']
 
-        phase = torch.pi * self.episode_length_buf[:, None] * self.dt / 2
-        self.obs_buf = torch.cat(
+    def _compute_observation(self):
+
+        obs_buf = torch.cat(
             [
                 self.base_ang_vel * self.obs_scales['ang_vel'],                     # 3
                 self.projected_gravity,                                             # 3
                 (self.dof_pos - self.default_dof_pos) * self.obs_scales['dof_pos'], # 12
                 self.dof_vel * self.obs_scales['dof_vel'],                          # 12
                 self.actions,                                                       # 12
-                self.last_actions,                                                  # 12
-                torch.sin(phase),
-                torch.cos(phase),
-                torch.sin(phase / 2),
-                torch.cos(phase / 2),
-                torch.sin(phase / 4),
-                torch.cos(phase / 4),
             ],
             axis=-1,
         )
 
-        self.obs_history_buf = torch.cat(
-            [self.obs_history_buf[:, self.num_single_obs:], self.obs_buf.detach()], dim=1
+        privileged_obs_buf = torch.cat(
+            [
+                self.base_pos[:, 2:3],                                              # 1
+                self.base_lin_vel * self.obs_scales['lin_vel'],                     # 3
+                self.base_ang_vel * self.obs_scales['ang_vel'],                     # 3
+                self.projected_gravity,                                             # 3
+                (self.dof_pos - self.default_dof_pos) * self.obs_scales['dof_pos'], # 12
+                self.dof_vel * self.obs_scales['dof_vel'],                          # 12
+                self.actions,                                                       # 12
+                self.last_actions,                                                  # 12
+            ],
+            axis=-1,
         )
 
-        if self.num_privileged_obs is not None:
-            self.privileged_obs_buf = torch.cat(
-                [
-                    self.base_pos[:, 2:3],                                              # 1
-                    self.base_lin_vel * self.obs_scales['lin_vel'],                     # 3
-                    self.base_ang_vel * self.obs_scales['ang_vel'],                     # 3
-                    self.projected_gravity,                                             # 3
-                    (self.dof_pos - self.default_dof_pos) * self.obs_scales['dof_pos'], # 12
-                    self.dof_vel * self.obs_scales['dof_vel'],                          # 12
-                    self.actions,                                                       # 12
-                    self.last_actions,                                                  # 12
-                    torch.sin(phase),
-                    torch.cos(phase),
-                    torch.sin(phase / 2),
-                    torch.cos(phase / 2),
-                    torch.sin(phase / 4),
-                    torch.cos(phase / 4),
-                ],
-                axis=-1,
-            )
+        return obs_buf, privileged_obs_buf
 
     def check_termination(self):
         self.reset_buf = (
@@ -228,11 +217,13 @@ class Backflip(Go2):
         current_time = self.episode_length_buf * self.dt
         phase = (current_time - 0.5).clamp(min=0, max=0.5)
         quat_pitch = gs_quat_from_angle_axis(4 * phase * torch.pi,
-                                             torch.tensor([0, 1, 0], device=self.device, dtype=torch.float))
+                                             torch.tensor([0, -1, 0], device=self.device, dtype=torch.float))
 
         desired_base_quat = gs_quat_mul(quat_pitch, self.base_init_quat.reshape(1, -1).repeat(self.num_envs, 1))
         inv_desired_base_quat = gs_inv_quat(desired_base_quat)
         desired_projected_gravity = gs_transform_by_quat(self.global_gravity, inv_desired_base_quat)
+
+        print(desired_projected_gravity)
 
         orientation_diff = torch.sum(torch.square(self.projected_gravity - desired_projected_gravity), dim=1)
 
@@ -276,7 +267,7 @@ class Backflip(Go2):
             footsteps_in_body_frame[:, i, :] = gs_quat_apply(gs_quat_conjugate(self.base_quat),
                                                                  cur_footsteps_translated[:, i, :])
 
-        stance_width = 0.3 * torch.zeros([self.num_envs, 1,], device=self.device)
+        stance_width = 0.3 * torch.ones([self.num_envs, 1,], device=self.device)
         desired_ys = torch.cat([stance_width / 2, -stance_width / 2, stance_width / 2, -stance_width / 2], dim=1)
         stance_diff = torch.square(desired_ys - footsteps_in_body_frame[:, :, 1]).sum(dim=1)
         
@@ -291,3 +282,7 @@ class Backflip(Go2):
         # Penalize collisions on selected bodies
         current_time = self.episode_length_buf * self.dt
         return (1.0 * (torch.norm(self.link_contact_forces[:, self.penalized_contact_link_indices, :], dim=-1) > 0.1)).sum(dim=1)
+
+    def _reward_dof_pos_diff(self):
+        # Penalize dof positions deviate from default pose
+        return torch.square(self.dof_pos - self.default_dof_pos).sum(dim=1)

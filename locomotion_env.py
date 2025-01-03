@@ -584,18 +584,50 @@ class LocoEnv:
         self.last_dof_vel[:] = self.dof_vel[:]
         self.last_root_vel[:] = self.robot.get_vel()
 
+    def _prepare_obs_noise(self):
+        self.obs_noise[:3] = self.obs_cfg['obs_noise']['ang_vel']
+        self.obs_noise[3:6] = self.obs_cfg['obs_noise']['gravity']
+        self.obs_noise[9:21] = self.obs_cfg['obs_noise']['dof_pos']
+        self.obs_noise[21:33] = self.obs_cfg['obs_noise']['dof_vel']
+
+    def _compute_observation(self):
+
+        obs_buf = torch.cat(
+            [
+                self.base_ang_vel * self.obs_scales['ang_vel'],                     # 3
+                self.projected_gravity,                                             # 3
+                self.commands[:, :3] * self.commands_scale,                         # 3
+                (self.dof_pos - self.default_dof_pos) * self.obs_scales['dof_pos'],
+                self.dof_vel * self.obs_scales['dof_vel'],
+                self.actions,
+            ],
+            axis=-1,
+        )
+        privileged_obs = torch.cat(
+            [
+                self.base_lin_vel * self.obs_scales['lin_vel'],                     # 3
+                self.base_ang_vel * self.obs_scales['ang_vel'],                     # 3
+                self.projected_gravity,                                             # 3
+                self.commands[:, :3] * self.commands_scale,                         # 3
+                (self.dof_pos - self.default_dof_pos) * self.obs_scales['dof_pos'],
+                self.dof_vel * self.obs_scales['dof_vel'],
+                self.actions,
+                self.last_actions,
+            ],
+            axis=-1,
+        )
+
+        return obs_buf, privileged_obs
+
     def compute_observations(self):
 
-        phase = 2 * torch.pi * self.time_indicator_buf.unsqueeze(1) / self.period_length
+        obs_buf, privileged_obs = self._compute_observation()
+
         if self.use_time_indicator:
-            self.obs_buf = torch.cat(
+
+            phase = 2 * torch.pi * self.time_indicator_buf.unsqueeze(1) / self.period_length
+            time_indicator = torch.cat(
                 [
-                    self.base_ang_vel * self.obs_scales['ang_vel'],                     # 3
-                    self.projected_gravity,                                             # 3
-                    self.commands[:, :3] * self.commands_scale,                         # 3
-                    (self.dof_pos - self.default_dof_pos) * self.obs_scales['dof_pos'],
-                    self.dof_vel * self.obs_scales['dof_vel'],
-                    self.actions,
                     torch.cos(phase),
                     torch.sin(phase),
                     torch.cos(phase / 2),
@@ -605,74 +637,21 @@ class LocoEnv:
                 ],
                 axis=-1,
             )
-        else:
-            self.obs_buf = torch.cat(
-                [
-                    self.base_ang_vel * self.obs_scales['ang_vel'],                     # 3
-                    self.projected_gravity,                                             # 3
-                    self.commands[:, :3] * self.commands_scale,                         # 3
-                    (self.dof_pos - self.default_dof_pos) * self.obs_scales['dof_pos'],
-                    self.dof_vel * self.obs_scales['dof_vel'],
-                    self.actions,
-                ],
-                axis=-1,
-            )
+            obs_buf = torch.cat([obs_buf, time_indicator], axis=-1)
+            privileged_obs_buf = torch.cat([privileged_obs, time_indicator], axis=-1)
 
         # add noise
         if not self.eval:
-            self.obs_buf += gs_rand_float(
+            obs_buf += gs_rand_float(
                 -1.0, 1.0, (self.num_single_obs,), self.device
             )  * self.obs_noise
 
         clip_obs = 100.0
-        self.obs_buf = torch.clip(self.obs_buf, -clip_obs, clip_obs)
-
+        self.obs_buf = torch.clip(obs_buf, -clip_obs, clip_obs)
+        self.privileged_obs_buf = torch.clip(privileged_obs_buf, -clip_obs, clip_obs)
         self.obs_history_buf = torch.cat(
             [self.obs_history_buf[:, self.num_single_obs:], self.obs_buf.detach()], dim=1
         )
-
-        if self.num_privileged_obs is not None:
-            if self.use_time_indicator:
-                self.privileged_obs_buf = torch.cat(
-                    [
-                        self.base_lin_vel * self.obs_scales['lin_vel'],                     # 3
-                        self.base_ang_vel * self.obs_scales['ang_vel'],                     # 3
-                        self.projected_gravity,                                             # 3
-                        self.commands[:, :3] * self.commands_scale,                         # 3
-                        (self.dof_pos - self.default_dof_pos) * self.obs_scales['dof_pos'],
-                        self.dof_vel * self.obs_scales['dof_vel'],
-                        self.actions,
-                        self.last_actions,
-                        torch.cos(phase),
-                        torch.sin(phase),
-                        torch.cos(phase / 2),
-                        torch.sin(phase / 2),
-                        torch.cos(phase / 4),
-                        torch.sin(phase / 4),
-                    ],
-                    axis=-1,
-                )
-            else:
-                self.privileged_obs_buf = torch.cat(
-                    [
-                        self.base_lin_vel * self.obs_scales['lin_vel'],                     # 3
-                        self.base_ang_vel * self.obs_scales['ang_vel'],                     # 3
-                        self.projected_gravity,                                             # 3
-                        self.commands[:, :3] * self.commands_scale,                         # 3
-                        (self.dof_pos - self.default_dof_pos) * self.obs_scales['dof_pos'],
-                        self.dof_vel * self.obs_scales['dof_vel'],
-                        self.actions,
-                        self.last_actions,
-                    ],
-                    axis=-1,
-                )
-            self.privileged_obs_buf = torch.clip(self.privileged_obs_buf, -clip_obs, clip_obs)
-
-    def _prepare_obs_noise(self):
-        self.obs_noise[:3] = self.obs_cfg['obs_noise']['ang_vel']
-        self.obs_noise[3:6] = self.obs_cfg['obs_noise']['gravity']
-        self.obs_noise[21:33] = self.obs_cfg['obs_noise']['dof_pos']
-        self.obs_noise[33:45] = self.obs_cfg['obs_noise']['dof_vel']
 
     def _resample_commands(self, envs_idx):
         # resample commands
