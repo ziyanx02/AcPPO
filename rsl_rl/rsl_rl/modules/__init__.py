@@ -30,3 +30,4 @@
 
 from .actor_critic import ActorCritic, ActorCriticNostd
 from .actor_critic_recurrent import ActorCriticRecurrent
+from .actor_critic_time import ActorCriticTime

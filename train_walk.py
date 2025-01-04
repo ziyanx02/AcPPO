@@ -256,7 +256,7 @@ def main():
         runner.load(resume_path)
 
     wandb.login(key='1d5fe5b941feff91e5dbb834d4f687fdbec8e516')
-    wandb.init(project='genesis', name=args.exp_name, entity='ziyanx02', dir=log_dir, mode='offline' if args.offline else 'online')
+    wandb.init(project='genesis', name=args.exp_name, entity='ziyanx02', dir=log_dir, mode='offline' if args.offline else 'online', config=train_cfg)
 
     pickle.dump(
         [env_cfg, obs_cfg, reward_cfg, command_cfg],

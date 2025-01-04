@@ -61,6 +61,56 @@ def get_train_cfg(args):
     return train_cfg_dict
 
 
+def get_train_cfg_time(args):
+
+    train_cfg_dict = {
+        'algorithm': {
+            'clip_param': 0.2,
+            'desired_kl': 0.01,
+            'entropy_coef': 0.01,
+            'gamma': 0.99,
+            'lam': 0.95,
+            'learning_rate': 0.001,
+            'max_grad_norm': 1.0,
+            'num_learning_epochs': 5,
+            'num_mini_batches': 4,
+            'schedule': 'adaptive',
+            'use_clipped_value_loss': True,
+            'value_loss_coef': 1.0,
+        },
+        'init_member_classes': {},
+        'policy': {
+            'activation': 'elu',
+            'actor_encoder_hidden_dims': [512, 256, 128],
+            'critic_encoder_hidden_dims': [512, 256, 128],
+            'time_encoder_hidden_dims': [256, 128],
+            'policy_hidden_dims': [],
+            'value_hidden_dims': [],
+            'init_noise_std': 1.0,
+        },
+        'runner': {
+            'algorithm_class_name': 'PPO',
+            'checkpoint': -1,
+            'experiment_name': args.exp_name,
+            'load_run': -1,
+            'log_interval': 1,
+            'max_iterations': args.max_iterations,
+            'num_steps_per_env': 24,
+            'policy_class_name': 'ActorCriticTime',
+            'record_interval': 50,
+            'resume': False,
+            'resume_path': None,
+            'run_name': '',
+            'runner_class_name': 'runner_class_name',
+            'save_interval': 100,
+        },
+        'runner_class_name': 'OnPolicyRunner',
+        'seed': 1,
+    }
+
+    return train_cfg_dict
+
+
 def get_cfgs():
     env_cfg = {
         'urdf_path': 'urdf/go2/urdf/go2.urdf',
@@ -199,6 +249,7 @@ def main():
     parser.add_argument('--max_iterations', type=int, default=1000)
     parser.add_argument('--resume', type=str, default=None)
     parser.add_argument('-o', '--offline', action='store_true', default=False)
+    parser.add_argument('-t', '--time', action='store_true', default=False)
 
     parser.add_argument('--eval', action='store_true', default=False)
     parser.add_argument('--debug', action='store_true', default=False)
@@ -220,7 +271,10 @@ def main():
     device = 'cpu' if args.cpu else 'cuda'
 
     log_dir = f'logs/{args.exp_name}'
-    train_cfg = get_train_cfg(args)
+    if args.time:
+        train_cfg = get_train_cfg_time(args)
+    else:
+        train_cfg = get_train_cfg(args)
     env_cfg, obs_cfg, reward_cfg, command_cfg = get_cfgs()
 
     if args.debug:
@@ -249,7 +303,7 @@ def main():
         print('==> resume training from', resume_path)
         runner.load(resume_path)
 
-    wandb.init(project='genesis', name=args.exp_name, dir=log_dir, mode='offline' if args.offline else 'online')
+    wandb.init(project='genesis', name=args.exp_name, dir=log_dir, mode='offline' if args.offline else 'online', config=train_cfg)
 
     pickle.dump(
         [env_cfg, obs_cfg, reward_cfg, command_cfg],

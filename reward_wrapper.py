@@ -223,8 +223,6 @@ class Backflip(Go2):
         inv_desired_base_quat = gs_inv_quat(desired_base_quat)
         desired_projected_gravity = gs_transform_by_quat(self.global_gravity, inv_desired_base_quat)
 
-        print(desired_projected_gravity)
-
         orientation_diff = torch.sum(torch.square(self.projected_gravity - desired_projected_gravity), dim=1)
 
         return orientation_diff

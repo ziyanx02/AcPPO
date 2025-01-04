@@ -38,7 +38,7 @@ import wandb
 import numpy as np
 
 from rsl_rl.algorithms import PPO
-from rsl_rl.modules import ActorCritic, ActorCriticRecurrent
+from rsl_rl.modules import ActorCritic, ActorCriticRecurrent, ActorCriticTime
 from rsl_rl.env import VecEnv
 
 
