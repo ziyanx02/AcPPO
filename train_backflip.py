@@ -198,8 +198,8 @@ def get_cfgs():
     }
     obs_cfg = {
         'use_time_indicator': True,
-        'num_obs': 42,
-        'num_history_obs': 3,
+        'num_obs': 54,
+        'num_history_obs': 1,
         'obs_noise': {
             'ang_vel': 0.1,
             'gravity': 0.02,
@@ -303,7 +303,8 @@ def main():
         print('==> resume training from', resume_path)
         runner.load(resume_path)
 
-    wandb.init(project='genesis', name=args.exp_name, dir=log_dir, mode='offline' if args.offline else 'online', config=train_cfg)
+    wandb.login(key='1d5fe5b941feff91e5dbb834d4f687fdbec8e516')
+    wandb.init(project='AcPPO', name=args.exp_name, entity='ziyanx02', dir=log_dir, mode='offline' if args.offline else 'online', config=train_cfg)
 
     pickle.dump(
         [env_cfg, obs_cfg, reward_cfg, command_cfg],

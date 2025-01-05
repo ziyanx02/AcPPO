@@ -106,4 +106,5 @@ if __name__ == "__main__":
         reset_callback=lambda: print("reset")
     )
     while True:
+        print(values)
         time.sleep(0.5)

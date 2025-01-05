@@ -1,7 +1,7 @@
-from utils.gui import start_gui
-from utils.display import Robot
+from robot_display.utils.gui import start_gui
+from robot_display.utils.display import Robot
 
-class Interact:
+class GUIDisplay:
     def __init__(self, cfg: dict, body_pos=True, body_pose=True, dofs_pos=True, foot_pos=False, links_pos=False):
         assert body_pos or body_pose or dofs_pos or foot_pos or links_pos, "At least one of the interaction modes should be enabled"
         assert not (dofs_pos and foot_pos), "Dofs pos and foot position cannot be enabled at the same time"
@@ -16,7 +16,7 @@ class Interact:
 
     def setup_robot(self):
         if "control" not in self.cfg.keys():
-            self.cfg["control"]["control_freq"] = 60
+            self.cfg["control"] = {"control_freq": 60}
         self.robot = Robot(
             asset_file=self.cfg["robot"]["asset_path"], 
             scale=self.cfg["robot"]["scale"],
@@ -25,9 +25,9 @@ class Interact:
         )
         if "body_name" in self.cfg["robot"].keys():
             self.robot.set_body_link(self.robot.get_link(self.cfg["robot"]["body_name"]))
-        if "control" in self.cfg.keys():
+        if "dof_names" in self.cfg["control"].keys():
             assert len(self.cfg["control"]["dof_names"]) == self.robot.num_dofs, "Number of dof names should match the number of dofs"
-            self.robot.set_dof_order(self.cfg["control"]["dof_names"])
+            self.robot.set_joint_order(self.cfg["control"]["dof_names"])
 
     def setup_gui(self):
         self.labels = []
@@ -50,8 +50,9 @@ class Interact:
             idx += 3
         if self.control_dofs_pos:
             self.labels.extend(self.robot.joint_name)
-            for name in self.robot.joint_name:
-                self.limits[name] = [-3.14, 3.14]
+            joint_limits = self.robot.joint_limit
+            for i in range(len(self.robot.joint_name)):
+                self.limits[self.robot.joint_name[i]] = [joint_limits[0][i].item(), joint_limits[1][i].item()]
             self.values.extend(self.robot.joint_pos.numpy().tolist())
             self.value_dofs_pos_idx_start = idx
             self.value_dofs_pos_idx_end = idx + self.robot.num_dofs
@@ -64,7 +65,7 @@ class Interact:
             "label": self.labels,
             "range": self.limits,
         }
-        start_gui(
+        self.gui = start_gui(
             cfg=cfg,
             values=self.values,
             save_callback=self.save_callback,

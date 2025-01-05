@@ -59,7 +59,7 @@ class ActorCriticTime(nn.Module):
 
         # actor_encoder
         actor_encoder_layers = []
-        actor_encoder_layers.append(nn.Linear(num_actor_obs - 6, actor_encoder_hidden_dims[0]))
+        actor_encoder_layers.append(nn.Linear(num_actor_obs, actor_encoder_hidden_dims[0]))
         actor_encoder_layers.append(activation)
         for l in range(len(actor_encoder_hidden_dims) - 1):
             actor_encoder_layers.append(nn.Linear(actor_encoder_hidden_dims[l], actor_encoder_hidden_dims[l + 1]))
@@ -68,7 +68,7 @@ class ActorCriticTime(nn.Module):
 
         # critic_encoder
         critic_encoder_layers = []
-        critic_encoder_layers.append(nn.Linear(num_critic_obs - 6, critic_encoder_hidden_dims[0]))
+        critic_encoder_layers.append(nn.Linear(num_critic_obs, critic_encoder_hidden_dims[0]))
         critic_encoder_layers.append(activation)
         for l in range(len(critic_encoder_hidden_dims) - 1):
             critic_encoder_layers.append(nn.Linear(critic_encoder_hidden_dims[l], critic_encoder_hidden_dims[l + 1]))
@@ -88,20 +88,18 @@ class ActorCriticTime(nn.Module):
         policy_hidden_dims.append(num_actions)
         policy_layers = []
         policy_layers.append(nn.Linear(actor_encoder_hidden_dims[-1], policy_hidden_dims[0]))
-        policy_layers.append(activation)
         for l in range(len(policy_hidden_dims) - 1):
-            policy_layers.append(nn.Linear(policy_hidden_dims[l], policy_hidden_dims[l + 1]))
             policy_layers.append(activation)
+            policy_layers.append(nn.Linear(policy_hidden_dims[l], policy_hidden_dims[l + 1]))
         self.policy = nn.Sequential(*policy_layers)
 
         # value function
         value_hidden_dims.append(1)
         value_layers = []
         value_layers.append(nn.Linear(critic_encoder_hidden_dims[-1], value_hidden_dims[0]))
-        value_layers.append(activation)
         for l in range(len(value_hidden_dims) - 1):
-            value_layers.append(nn.Linear(value_hidden_dims[l], value_hidden_dims[l + 1]))
             value_layers.append(activation)
+            value_layers.append(nn.Linear(value_hidden_dims[l], value_hidden_dims[l + 1]))
         self.value = nn.Sequential(*value_layers)
 
         print(f"Actor Encoder MLP: {self.actor_encoder}")
@@ -146,9 +144,10 @@ class ActorCriticTime(nn.Module):
         return self.distribution.entropy().sum(dim=-1)
 
     def update_distribution(self, observations):
-        time_hidden = self.time_encoder(observations[..., -6:])
-        actor_hidden = self.actor_encoder(observations[..., :-6])
-        mean = self.value(time_hidden * actor_hidden + time_hidden)
+        # time_hidden = self.time_encoder(observations[..., -6:])
+        actor_hidden = self.actor_encoder(observations)
+        # mean = self.value(time_hidden * actor_hidden)
+        mean = self.value(actor_hidden)
         self.distribution = Normal(mean, mean*0. + self.std)
 
     def act(self, observations, **kwargs):
@@ -159,15 +158,17 @@ class ActorCriticTime(nn.Module):
         return self.distribution.log_prob(actions).sum(dim=-1)
 
     def act_inference(self, observations):
-        time_hidden = self.time_encoder(observations[..., -6:])
-        actor_hidden = self.actor_encoder(observations[..., :-6])
-        mean = self.value(time_hidden * actor_hidden + time_hidden)
+        # time_hidden = self.time_encoder(observations[..., -6:])
+        actor_hidden = self.actor_encoder(observations)
+        # mean = self.value(time_hidden * actor_hidden)
+        mean = self.value(actor_hidden)
         return mean
 
     def evaluate(self, critic_observations, **kwargs):
-        time_hidden = self.time_encoder(critic_observations[..., -6:])
-        critic_hidden = self.critic_encoder(critic_observations[..., :-6])
-        value = self.value(time_hidden * critic_hidden + time_hidden)
+        # time_hidden = self.time_encoder(critic_observations[..., -6:])
+        critic_hidden = self.critic_encoder(critic_observations)
+        # value = self.value(time_hidden * critic_hidden)
+        value = self.value(critic_hidden)
         return value
 
 def get_activation(act_name):

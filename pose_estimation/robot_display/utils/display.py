@@ -7,7 +7,7 @@ from taichi._lib import core as _ti_core
 from taichi.lang import impl
 
 import genesis as gs
-from utils.utils import *
+from robot_display.utils.gs_math import *
 
 def clean():
     gs.utils.misc.clean_cache_files()
@@ -61,6 +61,7 @@ class Robot:
         self.link_name = [link.name for link in self.entity.links]
         self.joint_name = []
         self.joint_idx = []
+        self.dof_idx = []
         idx = 6 # Skip the base dofs
         for joint in self.entity.joints:
             if joint.type == gs.JOINT_TYPE.FREE:
@@ -69,6 +70,7 @@ class Robot:
                 continue
             self.joint_name.append(joint.name)
             self.joint_idx.append(idx)
+            self.dof_idx.append(joint.dof_idx_local)
             idx += 1
         self.num_dofs = len(self.joint_name)
 
@@ -98,6 +100,7 @@ class Robot:
 
     def sim_step(self):
         # Set the joint positions
+        self.target_joint_pos = torch.max(torch.min(self.target_joint_pos, self.joint_limit[1]), self.joint_limit[0])
         self.entity.set_dofs_position(self.target_joint_pos, self.joint_idx, zero_velocity=True)
 
         # Set base rotation
@@ -125,16 +128,19 @@ class Robot:
         self.target_joint_pos = self.init_joint_pos.copy()
         self.sim_step()
 
-    def set_dof_order(self, dof_names):
+    def set_joint_order(self, joint_names):
         order = []
-        for name in dof_names:
+        dof_order = []
+        for name in joint_names:
             for idx, joint in enumerate(self.joint_name):
                 if name == joint:
                     order.append(self.joint_idx[idx])
+                    dof_order.append(self.dof_idx[idx])
                     break
-        assert len(order) == len(dof_names), "Some dof names are not found"
+        assert len(order) == len(joint_names), "Some dof names are not found"
         self.joint_idx = order
-        self.joint_name = dof_names
+        self.dof_idx = dof_order
+        self.joint_name = joint_names
         self.init_joint_pos = torch.zeros(len(order), dtype=torch.float32)
 
     def set_body_height(self, height):
@@ -158,9 +164,6 @@ class Robot:
         self.sim_step()
 
     def set_links_pos(self, links, poss, quats):
-        links.append(self.body_link)
-        poss.append(self.target_body_pos)
-        quats.append(self.target_foot_quat)
         q, err = self.entity.inverse_kinematics_multilink(
             links=links,
             poss=poss,
@@ -204,6 +207,10 @@ class Robot:
     def joint_pos(self):
         return self.entity.get_dofs_position(dofs_idx_local=self.joint_idx)
 
+    @ property
+    def joint_limit(self):
+        return self.entity.get_dofs_limit(self.dof_idx)
+
     @property
     def foot_pos(self):
         return self.links_pos[[link.idx_local for link in self.foot_links],]
@@ -211,10 +218,3 @@ class Robot:
     @property
     def foot_quat(self):
         return self.links_quat[[link.idx_local for link in self.foot_links],]
-
-if __name__ == "__main__":
-    robot = Robot("urdf/go2/urdf/go2.urdf")
-    init_time = time.time()
-    robot.set_links_pos(robot.foot_links, poss=[[0.2, 0.15, -0.3], [0.2, -0.15, -0.3], [-0.2, 0.15, -0.3], [-0.2, -0.15, -0.3],], quats=[])
-    while True:
-        robot.step()

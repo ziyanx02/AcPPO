@@ -1,7 +1,7 @@
 robot:
   asset_path: urdf/go2/urdf/go2.urdf
   scale: 1.0
-  body_name: FR_foot
+  body_name: base
 
 control:
   control_freq: 50

@@ -1,8 +1,13 @@
 import os
 import yaml
+import argparse
 
-from utils.interaction import Interact
+from robot_display.gui_display import GUIDisplay
 
-cfg = yaml.safe_load(open("./cfgs/go2.yaml"))
-interact = Interact(cfg)
+parser = argparse.ArgumentParser()
+parser.add_argument('-n', '--name', type=str, default='go2')
+args = parser.parse_args()
+
+cfg = yaml.safe_load(open(f"./cfgs/{args.name}.yaml"))
+interact = GUIDisplay(cfg)
 interact.run()

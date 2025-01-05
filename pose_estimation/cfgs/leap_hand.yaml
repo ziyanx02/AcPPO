@@ -1,0 +1,4 @@
+robot:
+  asset_path: urdf/shadow_hand/shadow_hand.urdf
+  scale: 1.0
+  body_name: palm
