@@ -2,6 +2,17 @@ robot:
   asset_path: urdf/go2/urdf/go2.urdf
   scale: 1.0
   body_name: base
+  foot_names:
+    - FR_foot
+    - FL_foot
+    - RR_foot
+    - RL_foot
+  links_to_keep:
+    - base
+    - FR_foot
+    - FL_foot
+    - RR_foot
+    - RL_foot
 
 control:
   control_freq: 50

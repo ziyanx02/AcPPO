@@ -17,17 +17,20 @@ class GUIDisplay:
     def setup_robot(self):
         if "control" not in self.cfg.keys():
             self.cfg["control"] = {"control_freq": 60}
+        if "links_to_keep" not in self.cfg["robot"].keys():
+            self.cfg["robot"]["links_to_keep"] = []
         self.robot = Robot(
-            asset_file=self.cfg["robot"]["asset_path"], 
+            asset_file=self.cfg["robot"]["asset_path"],
+            foot_names=self.cfg["robot"]["foot_names"],
+            links_to_keep=self.cfg["robot"]["links_to_keep"],
             scale=self.cfg["robot"]["scale"],
             fps=self.cfg["control"]["control_freq"],
-            init_plane=False,
         )
         if "body_name" in self.cfg["robot"].keys():
             self.robot.set_body_link(self.robot.get_link(self.cfg["robot"]["body_name"]))
         if "dof_names" in self.cfg["control"].keys():
             assert len(self.cfg["control"]["dof_names"]) == self.robot.num_dofs, "Number of dof names should match the number of dofs"
-            self.robot.set_joint_order(self.cfg["control"]["dof_names"])
+            self.robot.set_dof_order(self.cfg["control"]["dof_names"])
 
     def setup_gui(self):
         self.labels = []
@@ -49,11 +52,11 @@ class GUIDisplay:
             self.value_body_pose_idx = idx
             idx += 3
         if self.control_dofs_pos:
-            self.labels.extend(self.robot.joint_name)
-            joint_limits = self.robot.joint_limit
-            for i in range(len(self.robot.joint_name)):
-                self.limits[self.robot.joint_name[i]] = [joint_limits[0][i].item(), joint_limits[1][i].item()]
-            self.values.extend(self.robot.joint_pos.numpy().tolist())
+            self.labels.extend(self.robot.dof_name)
+            dof_limits = self.robot.dof_limit
+            for i in range(len(self.robot.dof_name)):
+                self.limits[self.robot.dof_name[i]] = [dof_limits[0][i].item(), dof_limits[1][i].item()]
+            self.values.extend(self.robot.dof_pos.numpy().tolist())
             self.value_dofs_pos_idx_start = idx
             self.value_dofs_pos_idx_end = idx + self.robot.num_dofs
             idx += self.robot.num_dofs

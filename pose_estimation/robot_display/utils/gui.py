@@ -1,101 +1,166 @@
-import argparse
-import multiprocessing
-import os
-import time
-import threading
-import tkinter as tk
-from tkinter import ttk
 
+import time
 import numpy as np
-import torch
 
 import genesis as gs
-
+import tkinter as tk
+from tkinter import ttk
+import threading
+from typing import Dict, List, Callable
 
 class GUI:
-    def __init__(self, root: tk.Tk, cfg: dict, values, save_callback: callable = None, reset_callback: callable = None):
-
+    def __init__(self, root: tk.Tk, cfg: dict, values: List[float], 
+                 save_callback: Callable = None, reset_callback: Callable = None):
         self.root = root
         self.root.title("Joint Controller")
 
         self.save_callback = save_callback
         self.reset_callback = reset_callback
 
+        self.label_font = ("Helvetica", 15)
+        self.entry_font = ("Arial", 15)
+
         self.cfg = cfg
         self.labels = self.cfg["label"]
+        self.init_values = values.copy()
         self.values = values
         self.sliders = []
-        self.value_labels = []
+        self.entries = []
+        
+        # Create all widgets before setting up any bindings
         self.create_widgets()
+        # Set up bindings after all widgets are created
+        self.setup_bindings()
 
     def create_widgets(self):
         for i, name in enumerate(self.labels):
-
             # Get the min and max limits for the slider
             min_limit, max_limit = self.cfg["range"][name][:2]
             frame = tk.Frame(self.root)
             frame.pack(pady=5, padx=10, fill=tk.X)
 
-            tk.Label(frame, text=f"{name}", font=("Arial", 12), width=20).pack(side=tk.LEFT)
+            # Label for the control
+            tk.Label(frame, text=f"{name}", font=self.label_font, width=30).pack(side=tk.LEFT)
 
+            # Slider
             slider = ttk.Scale(
                 frame,
                 from_=float(min_limit),
                 to=float(max_limit),
                 orient=tk.HORIZONTAL,
-                length=300,
-                command=lambda val, idx=i: self.update_values(idx, val),
+                length=300
             )
-            slider.pack(side=tk.LEFT, padx=5)
+            slider.pack(side=tk.LEFT, padx=10)
             slider.set(self.values[i])
             self.sliders.append(slider)
 
-            value_label = tk.Label(frame, text=f"{slider.get():.2f}", font=("Arial", 12))
-            value_label.pack(side=tk.LEFT, padx=5)
-            self.value_labels.append(value_label)
+            # Entry field with modified validation to allow negative numbers
+            vcmd = (self.root.register(self.validate_entry), '%P')
+            entry = tk.Entry(
+                frame,
+                width=8,
+                validate='key',
+                font=self.entry_font,
+                validatecommand=vcmd
+            )
+            entry.insert(0, f"{self.values[i]:.2f}")
+            entry.pack(side=tk.LEFT, padx=5)
+            self.entries.append(entry)
 
-            # Update label dynamically
-            def update_label(s=slider, l=value_label):
-                def callback(event):
-                    l.config(text=f"{s.get():.2f}")
-
-                return callback
-
-            slider.bind("<Motion>", update_label())
+        if self.save_callback is not None or self.reset_callback is not None:
+            button_frame = tk.Frame(self.root)
+            button_frame.pack(pady=10, padx=10, fill=tk.X)
 
         if self.save_callback is not None:
-            tk.Button(self.root, text="Save", font=("Arial", 12), command=self.save).pack(pady=10)
+            tk.Button(button_frame, text="Save", font=("Arial", 12), 
+                     command=self.save, width=10).pack(side=tk.RIGHT, pady=10)
 
         if self.reset_callback is not None:
-            tk.Button(self.root, text="Reset", font=("Arial", 12), command=self.reset).pack(pady=10)
+            tk.Button(button_frame, text="Reset", font=("Arial", 12), 
+                     command=self.reset, width=10).pack(side=tk.RIGHT, pady=10)
 
-    def update_values(self, idx, val):
-        self.values[idx] = float(val)
+    def setup_bindings(self):
+        # Set up bindings after all widgets are created
+        for i, slider in enumerate(self.sliders):
+            slider.configure(command=lambda val, idx=i: self.update_from_slider(idx, val))
+            self.entries[i].bind('<Return>', lambda e, idx=i: self.update_from_entry(idx))
+            self.entries[i].bind('<FocusOut>', lambda e, idx=i: self.update_from_entry(idx))
+
+    def validate_entry(self, value):
+        if value == "" or value == "-":  # Allow empty string and minus sign
+            return True
+        try:
+            float(value)  # Try converting to float to validate
+            return True
+        except ValueError:
+            return False
+
+    def update_from_slider(self, idx: int, val: str):
+        """Update values when slider is moved"""
+        value = float(val)
+        self.values[idx] = value
+        self.entries[idx].delete(0, tk.END)
+        self.entries[idx].insert(0, f"{value:.2f}")
+
+    def update_from_entry(self, idx: int):
+        """Update values when entry is changed"""
+        try:
+            value = float(self.entries[idx].get())
+            min_limit, max_limit = self.cfg["range"][self.labels[idx]][:2]
+            
+            # Clamp value to slider range
+            value = max(min_limit, min(value, max_limit))
+            
+            self.values[idx] = value
+            self.sliders[idx].set(value)
+            self.entries[idx].delete(0, tk.END)
+            self.entries[idx].insert(0, f"{value:.2f}")
+        except ValueError:
+            # Restore previous value if entry is invalid
+            self.entries[idx].delete(0, tk.END)
+            self.entries[idx].insert(0, f"{self.values[idx]:.2f}")
 
     def save(self):
         self.save_callback(self.values)
 
     def reset(self):
-        self.reset_callback()
+        for i, value in enumerate(self.init_values):
+            self.values[i] = value
+            self.sliders[i].set(value)
+            self.entries[i].delete(0, tk.END)
+            self.entries[i].insert(0, f"{value:.2f}")
+        if self.reset_callback is not None:
+            self.reset_callback()
 
-def start_gui(cfg, values, save_callback=None, reset_callback=None):
-
-    # Start GUI in a separate thread
+def start_gui(cfg: Dict, values: List[float], 
+              save_callback: Callable = None, 
+              reset_callback: Callable = None) -> threading.Event:
+    """
+    Start GUI in a separate thread
+    Returns a threading.Event that is set when the GUI is closed
+    """
     stop_event = threading.Event()
-    is_gui_closed = [False,]
+    is_gui_closed = [False]
 
-    def on_close():
-        is_gui_closed[0] = True
-        stop_event.set()
+    def close(root):
+        def on_close():
+            is_gui_closed[0] = True
+            stop_event.set()
+            root.destroy()
+        return on_close
 
     def start_gui():
         root = tk.Tk()
-        app = GUI(root, cfg, values, save_callback=save_callback, reset_callback=reset_callback)
-        root.protocol("WM_DELETE_WINDOW", on_close)
+        app = GUI(root, cfg, values, 
+                 save_callback=save_callback, 
+                 reset_callback=reset_callback)
+        root.protocol("WM_DELETE_WINDOW", close(root))
         root.mainloop()
 
     gui_thread = threading.Thread(target=start_gui, daemon=True)
     gui_thread.start()
+    
+    return stop_event
 
 if __name__ == "__main__":
     values = [0, 0, 0]
