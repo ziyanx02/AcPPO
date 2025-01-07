@@ -20,7 +20,7 @@ class Robot:
         gs.init(backend=gs.cpu)
 
         self.vis_options = vis_options
-        self.visualize_interval = 0.5
+        self.visualize_interval = 0.2
         self.last_visualize_time = time.time()
 
         # Create scene
@@ -70,19 +70,13 @@ class Robot:
         self.scene.build(compile_kernels=False)
         self.last_step_time = time.time()
 
-        self.diameter = 0
-        for pos1 in self.links_pos:
-            for pos2 in self.links_pos:
-                diameter = torch.norm(pos1 - pos2).item()
-                if diameter > self.diameter:
-                    self.diameter = diameter
+        self._init_buffers()
         
         self.scene.viewer.set_camera_pose(
             pos=(self.diameter * 2, self.diameter * 2, self.diameter),
             lookat=(0., 0., 0.),
         )
 
-        self._init_buffers()
         self.sim_step()
 
     def _init_buffers(self):
@@ -189,14 +183,38 @@ class Robot:
                     joint_path.append(self.link_adjacency_map[path[i]][path[i + 1]])
             joint_path.append(self.link_adjacency_map[path[-2]][path[-1]])
             distilled_paths.append(joint_path)
-        for dist_path in distilled_paths:
-            for i in range(len(dist_path) - 1):
-                if dist_path[i] < dist_path[i + 1]:
-                    if (dist_path[i], dist_path[i + 1]) not in self.leg:
-                        self.leg.append((dist_path[i], dist_path[i + 1]))
+        paths = distilled_paths.copy()
+        distilled_paths = []
+
+        joint_pos = {}
+        for joint in self.joints:
+            joint_pos[joint.name] = joint.get_pos()
+
+        max_dist = 0
+        for path in paths:
+            dist_list = [0,]
+            dist = 0
+            for i in range(len(path) - 1):
+                dist += torch.norm(joint_pos[path[i]] - joint_pos[path[i + 1]]).item()
+                dist_list.append(dist)
+            dist_list = [d / dist for d in dist_list]
+            idx = np.argmin(np.abs(np.array(dist_list) - 0.5))
+            distilled_paths.append([path[0], path[idx], path[-1]])
+            if dist > max_dist:
+                max_dist = dist
+        paths = distilled_paths.copy()
+        distilled_paths = []
+
+        for path in paths:
+            for i in range(len(path) - 1):
+                if path[i] < path[i + 1]:
+                    if (path[i], path[i + 1]) not in self.leg:
+                        self.leg.append((path[i], path[i + 1]))
                 else:
-                    if (dist_path[i + 1], dist_path[i]) not in self.leg:
-                        self.leg.append((dist_path[i + 1], dist_path[i]))
+                    if (path[i + 1], path[i]) not in self.leg:
+                        self.leg.append((path[i + 1], path[i]))
+
+        self.diameter = 2 * max_dist
 
     def reset(self):
         self.target_body_pos = self.init_body_pos.clone()
@@ -238,14 +256,12 @@ class Robot:
             joint_pos[joint.name] = joint.get_pos()
             joint_pos[joint.name][:2] -= self.diameter
 
-        self.scene.clear_debug_objects()
-
         body_color = (0, 0, 0.8, 1)
         leg_color = (0, 0.8, 0, 1)
-        foot_color = (0.8, 0, 0, 1)
 
-        thickness = self.diameter / 30
+        thickness = self.diameter / 50
 
+        lines = []
         for name1 in self.joint_name:
             pos1 = joint_pos[name1]
             for name2 in self.joint_name:
@@ -260,7 +276,13 @@ class Robot:
                 else:
                     continue
                 pos2 = joint_pos[name2]
-                self.scene.draw_debug_line(pos1, pos2, radius=thickness, color=color)
+                lines.append((pos1, pos2, color))
+
+        self.scene.clear_debug_objects()
+
+        for line in lines:
+            pos1, pos2, color = line
+            self.scene.draw_debug_line(pos1, pos2, radius=thickness, color=color)
 
         for name in self.joint_name:
             if joint_vis[name] == "body":
@@ -334,7 +356,7 @@ class Robot:
         self.target_dof_pos = torch.tensor(positions)
         self.sim_step()
 
-    def set_links_pos(self, links, poss, quats):
+    def set_links_pos(self, links, poss, quats=None):
         q, err = self.entity.inverse_kinematics_multilink(
             links=links,
             poss=poss,

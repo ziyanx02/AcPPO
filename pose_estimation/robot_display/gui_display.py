@@ -1,3 +1,5 @@
+import numpy as np
+
 from robot_display.utils.gui import start_gui
 from robot_display.utils.display import Robot
 
@@ -56,12 +58,32 @@ class GUIDisplay:
             dof_limits = self.robot.dof_limit
             for i in range(len(self.robot.dof_name)):
                 self.limits[self.robot.dof_name[i]] = [dof_limits[0][i].item(), dof_limits[1][i].item()]
-            self.values.extend(self.robot.dof_pos.numpy().tolist())
+                soft_limits = [
+                    dof_limits[1][i].item() - 0.9 * (dof_limits[1][i].item() - dof_limits[0][i].item()),
+                    dof_limits[0][i].item() + 0.9 * (dof_limits[1][i].item() - dof_limits[0][i].item()),
+                ]
+                if "default_dof_pos" in self.cfg["robot"].keys():
+                    value = self.cfg["robot"]["default_dof_pos"][self.robot.dof_name[i]]
+                else:
+                    value = 0
+                self.values.append(max(soft_limits[0], min(value, soft_limits[1])))
             self.value_dofs_pos_idx_start = idx
             self.value_dofs_pos_idx_end = idx + self.robot.num_dofs
             idx += self.robot.num_dofs
         if self.control_foot_pos:
-            raise NotImplementedError
+            for foot in self.robot.foot_links:
+                name = foot.name
+                self.labels.extend([f"{name}_x", f"{name}_y", f"{name}_z"])
+                self.limits[f"{name}_x"] = [-self.robot.diameter * 2, self.robot.diameter * 2]
+                self.limits[f"{name}_y"] = [-self.robot.diameter * 2, self.robot.diameter * 2]
+                self.limits[f"{name}_z"] = [-self.robot.diameter * 2, self.robot.diameter * 2]
+                if "foot_pos" not in self.cfg["robot"].keys():
+                    self.values.extend((foot.get_pos() - self.robot.base_pos).numpy().tolist())
+                else:
+                    self.values.extend(self.cfg["robot"]["foot_pos"][name])
+            self.value_foot_pos_idx_start = idx
+            self.value_foot_pos_idx_end = idx + 3 * len(self.robot.foot_links)
+            idx += self.robot.num_dofs
         if self.control_links_pos:
             raise NotImplementedError
         cfg = {
@@ -89,7 +111,14 @@ class GUIDisplay:
         if self.control_dofs_pos:
             self.robot.set_dofs_position(self.values[self.value_dofs_pos_idx_start:self.value_dofs_pos_idx_end])
         if self.control_foot_pos:
-            raise NotImplementedError
+            links = [self.robot.body_link,]
+            poss = [self.robot.body_pos.numpy(),]
+            for i in range(len(self.robot.foot_links)):
+                link = self.robot.foot_links[i]
+                pos = self.values[self.value_foot_pos_idx_start + 3 * i:self.value_foot_pos_idx_start + 3 * (i + 1)]
+                links.append(link)
+                poss.append(poss[0] + np.array(pos))
+            self.robot.set_links_pos(links, poss)
         if self.control_links_pos:
             raise NotImplementedError
         self.robot.step()

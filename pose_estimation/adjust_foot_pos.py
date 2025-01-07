@@ -14,9 +14,9 @@ cfg = yaml.safe_load(open(f"./cfgs/{args.name}.yaml"))
 display = GUIDisplay(
     cfg=cfg,
     body_pos=True,
-    body_pose=True,
-    dofs_pos=True,
-    foot_pos=False,
+    body_pose=False,
+    dofs_pos=False,
+    foot_pos=True,
     links_pos=False,
 )
 display.run()

@@ -12,7 +12,7 @@ class GUI:
     def __init__(self, root: tk.Tk, cfg: dict, values: List[float], 
                  save_callback: Callable = None, reset_callback: Callable = None):
         self.root = root
-        self.root.title("Joint Controller")
+        self.root.title("Robot Controller")
 
         self.save_callback = save_callback
         self.reset_callback = reset_callback
@@ -40,7 +40,7 @@ class GUI:
             frame.pack(pady=5, padx=10, fill=tk.X)
 
             # Label for the control
-            tk.Label(frame, text=f"{name}", font=self.label_font, width=30).pack(side=tk.LEFT)
+            tk.Label(frame, text=f"{name}", font=self.label_font, width=max([len(name) for name in self.labels]) + 5).pack(side=tk.LEFT)
 
             # Slider
             slider = ttk.Scale(

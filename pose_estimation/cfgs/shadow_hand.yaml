@@ -1,0 +1,18 @@
+robot:
+  asset_path: urdf/shadow_hand/shadow_hand.urdf
+  scale: 1.0
+  body_name: palm
+  foot_names:
+    - thumb_distal
+    - index_finger_distal
+    - middle_finger_distal
+    - ring_finger_distal
+    - little_finger_distal
+  links_to_keep:
+    - palm
+    - wrist
+    - thumb_distal
+    - index_finger_distal
+    - middle_finger_distal
+    - ring_finger_distal
+    - little_finger_distal

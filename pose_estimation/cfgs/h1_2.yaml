@@ -1,0 +1,15 @@
+robot:
+  asset_path: urdf/h1_2/h1_2_simplified.urdf
+  scale: 1.0
+  body_name: torso_link
+  foot_names:
+    - left_ankle_pitch_link
+    - right_ankle_pitch_link
+    - left_wrist_yaw_link
+    - right_wrist_yaw_link
+  links_to_keep:
+    - torso_link
+    - left_ankle_pitch_link
+    - right_ankle_pitch_link
+    - left_wrist_yaw_link
+    - right_wrist_yaw_link
