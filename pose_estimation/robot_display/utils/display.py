@@ -15,7 +15,7 @@ def clean():
     print("Cleaned up all genesis and taichi cache files.")
 
 class Robot:
-    def __init__(self, asset_file, foot_names, links_to_keep=[], scale=1.0, fps=60, vis_options=None):
+    def __init__(self, asset_file, foot_names, links_to_keep=[], scale=1.0, fps=60, substeps=1, vis_options=None):
 
         gs.init(backend=gs.cpu)
 
@@ -34,6 +34,7 @@ class Robot:
             ),
             sim_options=gs.options.SimOptions(
                 gravity=(0, 0, 0),
+                substeps=substeps,
             ),
         )
 
@@ -73,11 +74,11 @@ class Robot:
         self._init_buffers()
         
         self.scene.viewer.set_camera_pose(
-            pos=(self.diameter * 2, self.diameter * 2, self.diameter),
+            pos=(self.diameter, self.diameter, self.diameter / 2),
             lookat=(0., 0., 0.),
         )
 
-        self.sim_step()
+        self.step_target()
 
     def _init_buffers(self):
 
@@ -86,7 +87,7 @@ class Robot:
         self.joint_name = []
         self.dof_name = []
         self.dof_idx = []
-        self.dof_idx_local = []
+        self.dof_idx_qpos = []
         idx = 6 # Skip the base dofs
         for joint in self.joints:
             if joint.type == gs.JOINT_TYPE.FREE:
@@ -97,7 +98,7 @@ class Robot:
                     continue
                 self.dof_name.append(joint.name)
                 self.dof_idx.append(idx)
-                self.dof_idx_local.append(joint.dof_idx_local)
+                self.dof_idx_qpos.append(idx + 1)
                 idx += 1
         self.num_links = len(self.link_name)
         self.num_dofs = len(self.dof_name)
@@ -220,16 +221,24 @@ class Robot:
         self.target_body_pos = self.init_body_pos.clone()
         self.target_body_quat = self.init_body_quat.clone()
         self.target_dof_pos = self.init_dof_pos.clone()
-        self.sim_step()
+        self.step_target()
 
     def step(self):
         if self.dt - (time.time() - self.last_step_time) > 0.01:
             time.sleep(self.dt - (time.time() - self.last_step_time))
+        self.last_step_time = time.time()
+        self.entity.control_dofs_position(self.target_dof_pos, self.dof_idx)
+        self.scene.step()
+
+    def step_vis(self):
+        if self.dt - (time.time() - self.last_step_time) > 0.01:
+            time.sleep(self.dt - (time.time() - self.last_step_time))
+        self.last_step_time = time.time()
+        self.step_target()
         self.visualize()
         self.scene.visualizer.update(force=True)
-        self.last_step_time = time.time()
 
-    def sim_step(self):
+    def step_target(self):
         # Set the joint positions
         self.target_dof_pos = torch.max(torch.min(self.target_dof_pos, self.dof_limit[1]), self.dof_limit[0])
         self.entity.set_dofs_position(self.target_dof_pos, self.dof_idx, zero_velocity=True)
@@ -304,12 +313,12 @@ class Robot:
         self.body_link = link
         self.body_name = link.name
         self.update_skeleton()
-        self.sim_step()
+        self.step_target()
 
     def set_body_link_by_name(self, body_name):
         self.body_name = body_name
         self.body_link = self.get_link(body_name)
-        self.sim_step()
+        self.step_target()
 
     def set_init_state(self, body_pos, body_qaut, dof_pos):
         self.init_body_pos = torch.tensor(body_pos)
@@ -319,30 +328,31 @@ class Robot:
         self.target_body_pos = self.init_body_pos.copy()
         self.target_body_quat = self.init_body_quat.copy()
         self.target_dof_pos = self.init_dof_pos.copy()
-        self.sim_step()
+        self.step_target()
 
     def set_dof_order(self, dof_names):
-        order = []
-        dof_order = []
+        dof_idx = []
+        dof_idx_qpos = []
         for name in dof_names:
             for idx, joint in enumerate(self.dof_name):
                 if name == joint:
-                    order.append(self.dof_idx[idx])
-                    dof_order.append(self.dof_idx_local[idx])
+                    dof_idx.append(self.dof_idx[idx])
+                    dof_idx_qpos.append(self.dof_idx_qpos[idx])
                     break
-        assert len(order) == len(dof_names), "Some dof names are not found"
-        self.dof_idx = order
-        self.dof_idx_local = dof_order
+        assert len(dof_idx) == len(dof_names), "Some dof names are not found"
+        self.dof_idx = dof_idx
+        self.dof_idx_qpos = dof_idx_qpos
         self.dof_name = dof_names
-        self.init_dof_pos = torch.zeros(len(order), dtype=torch.float32)
+        self.init_dof_pos = torch.zeros(len(dof_idx), dtype=torch.float32)
+
+    def set_body_pos(self, pos):
+        self.target_body_pos = pos
 
     def set_body_height(self, height):
         self.target_body_pos[2] = height
-        self.sim_step()
 
     def set_body_quat(self, quat):
-        self.target_body_quat = normalize(torch.tensor(quat))
-        self.sim_step()
+        self.target_body_quat = normalize(quat)
 
     def set_body_pose(self, roll, pitch, yaw):
         roll, pitch, yaw = roll / 180 * np.pi, pitch / 180 * np.pi, yaw / 180 * np.pi
@@ -350,23 +360,57 @@ class Robot:
         R = gs_euler2quat(xyz)
         # Compute the rotation quaternion 
         self.target_body_quat = gs_quat_mul(R, self.init_body_quat)
-        self.sim_step()
 
     def set_dofs_position(self, positions):
-        self.target_dof_pos = torch.tensor(positions)
-        self.sim_step()
+        positions = torch.tensor(positions, dtype=torch.float32)
+        self.target_dof_pos = positions
 
-    def set_links_pos(self, links, poss, quats=None):
-        q, err = self.entity.inverse_kinematics_multilink(
+    def set_links_pos(self, links, poss, quats):
+        qpos, error = self.entity.inverse_kinematics_multilink(
             links=links,
             poss=poss,
-            # quats=quats,
+            quats=quats,
             return_error=True,
-            # rot_mask=[False, False, True],
         )
-        self.entity.set_qpos(q)
-        # target_dof_pos = q[7:]
-        # self.set_dofs_position(target_dof_pos)
+        self.set_body_pos(qpos[:3])
+        self.set_body_quat(qpos[3:7])
+        self.set_dofs_position(qpos[self.dof_idx_qpos])
+
+    def set_dofs_armature(self, armature):
+        if not isinstance(armature, dict):
+            dofs_armature = [armature] * self.num_dofs
+        else:
+            dofs_armature = []
+            for name in self.dof_name:
+                dofs_armature.append(armature[name])
+        self.entity.set_dofs_armature(armature, self.dof_idx)
+
+    def set_dofs_damping(self, damping):
+        if not isinstance(damping, dict):
+            dofs_damping = [damping] * self.num_dofs
+        else:
+            dofs_damping = []
+            for name in self.dof_name:
+                dofs_damping.append(damping[name])
+        self.entity.set_dofs_damping(damping, self.dof_idx)
+
+    def set_dofs_kp(self, kp):
+        if not isinstance(kp, dict):
+            dofs_kp = [kp] * self.num_dofs
+        else:
+            dofs_kp = []
+            for name in self.dof_name:
+                dofs_kp.append(kp[name])
+        self.entity.set_dofs_kp(dofs_kp, self.dof_idx)
+
+    def set_dofs_kd(self, kd):
+        if not isinstance(kd, dict):
+            dofs_kd = [kd] * self.num_dofs
+        else:
+            dofs_kd = []
+            for name in self.dof_name:
+                dofs_kd.append(kd[name])
+        self.entity.set_dofs_kv(dofs_kd, self.dof_idx)
 
     @property
     def links(self):
@@ -410,7 +454,7 @@ class Robot:
 
     @ property
     def dof_limit(self):
-        return self.entity.get_dofs_limit(self.dof_idx_local)
+        return self.entity.get_dofs_limit(self.dof_idx)
 
     @property
     def foot_pos(self):

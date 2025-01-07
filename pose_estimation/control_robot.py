@@ -13,9 +13,9 @@ args = parser.parse_args()
 cfg = yaml.safe_load(open(f"./cfgs/{args.name}/basic.yaml"))
 display = GUIDisplay(
     cfg=cfg,
-    body_pos=True,
-    body_pose=True,
+    body_pos=False,
+    body_pose=False,
     dofs_pos=True,
-    foot_pos=False,
+    pd_control=True,
 )
 display.run()

@@ -4,15 +4,15 @@ from robot_display.utils.gui import start_gui
 from robot_display.utils.display import Robot
 
 class GUIDisplay:
-    def __init__(self, cfg: dict, body_pos=True, body_pose=True, dofs_pos=True, foot_pos=False, links_pos=False):
-        assert body_pos or body_pose or dofs_pos or foot_pos or links_pos, "At least one of the interaction modes should be enabled"
+    def __init__(self, cfg: dict, body_pos=True, body_pose=True, dofs_pos=True, foot_pos=False, pd_control=False):
+        assert body_pos or body_pose or dofs_pos or foot_pos, "At least one of the interaction modes should be enabled"
         assert not (dofs_pos and foot_pos), "Dofs pos and foot position cannot be enabled at the same time"
         self.cfg = cfg
+        self.pd_control = pd_control
         self.control_body_height = body_pos
         self.control_body_pose = body_pose
         self.control_dofs_pos = dofs_pos
         self.control_foot_pos = foot_pos
-        self.control_links_pos = links_pos
         self.setup_robot()
         self.setup_gui()
 
@@ -33,6 +33,13 @@ class GUIDisplay:
         if "dof_names" in self.cfg["control"].keys():
             assert len(self.cfg["control"]["dof_names"]) == self.robot.num_dofs, "Number of dof names should match the number of dofs"
             self.robot.set_dof_order(self.cfg["control"]["dof_names"])
+        if self.pd_control:
+            self.robot.set_dofs_kp(self.cfg["control"]["kp"])
+            self.robot.set_dofs_kd(self.cfg["control"]["kd"])
+            if "armature" in self.cfg["control"].keys():
+                self.robot.set_dofs_armature(self.cfg["control"]["armature"])
+            if "damping" in self.cfg["control"].keys():
+                self.robot.set_dofs_damping(self.cfg["control"]["damping"])
 
     def setup_gui(self):
         self.labels = []
@@ -84,8 +91,6 @@ class GUIDisplay:
             self.value_foot_pos_idx_start = idx
             self.value_foot_pos_idx_end = idx + 3 * len(self.robot.foot_links)
             idx += self.robot.num_dofs
-        if self.control_links_pos:
-            raise NotImplementedError
         cfg = {
             "label": self.labels,
             "range": self.limits,
@@ -104,6 +109,7 @@ class GUIDisplay:
         self.robot.reset()
 
     def update(self):
+        self.robot.target_body_pos[:2] = 0
         if self.control_body_height:
             self.robot.set_body_height(self.values[self.value_body_height_idx])
         if self.control_body_pose:
@@ -112,17 +118,21 @@ class GUIDisplay:
             self.robot.set_dofs_position(self.values[self.value_dofs_pos_idx_start:self.value_dofs_pos_idx_end])
         if self.control_foot_pos:
             links = [self.robot.body_link,]
-            poss = [self.robot.body_pos.numpy(),]
+            poss = [self.robot.target_body_pos,]
+            quats = [self.robot.target_body_quat,]
             for i in range(len(self.robot.foot_links)):
                 link = self.robot.foot_links[i]
                 pos = self.values[self.value_foot_pos_idx_start + 3 * i:self.value_foot_pos_idx_start + 3 * (i + 1)]
                 links.append(link)
                 poss.append(poss[0] + np.array(pos))
-            self.robot.set_links_pos(links, poss)
-        if self.control_links_pos:
-            raise NotImplementedError
-        self.robot.step()
+                quats.append(None)
+            self.robot.set_links_pos(links, poss, quats)
+        if self.pd_control:
+            self.robot.step()
+        else:
+            self.robot.step_vis()
 
     def run(self):
+        self.reset_callback()
         while True:
             self.update()
