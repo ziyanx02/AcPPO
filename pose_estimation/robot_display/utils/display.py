@@ -72,7 +72,7 @@ class Robot:
         self.last_step_time = time.time()
 
         self._init_buffers()
-        
+
         self.scene.viewer.set_camera_pose(
             pos=(self.diameter, self.diameter, self.diameter / 2),
             lookat=(0., 0., 0.),
@@ -104,7 +104,19 @@ class Robot:
         self.num_dofs = len(self.dof_name)
         self.num_joints = len(self.joint_name)
 
-        self.update_skeleton()
+        if len(self.foot_links):
+            self.update_skeleton()
+        else:
+            joint_pos = []
+            for joint in self.joints:
+                joint_pos.append(joint.get_pos())
+            # calculate longest distance between joints and store it as self.diameter
+            self.diameter = 0
+            for i in range(len(joint_pos)):
+                for j in range(i + 1, len(joint_pos)):
+                    dist = torch.norm(joint_pos[i] - joint_pos[j]).item()
+                    if dist > self.diameter:
+                        self.diameter = dist
 
         print("--------- Link Names ----------")
         print(self.link_name)
@@ -125,6 +137,12 @@ class Robot:
         self.target_foot_quat[:, 0] = 1.0
 
     def update_skeleton(self):
+
+        # for geom in self.body_link.geoms:
+        #     vertices = geom.get_verts()
+        #     print(vertices)
+        #     print(vertices.shape)
+        #     exit()
 
         self.link_adjacency_map = [[False for _ in range(self.num_links)] for _ in range(self.num_links)]
         self.leg = []
@@ -312,7 +330,8 @@ class Robot:
     def set_body_link(self, link):
         self.body_link = link
         self.body_name = link.name
-        self.update_skeleton()
+        if len(self.foot_links):
+            self.update_skeleton()
         self.step_target()
 
     def set_body_link_by_name(self, body_name):
@@ -383,7 +402,7 @@ class Robot:
             dofs_armature = []
             for name in self.dof_name:
                 dofs_armature.append(armature[name])
-        self.entity.set_dofs_armature(armature, self.dof_idx)
+        self.entity.set_dofs_armature(dofs_armature, self.dof_idx)
 
     def set_dofs_damping(self, damping):
         if not isinstance(damping, dict):
@@ -392,7 +411,7 @@ class Robot:
             dofs_damping = []
             for name in self.dof_name:
                 dofs_damping.append(damping[name])
-        self.entity.set_dofs_damping(damping, self.dof_idx)
+        self.entity.set_dofs_damping(dofs_damping, self.dof_idx)
 
     def set_dofs_kp(self, kp):
         if not isinstance(kp, dict):

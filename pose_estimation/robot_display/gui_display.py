@@ -4,7 +4,7 @@ from robot_display.utils.gui import start_gui
 from robot_display.utils.display import Robot
 
 class GUIDisplay:
-    def __init__(self, cfg: dict, body_pos=True, body_pose=True, dofs_pos=True, foot_pos=False, pd_control=False):
+    def __init__(self, cfg: dict, body_pos=True, body_pose=True, dofs_pos=True, foot_pos=False, pd_control=False, save_callable=None):
         assert body_pos or body_pose or dofs_pos or foot_pos, "At least one of the interaction modes should be enabled"
         assert not (dofs_pos and foot_pos), "Dofs pos and foot position cannot be enabled at the same time"
         self.cfg = cfg
@@ -13,12 +13,15 @@ class GUIDisplay:
         self.control_body_pose = body_pose
         self.control_dofs_pos = dofs_pos
         self.control_foot_pos = foot_pos
+        self.save_callable = save_callable
         self.setup_robot()
         self.setup_gui()
 
     def setup_robot(self):
         if "control" not in self.cfg.keys():
-            self.cfg["control"] = {"control_freq": 60}
+            self.cfg["control"] = {"control_freq": 50}
+        if "foot_names" not in self.cfg["robot"].keys():
+            self.cfg["robot"]["foot_names"] = []
         if "links_to_keep" not in self.cfg["robot"].keys():
             self.cfg["robot"]["links_to_keep"] = []
         self.robot = Robot(
@@ -69,8 +72,8 @@ class GUIDisplay:
                     dof_limits[1][i].item() - 0.9 * (dof_limits[1][i].item() - dof_limits[0][i].item()),
                     dof_limits[0][i].item() + 0.9 * (dof_limits[1][i].item() - dof_limits[0][i].item()),
                 ]
-                if "default_dof_pos" in self.cfg["robot"].keys():
-                    value = self.cfg["robot"]["default_dof_pos"][self.robot.dof_name[i]]
+                if "default_dof_pos" in self.cfg["control"].keys():
+                    value = self.cfg["control"]["default_dof_pos"][self.robot.dof_name[i]]
                 else:
                     value = 0
                 self.values.append(max(soft_limits[0], min(value, soft_limits[1])))
@@ -80,10 +83,10 @@ class GUIDisplay:
         if self.control_foot_pos:
             for foot in self.robot.foot_links:
                 name = foot.name
-                self.labels.extend([f"{name}_x", f"{name}_y", f"{name}_z"])
-                self.limits[f"{name}_x"] = [-self.robot.diameter * 2, self.robot.diameter * 2]
-                self.limits[f"{name}_y"] = [-self.robot.diameter * 2, self.robot.diameter * 2]
-                self.limits[f"{name}_z"] = [-self.robot.diameter * 2, self.robot.diameter * 2]
+                self.labels.extend([f"{name} x", f"{name} y", f"{name} z"])
+                self.limits[f"{name} x"] = [-self.robot.diameter * 2, self.robot.diameter * 2]
+                self.limits[f"{name} y"] = [-self.robot.diameter * 2, self.robot.diameter * 2]
+                self.limits[f"{name} z"] = [-self.robot.diameter * 2, self.robot.diameter * 2]
                 if "foot_pos" not in self.cfg["robot"].keys():
                     self.values.extend((foot.get_pos() - self.robot.base_pos).numpy().tolist())
                 else:
@@ -103,7 +106,7 @@ class GUIDisplay:
         )
 
     def save_callback(self):
-        pass
+        self.save_callable(self)
 
     def reset_callback(self):
         self.robot.reset()

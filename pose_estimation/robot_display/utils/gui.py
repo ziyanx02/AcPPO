@@ -121,7 +121,7 @@ class GUI:
             self.entries[idx].insert(0, f"{self.values[idx]:.2f}")
 
     def save(self):
-        self.save_callback(self.values)
+        self.save_callback()
 
     def reset(self):
         for i, value in enumerate(self.init_values):

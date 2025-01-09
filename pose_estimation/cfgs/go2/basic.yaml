@@ -1,23 +1,6 @@
 robot:
   asset_path: urdf/go2/urdf/go2.urdf
   scale: 1.0
-  body_name: base
-  foot_names:
-    - FR_foot
-    - FL_foot
-    - RR_foot
-    - RL_foot
-  links_to_keep:
-    - base
-    - FR_foot
-    - FL_foot
-    - RR_foot
-    - RL_foot
-  foot_pos:
-    FR_foot: [0.2, -0.15, -0.3]
-    FL_foot: [0.2, 0.15, -0.3]
-    RR_foot: [-0.2, -0.15, -0.3]
-    RL_foot: [-0.2, 0.15, -0.3]
   default_dof_pos:
     FR_hip_joint: 0.0
     FR_thigh_joint: 0.8
@@ -31,7 +14,6 @@ robot:
     RL_hip_joint: 0.0
     RL_thigh_joint: 0.8
     RL_calf_joint: -1.5
-
 control:
   control_freq: 50
   dof_names:
@@ -49,3 +31,5 @@ control:
     - RL_calf_joint
   kp: 30.0
   kd: 1.5
+  armature: 0.0
+  damping: 0.0
