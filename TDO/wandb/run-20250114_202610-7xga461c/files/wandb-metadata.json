@@ -1,0 +1,47 @@
+{
+  "os": "Linux-5.15.0-130-generic-x86_64-with-glibc2.31",
+  "python": "CPython 3.9.20",
+  "startedAt": "2025-01-15T01:26:10.763726Z",
+  "args": [
+    "--learning-rate",
+    "0.001"
+  ],
+  "program": "/home/ziyanx/python/AcPPO/TDO/ppo.py",
+  "codePath": "TDO/ppo.py",
+  "git": {
+    "remote": "git@github.com:ziyanx02/AcPPO.git",
+    "commit": "bed1edf09ee9b9d1ea062f4727cdee0e43adf7b7"
+  },
+  "email": "ziyanx02@gmail.com",
+  "root": "/home/ziyanx/python/AcPPO/TDO",
+  "host": "ziyanx-laptop",
+  "username": "ziyanx",
+  "executable": "/home/ziyanx/anaconda3/envs/war/bin/python",
+  "codePathLocal": "ppo.py",
+  "cpu_count": 8,
+  "cpu_count_logical": 16,
+  "gpu": "NVIDIA GeForce RTX 4060 Laptop GPU",
+  "gpu_count": 1,
+  "disk": {
+    "/": {
+      "total": "502820814848",
+      "used": "181604278272"
+    }
+  },
+  "memory": {
+    "total": "20741083136"
+  },
+  "cpu": {
+    "count": 8,
+    "countLogical": 16
+  },
+  "gpu_nvidia": [
+    {
+      "name": "NVIDIA GeForce RTX 4060 Laptop GPU",
+      "memoryTotal": "8585740288",
+      "cudaCores": 3072,
+      "architecture": "Ada"
+    }
+  ],
+  "cudaVersion": "12.2"
+}

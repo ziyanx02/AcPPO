@@ -1,0 +1,83 @@
+_wandb:
+    value:
+        cli_version: 0.19.0
+        code_path: code/TDO/ppo.py
+        m: []
+        python_version: 3.9.20
+        t:
+            "1":
+                - 1
+                - 55
+            "2":
+                - 1
+                - 55
+            "3":
+                - 13
+                - 16
+                - 23
+                - 55
+                - 61
+            "4": 3.9.20
+            "5": 0.19.0
+            "8":
+                - 5
+            "12": 0.19.0
+            "13": linux-x86_64
+anneal_lr:
+    value: false
+batch_size:
+    value: 65536
+clip_coef:
+    value: 0.2
+clip_vloss:
+    value: false
+cuda:
+    value: true
+ent_coef:
+    value: 0.01
+exp_name:
+    value: ppo
+gae_lambda:
+    value: 0.95
+gamma:
+    value: 0.99
+gpu_id:
+    value: 0
+learning_rate:
+    value: 0.0026
+max_grad_norm:
+    value: 1
+minibatch_size:
+    value: 32768
+norm_adv:
+    value: true
+num_envs:
+    value: 4096
+num_minibatches:
+    value: 2
+num_steps:
+    value: 16
+record_video_step_frequency:
+    value: 1464
+reward_scaler:
+    value: 1
+seed:
+    value: 1
+target_kl:
+    value: null
+task_name:
+    value: VanillaReach
+torch_deterministic:
+    value: true
+total_timesteps:
+    value: 30000000
+update_epochs:
+    value: 4
+vf_coef:
+    value: 2
+wandb:
+    value: true
+wandb_entity:
+    value: ziyanx02
+wandb_project_name:
+    value: TDO

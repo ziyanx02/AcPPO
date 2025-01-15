@@ -1,7 +1,7 @@
 import numpy as np
 
 from robot_display.utils.gui import start_gui
-from robot_display.utils.display import Robot
+from robot_display.utils.robot import Robot
 
 class GUIDisplay:
     def __init__(self, cfg: dict, body_pos=True, body_pose=True, dofs_pos=True, foot_pos=False, pd_control=False, save_callable=None):
