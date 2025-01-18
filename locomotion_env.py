@@ -19,6 +19,7 @@ class LocoEnv:
         debug,
         device='cuda',
     ) -> None:
+        self.cfg = env_cfg
         self.num_envs = 1 if num_envs == 0 else num_envs
         self.num_build_envs = num_envs
         self.use_time_indicator = obs_cfg['use_time_indicator']
@@ -363,6 +364,7 @@ class LocoEnv:
         )
         self.common_step_counter = 0
         self.extras = {}
+        self.extras["observations"] = {"critic": self.privileged_obs_buf}
 
         self.terrain_heights = torch.zeros(
             (self.num_envs,),
@@ -526,7 +528,7 @@ class LocoEnv:
             self.episode_sums['termination'] += rew
 
     def get_observations(self):
-        return self.obs_history_buf
+        return self.obs_history_buf, self.extras
 
     def get_privileged_observations(self):
         return self.privileged_obs_buf
@@ -799,7 +801,6 @@ class LocoEnv:
 
         return (
             self.obs_history_buf,
-            self.privileged_obs_buf,
             self.rew_buf,
             self.reset_buf,
             self.extras,

@@ -5,7 +5,7 @@ import torch.optim as optim
 class EnvCfg:
     num_envs = 1000
     num_dims = 5
-    episode_length = 10
+    episode_length = 20
     value_limit = 3.0
 
 class BaseEnv:
@@ -22,6 +22,7 @@ class BaseEnv:
 
         # Initialize environment states and time steps
         self.states = torch.zeros((self.num_envs, self.num_states), device=self.device)
+        self.actions = torch.zeros((self.num_envs, self.num_states), device=self.device)
         self.episode_length_buffer = torch.zeros((self.num_envs,), device=self.device)
 
     def set_state(self, states):
@@ -48,6 +49,7 @@ class BaseEnv:
         return self.compute_observation()
 
     def step(self, action):
+        self.actions = action
         self._step(action)
         self.episode_length_buffer += 1
 

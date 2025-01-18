@@ -16,8 +16,8 @@ if args.cfg is not None:
 
 robot = Display(cfg)
 low_state_handler = LowStateMsgHandler(cfg)
-low_state_handler.Init()
-low_state_handler.Start()
+low_state_handler.init()
+low_state_handler.start()
 
 while True:
     time.sleep(0.1)

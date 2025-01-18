@@ -48,7 +48,7 @@ import maze.envs.base_env
 def parse_args():
     # fmt: off
     parser = argparse.ArgumentParser()
-    parser.add_argument("--exp-name", type=str, default=os.path.basename(__file__).rstrip(".py"),
+    parser.add_argument("-e", "--exp-name", type=str, default=os.path.basename(__file__).rstrip(".py"),
         help="the name of this experiment")
     parser.add_argument("--task-name", type=str, default="VanillaReach",
         help="the id of the gym environment")
@@ -70,7 +70,7 @@ def parse_args():
     # Algorithm specific arguments
     parser.add_argument("--timesteps", type=int, default=10000,
         help="timesteps of the experiments")
-    parser.add_argument("--learning-rate", type=float, default=0.0026,
+    parser.add_argument("--learning-rate", type=float, default=0.001,
         help="the learning rate of the optimizer")
     parser.add_argument("--num-envs", type=int, default=4096,
         help="the number of parallel game environments")
@@ -78,6 +78,8 @@ def parse_args():
         help="the number of steps to run in each environment per policy rollout")
     parser.add_argument("--anneal-lr", type=lambda x: bool(strtobool(x)), default=False, nargs="?", const=True,
         help="Toggle learning rate annealing for policy and value networks")
+    parser.add_argument("--adaptive-lr", type=lambda x: bool(strtobool(x)), default=False, nargs="?", const=True,
+        help="Toggle adaptive learning rate to reach target kl")
     parser.add_argument("--gamma", type=float, default=0.99,
         help="the discount factor gamma")
     parser.add_argument("--gae-lambda", type=float, default=0.95,
@@ -92,13 +94,13 @@ def parse_args():
         help="the surrogate clipping coefficient")
     parser.add_argument("--clip-vloss", type=lambda x: bool(strtobool(x)), default=False, nargs="?", const=True,
         help="Toggles whether or not to use a clipped loss for the value function, as per the paper.")
-    parser.add_argument("--ent-coef", type=float, default=0.01,
+    parser.add_argument("--ent-coef", type=float, default=0.003,
         help="coefficient of the entropy")
     parser.add_argument("--vf-coef", type=float, default=2,
         help="coefficient of the value function")
     parser.add_argument("--max-grad-norm", type=float, default=1,
         help="the maximum norm for the gradient clipping")
-    parser.add_argument("--target-kl", type=float, default=None,
+    parser.add_argument("--target-kl", type=float, default=0.01,
         help="the target KL divergence threshold")
 
     parser.add_argument("--reward-scaler", type=float, default=1,
@@ -224,6 +226,7 @@ if __name__ == "__main__":
     avg_ep_lens = deque(maxlen=num_done_envs)
     avg_consecutive_successes = deque(maxlen=num_done_envs)
     avg_true_returns = deque(maxlen=num_done_envs) # returns from without reward shaping
+    success = deque(maxlen=num_done_envs)
 
     # TRY NOT TO MODIFY: start the game
     num_steps = 0
@@ -278,6 +281,7 @@ if __name__ == "__main__":
                 avg_returns.extend(info["r"][next_done].cpu().numpy())
                 avg_true_returns.extend(info["ground_truth_r"][next_done].cpu().numpy())
                 avg_ep_lens.extend(info["l"][next_done].cpu().numpy())
+                success.extend(info["success"][next_done].cpu().numpy())
 
         # bootstrap value if not done
         with torch.no_grad():
@@ -321,6 +325,12 @@ if __name__ == "__main__":
                     approx_kl = ((ratio - 1) - logratio).mean()
                     clipfracs += [((ratio - 1.0).abs() > args.clip_coef).float().mean().item()]
 
+                    if args.adaptive_lr:
+                        if approx_kl > args.target_kl * 2.0:
+                            optimizer.param_groups[0]["lr"] = max(1e-5, optimizer.param_groups[0]["lr"] / 1.5)
+                        elif approx_kl < args.target_kl / 2.0 and approx_kl > 0.0:
+                            optimizer.param_groups[0]["lr"] = min(1e-2, optimizer.param_groups[0]["lr"] * 1.5)
+
                 mb_advantages = b_advantages[mb_inds]
                 if args.norm_adv:
                     mb_advantages = (mb_advantages - mb_advantages.mean()) / (mb_advantages.std() + 1e-8)
@@ -353,10 +363,6 @@ if __name__ == "__main__":
                 nn.utils.clip_grad_norm_(agent.parameters(), args.max_grad_norm)
                 optimizer.step()
 
-            if args.target_kl is not None:
-                if approx_kl > args.target_kl:
-                    break
-        
         it_end_time = time.time()
 
         # TRY NOT TO MODIFY: record rewards for plotting purposes
@@ -385,16 +391,18 @@ if __name__ == "__main__":
         data["returns/ret_ext"] = b_returns.mean().item()
         data["returns/values_ext"] = b_values.mean().item()
 
-        data["charts/traj_len"] = np.mean(avg_ep_lens)
-        data["charts/max_traj_len"] = np.max(avg_ep_lens, initial=0)
-        data["charts/min_traj_len"] = np.min(avg_ep_lens, initial=0)
-        data["charts/time_per_it"] = it_end_time - it_start_time
+        # data["charts/traj_len"] = np.mean(avg_ep_lens)
+        # data["charts/max_traj_len"] = np.max(avg_ep_lens, initial=0)
+        # data["charts/min_traj_len"] = np.min(avg_ep_lens, initial=0)
+        # data["charts/time_per_it"] = it_end_time - it_start_time
         data["charts/episode_return"] = np.mean(avg_returns)
-        data["charts/max_episode_return"] = np.max(avg_returns, initial=0)
-        data["charts/min_episode_return"] = np.min(avg_returns, initial=0)
-        data["charts/true_episode_return"] = np.mean(avg_true_returns)
-        data["charts/max_true_episode_return"] = np.max(avg_true_returns, initial=0)
-        data["charts/min_true_episode_return"] = np.min(avg_true_returns, initial=0)
+        # data["charts/max_episode_return"] = np.max(avg_returns, initial=0)
+        # data["charts/min_episode_return"] = np.min(avg_returns, initial=0)
+        # data["charts/true_episode_return"] = np.mean(avg_true_returns)
+        # data["charts/max_true_episode_return"] = np.max(avg_true_returns, initial=0)
+        # data["charts/min_true_episode_return"] = np.min(avg_true_returns, initial=0)
+        data["charts/success_rate"] = np.mean(success)
+        data["charts/logstd"] = agent.actor_logstd.mean().item()
 
         if args.wandb:
             wandb.log(data, step=num_steps)

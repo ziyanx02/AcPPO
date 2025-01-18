@@ -26,7 +26,7 @@ class GUI:
         self.values = values
         self.sliders = []
         self.entries = []
-        
+
         # Create all widgets before setting up any bindings
         self.create_widgets()
         # Set up bindings after all widgets are created

@@ -7,7 +7,7 @@ import shutil
 import numpy as np
 import torch
 import wandb
-from reward_wrapper import Backflip
+from reward_wrapper import Go2
 from locomotion_env import LocoEnv
 from rsl_rl.runners import OnPolicyRunner
 
@@ -30,32 +30,34 @@ def get_train_cfg(args):
             'schedule': 'adaptive',
             'use_clipped_value_loss': True,
             'value_loss_coef': 1.0,
+            'class_name': 'PPO',
         },
         'init_member_classes': {},
         'policy': {
+            "class_name": "ActorCritic",
             'activation': 'elu',
             'actor_hidden_dims': [512, 256, 128],
             'critic_hidden_dims': [512, 256, 128],
             'init_noise_std': 1.0,
         },
         'runner': {
-            'algorithm_class_name': 'PPO',
             'checkpoint': -1,
             'experiment_name': args.exp_name,
             'load_run': -1,
             'log_interval': 1,
             'max_iterations': args.max_iterations,
-            'num_steps_per_env': 3,
-            'policy_class_name': 'ActorCritic',
             'record_interval': 50,
             'resume': False,
             'resume_path': None,
-            'run_name': '',
-            'runner_class_name': 'runner_class_name',
-            'save_interval': 100,
         },
+        'save_interval': 100,
         'runner_class_name': 'OnPolicyRunner',
+        'num_steps_per_env': 24,
         'seed': 1,
+        # "logger": "wandb",
+        "empirical_normalization": False,
+        "wandb_project": "TDO",
+        "wandb_entity": "ziyanx02",
     }
 
     return train_cfg_dict
@@ -236,7 +238,7 @@ def main():
         shutil.rmtree(log_dir)
     os.makedirs(log_dir, exist_ok=True)
 
-    env = Backflip(
+    env = Go2(
         num_envs=args.num_envs,
         env_cfg=env_cfg,
         obs_cfg=obs_cfg,
@@ -255,8 +257,8 @@ def main():
         print('==> resume training from', resume_path)
         runner.load(resume_path)
 
-    wandb.login(key='1d5fe5b941feff91e5dbb834d4f687fdbec8e516')
-    wandb.init(project='genesis', name=args.exp_name, entity='ziyanx02', dir=log_dir, mode='offline' if args.offline else 'online', config=train_cfg)
+    # wandb.login(key='1d5fe5b941feff91e5dbb834d4f687fdbec8e516')
+    # wandb.init(project='genesis', name=args.exp_name, entity='ziyanx02', dir=log_dir, mode='offline' if args.offline else 'online', config=train_cfg)
 
     pickle.dump(
         [env_cfg, obs_cfg, reward_cfg, command_cfg],

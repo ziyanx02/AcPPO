@@ -2,6 +2,7 @@ import numpy as np
 import time
 import threading
 import yaml
+import struct
 
 import argparse
 
@@ -29,9 +30,10 @@ JointID = {
 }
 
 class LowStateMsgHandler:
-    def __init__(self, cfg):
+    def __init__(self, cfg, freq=1000):
 
         self.cfg = cfg
+        self.update_interval = 1.0 / freq
 
         self.msg = None
         self.msg_received = False
@@ -48,9 +50,12 @@ class LowStateMsgHandler:
         # Create a thread for the main loop
         self.main_thread = threading.Thread(target=self.main_loop, daemon=True)
 
-    def Init(self):
+    def init(self):
 
-        ChannelFactoryInitialize(0)
+        try:
+            ChannelFactoryInitialize(0)
+        except:
+            pass
 
         self.robot_lowstate_subscriber = ChannelSubscriber("rt/lowstate", LowState_go)
         self.robot_lowstate_subscriber.Init(self.LowStateHandler_go, 10)
@@ -71,7 +76,7 @@ class LowStateMsgHandler:
             time.sleep(0.1)
         print("Low State Message Received!!!")
 
-    def Start(self):
+    def start(self):
         self.main_thread.start()
 
     def LowStateHandler_go(self, msg: LowState_go):
@@ -86,12 +91,14 @@ class LowStateMsgHandler:
         total_publish_cnt = 0
         start_time = time.time()
         while True:
-            time.sleep(0.001)
+            update_start_time = time.time()
 
             # Process raw message
             imu_state = self.msg.imu_state
             self.quat = np.array(imu_state.quaternion) # w, x, y, z
             self.ang_vel = np.array(imu_state.gyroscope)
+
+            self.parse(self.msg.wireless_remote)
 
             motor_state = self.msg.motor_state
             for i in range(self.num_dof):
@@ -105,6 +112,9 @@ class LowStateMsgHandler:
                     print(f"Joint {self.dof_index[i]} Error Code: {error_code}")
             # print("low_state_big_flag", self.robot_low_state.bit_flag)
 
+            if time.time() - update_start_time < self.update_interval:
+                time.sleep(self.update_interval - (time.time() - update_start_time))
+
             # Print publishing rate
             total_publish_cnt += 1
             if total_publish_cnt == 1000:
@@ -113,6 +123,63 @@ class LowStateMsgHandler:
                 print(f"LowStateMsg Receiving Rate: {total_publish_cnt / (end_time - start_time)}")
                 start_time = end_time
                 total_publish_cnt = 0
+
+    def parse_botton(self,data1,data2):
+        self.R1 = (data1 >> 0) & 1
+        self.L1 = (data1 >> 1) & 1
+        self.Start = (data1 >> 2) & 1
+        self.Select = (data1 >> 3) & 1
+        self.R2 = (data1 >> 4) & 1
+        self.L2 = (data1 >> 5) & 1
+        self.F1 = (data1 >> 6) & 1
+        self.F3 = (data1 >> 7) & 1
+        self.A = (data2 >> 0) & 1
+        self.B = (data2 >> 1) & 1
+        self.X = (data2 >> 2) & 1
+        self.Y = (data2 >> 3) & 1
+        self.Up = (data2 >> 4) & 1
+        self.Right = (data2 >> 5) & 1
+        self.Down = (data2 >> 6) & 1
+        self.Left = (data2 >> 7) & 1
+
+    def parse_key(self,data):
+        lx_offset = 4
+        self.Lx = struct.unpack('<f', data[lx_offset:lx_offset + 4])[0]
+        rx_offset = 8
+        self.Rx = struct.unpack('<f', data[rx_offset:rx_offset + 4])[0]
+        ry_offset = 12
+        self.Ry = struct.unpack('<f', data[ry_offset:ry_offset + 4])[0]
+        L2_offset = 16
+        L2 = struct.unpack('<f', data[L2_offset:L2_offset + 4])[0] # Placeholder，unused
+        ly_offset = 20
+        self.Ly = struct.unpack('<f', data[ly_offset:ly_offset + 4])[0]
+
+    def parse(self,remoteData):
+        self.parse_key(remoteData)
+        self.parse_botton(remoteData[2],remoteData[3])
+
+        # print("debug unitreeRemoteController: ")
+        # print("Lx:", self.Lx)
+        # print("Rx:", self.Rx)
+        # print("Ry:", self.Ry)
+        # print("Ly:", self.Ly)
+
+        # print("L1:", self.L1)
+        # print("L2:", self.L2)
+        # print("R1:", self.R1)
+        # print("R2:", self.R2)
+        # print("A:", self.A)
+        # print("B:", self.B)
+        # print("X:", self.X)
+        # print("Y:", self.Y)
+        # print("Up:", self.Up)
+        # print("Down:", self.Down)
+        # print("Left:", self.Left)
+        # print("Right:", self.Right)
+        # print("Select:", self.Select)
+        # print("F1:", self.F1)
+        # print("F3:", self.F3)
+        # print("Start:", self.Start)
 
 if __name__ == "__main__":
 
@@ -128,8 +195,8 @@ if __name__ == "__main__":
 
     # Run steta publisher
     low_state_handler = LowStateMsgHandler(cfg)
-    low_state_handler.Init()
-    low_state_handler.Start()
+    low_state_handler.init()
+    low_state_handler.start()
     while True:
         time.sleep(1)
         pass

@@ -24,4 +24,11 @@ class VanillaReachEnv(BaseEnv):
             reward = reward.sum(dim=1)
         else:
             raise NotImplementedError
+        reward -= torch.square(self.actions).sum(dim=1)
         return reward
+    
+    def get_info(self):
+        info = super().get_info()
+        success = (torch.abs(self.states - self.target).mean(dim=1) < 0.1).float()
+        info["success"] = success
+        return info
