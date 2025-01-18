@@ -623,7 +623,7 @@ class LocoEnv:
 
     def compute_observations(self):
 
-        obs_buf, privileged_obs = self._compute_observation()
+        obs_buf, privileged_obs_buf = self._compute_observation()
 
         if self.use_time_indicator:
 
@@ -640,7 +640,7 @@ class LocoEnv:
                 axis=-1,
             )
             obs_buf = torch.cat([obs_buf, time_indicator], axis=-1)
-            privileged_obs_buf = torch.cat([privileged_obs, time_indicator], axis=-1)
+            privileged_obs_buf = torch.cat([privileged_obs_buf, time_indicator], axis=-1)
 
         # add noise
         if not self.eval:

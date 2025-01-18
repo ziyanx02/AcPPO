@@ -149,7 +149,7 @@ def get_cfgs():
         'coupling': False,
     }
     obs_cfg = {
-        'use_time_indicator': True,
+        'use_time_indicator': False,
         'num_obs': 9 + 3 * env_cfg['num_dofs'],
         'num_history_obs': 1,
         'obs_noise': {
