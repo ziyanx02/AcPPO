@@ -1,4 +1,5 @@
 robot:
+  name: go2
   asset_path: urdf/go2/urdf/go2.urdf
   scale: 1.0
 control:

@@ -145,11 +145,21 @@ class LocoEnv:
             visualize_contact=self.debug,
         )
 
+        self.ball = self.scene.add_entity(
+            gs.morphs.Sphere(
+                radius=0.095,
+                pos=[0.5, 0.2, 0.1],
+            ),
+        )
+
         if gs.platform != 'macOS':
             self._set_camera()
 
         # build
         self.scene.build(n_envs=num_envs)
+
+        self.ball_link = self.ball.links[0]
+        self.ball_link.set_mass(15)
 
         self._init_buffers()
         self._prepare_reward_function()
