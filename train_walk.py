@@ -40,24 +40,15 @@ def get_train_cfg(args):
             'critic_hidden_dims': [512, 256, 128],
             'init_noise_std': 1.0,
         },
-        'runner': {
-            'checkpoint': -1,
-            'experiment_name': args.exp_name,
-            'load_run': -1,
-            'log_interval': 1,
-            'max_iterations': args.max_iterations,
-            'record_interval': 50,
-            'resume': False,
-            'resume_path': None,
-        },
         'save_interval': 100,
         'runner_class_name': 'OnPolicyRunner',
         'num_steps_per_env': 24,
         'seed': 1,
         # "logger": "wandb",
-        "empirical_normalization": False,
-        "wandb_project": "TDO",
-        "wandb_entity": "ziyanx02",
+        'empirical_normalization': False,
+        'wandb_project': 'TDO',
+        'wandb_entity': 'ziyanx02',
+        'record_interval': 10,
     }
 
     return train_cfg_dict
@@ -131,6 +122,8 @@ def get_cfgs():
         'feet_geom_offset': 1,
         'use_terrain': False,
         # domain randomization
+        'dof_damping': 0.0,
+        'armature': 0.05,
         'randomize_friction': True,
         'friction_range': [0.2, 1.5],
         'randomize_base_mass': True,
@@ -216,7 +209,7 @@ def main():
     if args.debug:
         args.vis = True
         args.offline = True
-        args.num_envs = 2
+        args.num_envs = 1
 
     if not torch.cuda.is_available():
         args.cpu = True
@@ -232,7 +225,9 @@ def main():
     env_cfg, obs_cfg, reward_cfg, command_cfg = get_cfgs()
 
     if args.debug:
-        train_cfg['runner']['record_interval'] = -1
+        train_cfg['record_interval'] = -1
+    if not args.offline:
+        train_cfg['logger'] = 'wandb'
 
     if os.path.exists(log_dir):
         shutil.rmtree(log_dir)

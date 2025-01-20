@@ -9,6 +9,8 @@ import time
 import torch
 from collections import deque
 from torch.utils.tensorboard import SummaryWriter as TensorboardSummaryWriter
+import wandb
+import numpy as np
 
 import rsl_rl
 from rsl_rl.algorithms import PPO
@@ -154,6 +156,10 @@ class OnPolicyRunner:
             self.current_learning_iteration = it
             if self.log_dir is not None:
                 self.log(locals())
+            if self.cfg["record_interval"] > 0 and self.logger_type == "wandb":
+                self.log_video(it)
+                if self.cfg["record_interval"] > 0 and it % self.cfg["record_interval"] == 0:
+                    self.start_recording()
             if it % self.save_interval == 0:
                 self.save(os.path.join(self.log_dir, f"model_{it}.pt"))
             ep_infos.clear()
@@ -304,3 +310,14 @@ class OnPolicyRunner:
 
     def add_git_repo_to_log(self, repo_file_path):
         self.git_status_repos.append(repo_file_path)
+
+    def start_recording(self):
+        self.env.start_recording()
+
+    def log_video(self, it):
+        frames = self.env.get_recorded_frames()
+        if frames is None:
+            return
+        else:
+            video_array = np.concatenate([np.expand_dims(frame, axis=0) for frame in frames ], axis=0).swapaxes(1, 3).swapaxes(2, 3)
+            wandb.log({"video": wandb.Video(video_array, fps=int(1/self.env.dt))}, step=it)
