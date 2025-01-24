@@ -177,29 +177,28 @@ class OnPolicyRunner:
         self.tot_time += locs["collection_time"] + locs["learn_time"]
         iteration_time = locs["collection_time"] + locs["learn_time"]
 
-        if self.print_infos:
-            iter_infos = locs["iter_infos"]
-            ep_string = ""
-            rew_string = ""
-            if len(iter_infos) > 0:
-                if "episode" in iter_infos[0].keys():
-                    for key in iter_infos[0]["episode"].keys():
-                        value_list = []
-                        for iter_info in iter_infos:
-                            if iter_info["episode"][key] is not None:
-                                value_list.append(iter_info["episode"][key])
-                        value = torch.mean(torch.tensor(value_list))
-                        value = 0.0 if torch.isnan(value) else value
-                        self.writer.add_scalar(f"Episode/{key}", value, locs["it"])
-                        ep_string += f"""{f'{key}:':>{pad}} {value:.4f}\n"""
-                if "rewards" in iter_infos[0].keys():
-                    for key in iter_infos[0]["rewards"].keys():
-                        value_list = []
-                        for iter_info in iter_infos:
-                            value_list.append(iter_info["rewards"][key])
-                        value = torch.mean(torch.tensor(value_list))
-                        self.writer.add_scalar(f"StepRew/{key}", value, locs["it"])
-                        rew_string += f"""{f'{key}:':>{pad}} {value:.4f}\n"""
+        iter_infos = locs["iter_infos"]
+        ep_string = ""
+        rew_string = ""
+        if len(iter_infos) > 0:
+            if "episode" in iter_infos[0].keys():
+                for key in iter_infos[0]["episode"].keys():
+                    value_list = []
+                    for iter_info in iter_infos:
+                        if iter_info["episode"][key] is not None:
+                            value_list.append(iter_info["episode"][key])
+                    value = torch.mean(torch.tensor(value_list))
+                    value = 0.0 if torch.isnan(value) else value
+                    self.writer.add_scalar(f"Episode/{key}", value, locs["it"])
+                    ep_string += f"""{f'{key}:':>{pad}} {value:.4f}\n"""
+            if "rewards" in iter_infos[0].keys():
+                for key in iter_infos[0]["rewards"].keys():
+                    value_list = []
+                    for iter_info in iter_infos:
+                        value_list.append(iter_info["rewards"][key])
+                    value = torch.mean(torch.tensor(value_list))
+                    self.writer.add_scalar(f"StepRew/{key}", value, locs["it"])
+                    rew_string += f"""{f'{key}:':>{pad}} {value:.4f}\n"""
 
         mean_std = self.alg.actor_critic.std.mean()
         fps = int(self.num_steps_per_env * self.env.num_envs / (locs["collection_time"] + locs["learn_time"]))
