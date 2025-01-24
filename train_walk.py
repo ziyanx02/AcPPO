@@ -7,8 +7,8 @@ import shutil
 import numpy as np
 import torch
 import wandb
-from reward_wrapper import Go2
-from locomotion_env import LocoEnv
+from envs.reward_wrapper import Go2
+from envs.locomotion_env import LocoEnv
 from rsl_rl.runners import OnPolicyRunner
 
 import genesis as gs
@@ -32,7 +32,6 @@ def get_train_cfg(args):
             'value_loss_coef': 1.0,
             'class_name': 'PPO',
         },
-        'init_member_classes': {},
         'policy': {
             "class_name": "ActorCritic",
             'activation': 'elu',
@@ -111,7 +110,6 @@ def get_cfgs():
         # time (second)
         'episode_length_s': 20.0,
         'period_length_s': 0.5,
-        'random_init_preriod': True,
         'resampling_time_s': 4.0,
         'command_type': 'ang_vel_yaw',  # 'ang_vel_yaw' or 'heading'
         'action_scale': 0.25,

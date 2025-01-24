@@ -5,7 +5,7 @@ import pickle
 
 import numpy as np
 import torch
-from reward_wrapper import Backflip
+from envs.reward_wrapper import Backflip
 from rsl_rl.runners import OnPolicyRunner
 
 import genesis as gs

@@ -7,8 +7,8 @@ import shutil
 import numpy as np
 import torch
 import wandb
-from reward_wrapper import Backflip
-from locomotion_env import LocoEnv
+from envs.reward_wrapper import Backflip
+from envs.locomotion_env import LocoEnv
 from rsl_rl.runners import OnPolicyRunner
 
 import genesis as gs
@@ -31,7 +31,6 @@ def get_train_cfg(args):
             'use_clipped_value_loss': True,
             'value_loss_coef': 1.0,
         },
-        'init_member_classes': {},
         'policy': {
             'activation': 'elu',
             'actor_hidden_dims': [512, 256, 128],
