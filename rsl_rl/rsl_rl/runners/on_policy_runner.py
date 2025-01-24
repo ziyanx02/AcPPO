@@ -11,6 +11,7 @@ from collections import deque
 from torch.utils.tensorboard import SummaryWriter as TensorboardSummaryWriter
 import wandb
 import numpy as np
+import math
 
 import rsl_rl
 from rsl_rl.algorithms import PPO
@@ -206,6 +207,7 @@ class OnPolicyRunner:
         self.writer.add_scalar("Loss/value_function", locs["mean_value_loss"], locs["it"])
         self.writer.add_scalar("Loss/surrogate", locs["mean_surrogate_loss"], locs["it"])
         self.writer.add_scalar("Loss/learning_rate", self.alg.learning_rate, locs["it"])
+        self.writer.add_scalar("Loss/log_learning_rate", math.log(self.alg.learning_rate), locs["it"])
         self.writer.add_scalar("Loss/kl", self.alg.kl_mean, locs["it"])
         self.writer.add_scalar("Loss/mean_noise_std", mean_std.item(), locs["it"])
         self.writer.add_scalar("Perf/total_fps", fps, locs["it"])
