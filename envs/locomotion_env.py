@@ -24,7 +24,6 @@ class LocoEnv:
         self.num_obs = obs_cfg['num_obs']
         self.num_privileged_obs = obs_cfg['num_priv_obs']
         self.num_actions = env_cfg['num_actions']
-        self.num_commands = command_cfg['num_commands']
 
         self.headless = not show_viewer
         self.eval = eval
@@ -220,19 +219,22 @@ class LocoEnv:
         self.rew_buf_neg = torch.zeros(
             (self.num_envs,), device=self.device, dtype=gs.tc_float
         )
-        self.reset_buf = torch.ones(
+        self.episode_length_buf = torch.zeros(
             (self.num_envs,), device=self.device, dtype=gs.tc_int
         )
-        self.episode_length_buf = torch.zeros(
+        self.terminate_buf = torch.ones(
             (self.num_envs,), device=self.device, dtype=gs.tc_int
         )
         self.time_out_buf = torch.zeros(
             (self.num_envs,), device=self.device, dtype=gs.tc_int
         )
+        self.reset_buf = torch.ones(
+            (self.num_envs,), device=self.device, dtype=gs.tc_int
+        )
 
         # commands
         self.commands = torch.zeros(
-            (self.num_envs, self.num_commands), device=self.device, dtype=gs.tc_float
+            (self.num_envs, 3), device=self.device, dtype=gs.tc_float
         )
         self.commands_scale = torch.tensor(
             [
@@ -462,7 +464,8 @@ class LocoEnv:
         return target_dof_pos
 
     def check_termination(self):
-        self.reset_buf = torch.any(
+
+        self.terminate_buf = torch.any(
             torch.norm(
                 self.link_contact_forces[:, self.termination_contact_link_indices, :],
                 dim=-1,
@@ -470,26 +473,25 @@ class LocoEnv:
             > 1.0,
             dim=1,
         )
-        self.time_out_buf = (
-            self.episode_length_buf > self.max_episode_length
-        )  # no terminal reward for time-outs
-        self.reset_buf |= torch.logical_or(
+        self.terminate_buf |= torch.logical_or(
             torch.abs(self.base_euler[:, 1])
             > self.env_cfg['termination_if_pitch_greater_than'],
             torch.abs(self.base_euler[:, 0])
             > self.env_cfg['termination_if_roll_greater_than'],
         )
         if self.env_cfg['use_terrain']:
-            self.reset_buf |= torch.logical_or(
+            self.terminate_buf |= torch.logical_or(
                 self.base_pos[:, 0] > self.terrain_margin[0],
                 self.base_pos[:, 1] > self.terrain_margin[1],
             )
-            self.reset_buf |= torch.logical_or(
+            self.terminate_buf |= torch.logical_or(
                 self.base_pos[:, 0] < 1,
                 self.base_pos[:, 1] < 1,
             )
-        self.reset_buf |= self.base_pos[:, 2] < self.env_cfg['termination_if_height_lower_than']
-        self.reset_buf |= self.time_out_buf
+        self.terminate_buf |= self.base_pos[:, 2] < self.env_cfg['termination_if_height_lower_than']
+        if self.cfg['use_timeout']:
+            self.time_out_buf = self.episode_length_buf > self.max_episode_length
+        self.reset_buf |= torch.logical_or(self.terminate_buf, self.time_out_buf)
 
     def compute_reward(self):
         self.rew_buf[:] = 0.
@@ -543,7 +545,7 @@ class LocoEnv:
         envs_idx = self.reset_buf.nonzero(as_tuple=False).flatten()
         if self.num_build_envs > 0:
             self.reset_idx(envs_idx)
-        # self.rigid_solver.forward_kinematics() # no need currently
+        self.update_extras(envs_idx)
         self.compute_observations()
 
         if gs.platform != 'macOS':
@@ -555,6 +557,21 @@ class LocoEnv:
         self.last_last_actions[:] = self.last_actions[:]
         self.last_dof_vel[:] = self.dof_vel[:]
         self.last_root_vel[:] = self.robot.get_vel()
+
+    def update_extras(self, reset_envs_idx):
+
+        # fill extras
+        self.extras['episode'] = {}
+        for key in self.episode_sums.keys():
+            self.extras['episode'][key + '_rew'] = (
+                torch.mean(self.episode_sums[key][reset_envs_idx]).item()
+                / self.max_episode_length_s
+            )
+            self.episode_sums[key][reset_envs_idx] = 0.0
+
+        # send timeout info to the algorithm
+        if self.env_cfg['use_timeout']:
+            self.extras['time_outs'] = self.time_out_buf
 
     def _prepare_obs_noise(self):
         self.obs_noise[:3] = self.obs_cfg['obs_noise']['ang_vel']
@@ -568,7 +585,7 @@ class LocoEnv:
             [
                 self.base_ang_vel * self.obs_scales['ang_vel'],                     # 3
                 self.projected_gravity,                                             # 3
-                self.commands[:, :3] * self.commands_scale,                         # 3
+                self.commands * self.commands_scale,                                # 3
                 (self.dof_pos - self.default_dof_pos) * self.obs_scales['dof_pos'],
                 self.dof_vel * self.obs_scales['dof_vel'],
                 self.actions,
@@ -580,7 +597,7 @@ class LocoEnv:
                 self.base_lin_vel * self.obs_scales['lin_vel'],                     # 3
                 self.base_ang_vel * self.obs_scales['ang_vel'],                     # 3
                 self.projected_gravity,                                             # 3
-                self.commands[:, :3] * self.commands_scale,                         # 3
+                self.commands * self.commands_scale,                                # 3
                 (self.dof_pos - self.default_dof_pos) * self.obs_scales['dof_pos'],
                 self.dof_vel * self.obs_scales['dof_vel'],
                 self.actions,
@@ -598,7 +615,7 @@ class LocoEnv:
         # add noise
         if not self.eval:
             obs_buf += gs_rand_float(
-                -1.0, 1.0, (self.num_single_obs,), self.device
+                -1.0, 1.0, (self.num_obs,), self.device
             )  * self.obs_noise
 
         clip_obs = 100.0
@@ -616,19 +633,14 @@ class LocoEnv:
             *self.command_cfg['lin_vel_y_range'], (len(envs_idx),), self.device
         )
         self.commands[envs_idx, :2] *= (
-            torch.norm(self.commands[envs_idx, :2], dim=1) > 0.2
+            torch.norm(self.commands[envs_idx, :2], dim=1) > 0.3
         ).unsqueeze(1)
 
         # ang_vel
-        if self.command_type == 'heading':
-            self.commands[envs_idx, 3] = gs_rand_float(
-                -3.14, 3.14, (len(envs_idx),), self.device
-            )
-        elif self.command_type == 'ang_vel_yaw':
-            self.commands[envs_idx, 2] = gs_rand_float(
-                *self.command_cfg['ang_vel_range'], (len(envs_idx),), self.device
-            )
-            self.commands[envs_idx, 2] *= torch.abs(self.commands[envs_idx, 2]) > 0.2
+        self.commands[envs_idx, 2] = gs_rand_float(
+            *self.command_cfg['ang_vel_range'], (len(envs_idx),), self.device
+        )
+        self.commands[envs_idx, 2] *= torch.abs(self.commands[envs_idx, 2]) > 0.2
 
     def reset_idx(self, envs_idx):
         if len(envs_idx) == 0:
@@ -699,15 +711,6 @@ class LocoEnv:
         self.feet_max_height[envs_idx] = 0.0
         self.episode_length_buf[envs_idx] = 0
         self.reset_buf[envs_idx] = 1
-
-        # fill extras
-        self.extras['episode'] = {}
-        for key in self.episode_sums.keys():
-            self.extras['episode']['rew_' + key] = (
-                torch.mean(self.episode_sums[key][envs_idx]).item()
-                / self.max_episode_length_s
-            )
-            self.episode_sums[key][envs_idx] = 0.0
 
     def reset(self):
         self.reset_buf[:] = True

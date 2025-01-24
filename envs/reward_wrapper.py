@@ -98,10 +98,14 @@ class Go2(LocoEnv):
         rew_airTime *= torch.norm(self.commands[:, :2], dim=1) > 0.1 #no reward for zero command
         self.feet_air_time *= ~contact_filt
         return rew_airTime
-    
+
     def _reward_alive(self):
         # Reward for staying alive
-        return 1.0
+        return 1 - self.terminate_buf
+
+    def _reward_terminate(self):
+        # Reward for staying alive
+        return self.terminate_buf
 
 class Backflip(Go2):
 

@@ -109,13 +109,13 @@ def get_cfgs():
         'max_push_vel_xy': 1.0,
         # time (second)
         'episode_length_s': 20.0,
+        'use_timeout': True,
         'period_length_s': 0.5,
         'resampling_time_s': 4.0,
         'command_type': 'ang_vel_yaw',  # 'ang_vel_yaw' or 'heading'
         'action_scale': 0.25,
         'action_latency': 0.02,
         'clip_actions': 100.0,
-        'send_timeouts': True,
         'control_freq': 50,
         'decimation': 4,
         'feet_geom_offset': 1,
@@ -151,8 +151,8 @@ def get_cfgs():
             'dof_vel': 0.5,
         },
         'obs_scales': {
-            'lin_vel': 2.0,
-            'ang_vel': 0.25,
+            'lin_vel': 1.0,
+            'ang_vel': 1.0,
             'dof_pos': 1.0,
             'dof_vel': 0.05,
         },
@@ -181,7 +181,6 @@ def get_cfgs():
         },
     }
     command_cfg = {
-        'num_commands': 4,
         'lin_vel_x_range': [-1.0, 1.0],
         'lin_vel_y_range': [-1.0, 1.0],
         'ang_vel_range': [-1.0, 1.0],
