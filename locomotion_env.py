@@ -1,6 +1,5 @@
 import numpy as np
 import torch
-import gym
 
 import genesis as gs
 from genesis.engine.solvers.rigid.rigid_solver_decomp import RigidSolver
@@ -825,8 +824,8 @@ class LocoEnv:
         if self.env_cfg['randomize_com_displacement']:
             self._randomize_com_displacement(env_ids)
 
-        self.robot.set_dofs_damping([self.cfg['dof_damping'],] * (self.num_dof + 6))
-        self.robot.set_dofs_armature([self.cfg['armature'],] * (self.num_dof + 6))
+        # self.robot.set_dofs_damping([self.cfg['dof_damping'],] * (self.num_dof + 6))
+        # self.robot.set_dofs_armature([self.cfg['armature'],] * (self.num_dof + 6))
 
     def _randomize_controls(self, env_ids=None):
 
@@ -943,7 +942,7 @@ class LocoEnv:
             self._floating_camera.set_pose(pos=robot_pos + np.array([-1, -1, 0.5]), lookat=robot_pos + np.array([0, 0, -0.1]))
             # import time
             # start = time.time()
-            frame, _, _, _ = self._floating_camera.render()
+            frame = self._floating_camera.render()[0]
             # end = time.time()
             # print(end-start)
             self._recorded_frames.append(frame)

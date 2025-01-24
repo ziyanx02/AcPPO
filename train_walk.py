@@ -20,7 +20,7 @@ def get_train_cfg(args):
         'algorithm': {
             'clip_param': 0.2,
             'desired_kl': 0.01,
-            'entropy_coef': 0.01,
+            'entropy_coef': 0.003,
             'gamma': 0.99,
             'lam': 0.95,
             'learning_rate': 0.001,
@@ -48,7 +48,8 @@ def get_train_cfg(args):
         'empirical_normalization': False,
         'wandb_project': 'TDO',
         'wandb_entity': 'ziyanx02',
-        'record_interval': 10,
+        'exp_name': None,
+        'record_interval': 50,
     }
 
     return train_cfg_dict
@@ -94,8 +95,8 @@ def get_cfgs():
         'feet_link_names': ['foot'],
         'base_link_name': ['base'],
         # PD
-        'PD_stiffness': {'joint': 30.0},
-        'PD_damping': {'joint': 1.5},
+        'PD_stiffness': {'joint': 40.0},
+        'PD_damping': {'joint': 2.0},
         'use_implicit_controller': False,
         # termination
         'termination_if_roll_greater_than': 0.4,
@@ -168,9 +169,9 @@ def get_cfgs():
             'tracking_ang_vel': 0.5,
             'lin_vel_z': -2.0,
             'ang_vel_xy': -0.05,
-            'orientation': -10.,
-            'base_height': -50.,
-            'torques': -0.0002,
+            'orientation': -1.,
+            'base_height': -5.,
+            'torques': -0.0001,
             'collision': -1.,
             'dof_vel': -0.,
             'dof_acc': -2.5e-7,
@@ -196,7 +197,7 @@ def main():
     parser.add_argument('-e', '--exp_name', type=str, default='Go2')
     parser.add_argument('-v', '--vis', action='store_true', default=False)
     parser.add_argument('-c', '--cpu', action='store_true', default=False)
-    parser.add_argument('-B', '--num_envs', type=int, default=32798)
+    parser.add_argument('-B', '--num_envs', type=int, default=10000)
     parser.add_argument('--max_iterations', type=int, default=1000)
     parser.add_argument('--resume', type=str, default=None)
     parser.add_argument('-o', '--offline', action='store_true', default=False)
@@ -228,6 +229,7 @@ def main():
         train_cfg['record_interval'] = -1
     if not args.offline:
         train_cfg['logger'] = 'wandb'
+        train_cfg['exp_name'] = args.exp_name
 
     if os.path.exists(log_dir):
         shutil.rmtree(log_dir)
