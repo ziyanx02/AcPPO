@@ -172,7 +172,6 @@ def get_cfgs():
             'dof_vel': -0.,
             'dof_acc': -2.5e-7,
             'feet_air_time': 1.0,
-            'collision': -1.,
             'action_rate': -0.01,
             'dof_pos_diff': -0.3,
             'terminate': -10.0,
@@ -181,7 +180,7 @@ def get_cfgs():
     command_cfg = {
         'lin_vel_x_range': [-1.0, 1.0],
         'lin_vel_y_range': [-1.0, 1.0],
-        'ang_vel_range': [-1.0, 1.0],
+        'ang_vel_range': [-2.0, 2.0],
     }
 
     return env_cfg, obs_cfg, reward_cfg, command_cfg
