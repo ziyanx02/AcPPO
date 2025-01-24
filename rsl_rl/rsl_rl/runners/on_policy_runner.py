@@ -178,7 +178,7 @@ class OnPolicyRunner:
         self.tot_time += locs["collection_time"] + locs["learn_time"]
         iteration_time = locs["collection_time"] + locs["learn_time"]
 
-        step = locs["it"] * self.num_steps_per_env
+        step = locs["it"]
         iter_infos = locs["iter_infos"]
         ep_string = ""
         rew_string = ""
