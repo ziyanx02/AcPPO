@@ -178,6 +178,7 @@ class OnPolicyRunner:
         self.tot_time += locs["collection_time"] + locs["learn_time"]
         iteration_time = locs["collection_time"] + locs["learn_time"]
 
+        step = locs["it"] * self.num_steps_per_env
         iter_infos = locs["iter_infos"]
         ep_string = ""
         rew_string = ""
@@ -190,7 +191,7 @@ class OnPolicyRunner:
                             value_list.append(iter_info["episode"][key])
                     value = torch.mean(torch.tensor(value_list))
                     value = 0.0 if torch.isnan(value) else value
-                    self.writer.add_scalar(f"Episode/{key}", value, locs["it"])
+                    self.writer.add_scalar(f"Episode/{key}", value, step)
                     ep_string += f"""{f'{key}:':>{pad}} {value:.4f}\n"""
             if "rewards" in iter_infos[0].keys():
                 for key in iter_infos[0]["rewards"].keys():
@@ -198,24 +199,24 @@ class OnPolicyRunner:
                     for iter_info in iter_infos:
                         value_list.append(iter_info["rewards"][key])
                     value = torch.mean(torch.tensor(value_list))
-                    self.writer.add_scalar(f"StepRew/{key}", value, locs["it"])
+                    self.writer.add_scalar(f"StepRew/{key}", value, step)
                     rew_string += f"""{f'{key}:':>{pad}} {value:.4f}\n"""
 
         mean_std = self.alg.actor_critic.std.mean()
         fps = int(self.num_steps_per_env * self.env.num_envs / (locs["collection_time"] + locs["learn_time"]))
 
-        self.writer.add_scalar("Loss/value_function", locs["mean_value_loss"], locs["it"])
-        self.writer.add_scalar("Loss/surrogate", locs["mean_surrogate_loss"], locs["it"])
-        self.writer.add_scalar("Loss/learning_rate", self.alg.learning_rate, locs["it"])
-        self.writer.add_scalar("Loss/log_learning_rate", math.log(self.alg.learning_rate), locs["it"])
-        self.writer.add_scalar("Loss/kl", self.alg.kl_mean, locs["it"])
-        self.writer.add_scalar("Loss/mean_noise_std", mean_std.item(), locs["it"])
-        self.writer.add_scalar("Perf/total_fps", fps, locs["it"])
-        self.writer.add_scalar("Perf/collection time", locs["collection_time"], locs["it"])
-        self.writer.add_scalar("Perf/learning_time", locs["learn_time"], locs["it"])
+        self.writer.add_scalar("Loss/value_function", locs["mean_value_loss"], step)
+        self.writer.add_scalar("Loss/surrogate", locs["mean_surrogate_loss"], step)
+        self.writer.add_scalar("Loss/learning_rate", self.alg.learning_rate, step)
+        self.writer.add_scalar("Loss/log_learning_rate", math.log(self.alg.learning_rate), step)
+        self.writer.add_scalar("Loss/kl", self.alg.kl_mean, step)
+        self.writer.add_scalar("Loss/mean_noise_std", mean_std.item(), step)
+        self.writer.add_scalar("Perf/total_fps", fps, step)
+        self.writer.add_scalar("Perf/collection time", locs["collection_time"], step)
+        self.writer.add_scalar("Perf/learning_time", locs["learn_time"], step)
         if len(locs["rewbuffer"]) > 0:
-            self.writer.add_scalar("Train/mean_episode_reward", statistics.mean(locs["rewbuffer"]), locs["it"])
-            self.writer.add_scalar("Train/mean_episode_length", statistics.mean(locs["lenbuffer"]), locs["it"])
+            self.writer.add_scalar("Train/mean_episode_reward", statistics.mean(locs["rewbuffer"]), step)
+            self.writer.add_scalar("Train/mean_episode_length", statistics.mean(locs["lenbuffer"]), step)
             if self.logger_type != "wandb":  # wandb does not support non-integer x-axis logging
                 self.writer.add_scalar("Train/mean_episode_reward/time", statistics.mean(locs["rewbuffer"]), self.tot_time)
                 self.writer.add_scalar(
