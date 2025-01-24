@@ -20,7 +20,7 @@ def get_train_cfg(args):
         'algorithm': {
             'clip_param': 0.2,
             'desired_kl': 0.01,
-            'entropy_coef': 0.003,
+            'entropy_coef': 0.01,
             'gamma': 0.99,
             'lam': 0.95,
             'learning_rate': 0.001,
@@ -97,7 +97,6 @@ def get_cfgs():
         # PD
         'PD_stiffness': {'joint': 40.0},
         'PD_damping': {'joint': 2.0},
-        'use_implicit_controller': False,
         # termination
         'termination_if_roll_greater_than': 0.4,
         'termination_if_pitch_greater_than': 0.4,
@@ -138,8 +137,6 @@ def get_cfgs():
         'kp_scale_range': [0.8, 1.2],
         'randomize_kd_scale': True,
         'kd_scale_range': [0.8, 1.2],
-        # coupling
-        'coupling': False,
     }
     obs_cfg = {
         'use_time_indicator': False,

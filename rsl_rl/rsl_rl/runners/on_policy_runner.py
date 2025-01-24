@@ -157,7 +157,7 @@ class OnPolicyRunner:
             if self.log_dir is not None:
                 self.log(locals())
             if self.cfg["record_interval"] > 0 and self.logger_type == "wandb":
-                self.log_video(it)
+                self.log_video()
                 if self.cfg["record_interval"] > 0 and it % self.cfg["record_interval"] == 0:
                     self.start_recording()
             if it % self.save_interval == 0:
@@ -201,6 +201,13 @@ class OnPolicyRunner:
                     value = torch.mean(torch.tensor(value_list))
                     self.writer.add_scalar(f"StepRew/{key}", value, step)
                     rew_string += f"""{f'{key}:':>{pad}} {value:.4f}\n"""
+            if "log" in iter_infos[0].keys():
+                for key in iter_infos[0]["log"].keys():
+                    value_list = []
+                    for iter_info in iter_infos:
+                        value_list.append(iter_info["log"][key])
+                    value = torch.mean(torch.tensor(value_list))
+                    self.writer.add_scalar(f"Log/{key}", value, step)
 
         mean_std = self.alg.actor_critic.std.mean()
         fps = int(self.num_steps_per_env * self.env.num_envs / (locs["collection_time"] + locs["learn_time"]))
@@ -326,10 +333,10 @@ class OnPolicyRunner:
     def start_recording(self):
         self.env.start_recording()
 
-    def log_video(self, it):
+    def log_video(self):
         frames = self.env.get_recorded_frames()
         if frames is None:
             return
         else:
             video_array = np.concatenate([np.expand_dims(frame, axis=0) for frame in frames ], axis=0).swapaxes(1, 3).swapaxes(2, 3)
-            wandb.log({"video": wandb.Video(video_array, fps=int(1/self.env.dt))}, step=it)
+            wandb.log({"video": wandb.Video(video_array, fps=int(1/self.env.dt))})

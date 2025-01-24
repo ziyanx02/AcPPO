@@ -30,12 +30,8 @@ class LocoEnv:
         self.debug = debug
 
         self.dt = 1 / env_cfg['control_freq']
-        if env_cfg['use_implicit_controller']:
-            sim_dt = self.dt
-            sim_substeps = env_cfg['decimation']
-        else:
-            sim_dt = self.dt / env_cfg['decimation']
-            sim_substeps = 1
+        sim_dt = self.dt / env_cfg['decimation']
+        sim_substeps = 1
         self.max_episode_length_s = env_cfg['episode_length_s']
         self.period_length_s = env_cfg['period_length_s']
         self.max_episode_length = int(np.ceil(self.max_episode_length_s / self.dt))
@@ -342,7 +338,7 @@ class LocoEnv:
             dtype=gs.tc_int, 
         )
         self.common_step_counter = 0
-        self.extras = {}
+        self.extras = {"log": {}}
         self.extras["observations"] = {"critic": self.privileged_obs_buf}
 
         self.terrain_heights = torch.zeros(
@@ -429,11 +425,7 @@ class LocoEnv:
 
         self.dof_pos[:] = self.robot.get_dofs_position(self.motor_dofs)
         self.dof_vel[:] = self.robot.get_dofs_velocity(self.motor_dofs)
-        self.link_contact_forces[:] = torch.tensor(
-            self.robot.get_links_net_contact_force(),
-            device=self.device,
-            dtype=gs.tc_float,
-        )
+        self.link_contact_forces[:] = self.robot.get_links_net_contact_force()
         self.com[:] = self.rigid_solver.get_links_COM([self.base_link_index,]).squeeze(dim=1)
 
         self.foot_positions[:] = self.rigid_solver.get_links_pos(self.feet_link_indices_world_frame)
@@ -454,6 +446,9 @@ class LocoEnv:
             self.batched_p_gains * (actions_scaled + self.default_dof_pos - self.dof_pos + self.motor_offsets)
             - self.batched_d_gains * self.dof_vel
         )
+        torques = torch.clip(torques, -self.torque_limits, self.torque_limits)
+        # self.extras["log"]["mean_torque"] = torques.abs().mean().item()
+        # self.extras["log"]["max_torque"] = torques.abs().max().item()
         return torques * self.motor_strengths
 
     def _compute_target_dof_pos(self, actions):
@@ -501,7 +496,7 @@ class LocoEnv:
             rew = self.reward_functions[i]() * self.reward_scales[name]
             self.rew_buf += rew
             self.episode_sums[name] += rew
-            self.extras['rewards'][name + '_rew'] = torch.mean(rew).item()
+            self.extras['rewards'][name] = torch.mean(rew).item()
 
     def get_observations(self):
         return self.obs_buf, self.extras
@@ -565,7 +560,7 @@ class LocoEnv:
         self.extras['episode'] = {}
         for key in self.episode_sums.keys():
             mean_episode_sum = torch.mean(self.episode_sums[key][reset_envs_idx]).item()
-            self.extras['episode'][key + '_rew'] = None if math.isnan(mean_episode_sum) else mean_episode_sum
+            self.extras['episode'][key] = None if math.isnan(mean_episode_sum) else mean_episode_sum
             self.episode_sums[key][reset_envs_idx] = 0.0
 
         if self.env_cfg['use_timeout']:
