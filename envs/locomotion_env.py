@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+import math
 
 import genesis as gs
 from genesis.engine.solvers.rigid.rigid_solver_decomp import RigidSolver
@@ -19,8 +20,7 @@ class LocoEnv:
         device='cuda',
     ) -> None:
         self.cfg = env_cfg
-        self.num_envs = 1 if num_envs == 0 else num_envs
-        self.num_build_envs = num_envs
+        self.num_envs = num_envs
         self.num_obs = obs_cfg['num_obs']
         self.num_privileged_obs = obs_cfg['num_priv_obs']
         self.num_actions = env_cfg['num_actions']
@@ -491,15 +491,17 @@ class LocoEnv:
         self.terminate_buf |= self.base_pos[:, 2] < self.env_cfg['termination_if_height_lower_than']
         if self.cfg['use_timeout']:
             self.time_out_buf = self.episode_length_buf > self.max_episode_length
-        self.reset_buf |= torch.logical_or(self.terminate_buf, self.time_out_buf)
+        self.reset_buf = torch.logical_or(self.terminate_buf, self.time_out_buf)
 
     def compute_reward(self):
         self.rew_buf[:] = 0.
+        self.extras['rewards'] = {}
         for i in range(len(self.reward_functions)):
             name = self.reward_names[i]
             rew = self.reward_functions[i]() * self.reward_scales[name]
             self.rew_buf += rew
             self.episode_sums[name] += rew
+            self.extras['rewards'][name + '_rew'] = torch.mean(rew).item()
 
     def get_observations(self):
         return self.obs_buf, self.extras
@@ -512,6 +514,9 @@ class LocoEnv:
         self.common_step_counter += 1
 
         self._update_buffers()
+        self.check_termination()
+        self.compute_reward()
+        self.compute_critic_observation()
 
         resampling_time_s = self.env_cfg['resampling_time_s']
         envs_idx = (
@@ -539,14 +544,10 @@ class LocoEnv:
             dofs_vel[:, :2] += push_vel
             self.robot.set_dofs_velocity(dofs_vel)
 
-        self.check_termination()
-        self.compute_reward()
-
         envs_idx = self.reset_buf.nonzero(as_tuple=False).flatten()
-        if self.num_build_envs > 0:
-            self.reset_idx(envs_idx)
         self.update_extras(envs_idx)
-        self.compute_observations()
+        self.reset_idx(envs_idx)
+        self.compute_observation()
 
         if gs.platform != 'macOS':
             self._render_headless()
@@ -563,13 +564,10 @@ class LocoEnv:
         # fill extras
         self.extras['episode'] = {}
         for key in self.episode_sums.keys():
-            self.extras['episode'][key + '_rew'] = (
-                torch.mean(self.episode_sums[key][reset_envs_idx]).item()
-                / self.max_episode_length_s
-            )
+            mean_episode_sum = torch.mean(self.episode_sums[key][reset_envs_idx]).item()
+            self.extras['episode'][key + '_rew'] = None if math.isnan(mean_episode_sum) else mean_episode_sum
             self.episode_sums[key][reset_envs_idx] = 0.0
 
-        # send timeout info to the algorithm
         if self.env_cfg['use_timeout']:
             self.extras['time_outs'] = self.time_out_buf
 
@@ -608,10 +606,18 @@ class LocoEnv:
 
         return obs_buf, privileged_obs
 
-    def compute_observations(self):
-
-        obs_buf, privileged_obs_buf = self._compute_observation()
-
+    def compute_observation(self):
+        obs_buf = torch.cat(
+            [
+                self.base_ang_vel * self.obs_scales['ang_vel'],                     # 3
+                self.projected_gravity,                                             # 3
+                self.commands * self.commands_scale,                                # 3
+                (self.dof_pos - self.default_dof_pos) * self.obs_scales['dof_pos'],
+                self.dof_vel * self.obs_scales['dof_vel'],
+                self.actions,
+            ],
+            axis=-1,
+        )
         # add noise
         if not self.eval:
             obs_buf += gs_rand_float(
@@ -620,6 +626,22 @@ class LocoEnv:
 
         clip_obs = 100.0
         self.obs_buf = torch.clip(obs_buf, -clip_obs, clip_obs)
+
+    def compute_critic_observation(self):
+        privileged_obs_buf = torch.cat(
+            [
+                self.base_lin_vel * self.obs_scales['lin_vel'],                     # 3
+                self.base_ang_vel * self.obs_scales['ang_vel'],                     # 3
+                self.projected_gravity,                                             # 3
+                self.commands * self.commands_scale,                                # 3
+                (self.dof_pos - self.default_dof_pos) * self.obs_scales['dof_pos'],
+                self.dof_vel * self.obs_scales['dof_vel'],
+                self.actions,
+                self.last_actions,
+            ],
+            axis=-1,
+        )
+        clip_obs = 100.0
         self.privileged_obs_buf = torch.clip(privileged_obs_buf, -clip_obs, clip_obs)
 
     def _resample_commands(self, envs_idx):
@@ -724,11 +746,7 @@ class LocoEnv:
 
         for i in range(self.env_cfg['decimation']):
             self.torques = self._compute_torques(exec_actions)
-            if self.num_build_envs == 0:
-                torques = self.torques.squeeze()
-                self.robot.control_dofs_force(torques, self.motor_dofs)
-            else:
-                self.robot.control_dofs_force(self.torques, self.motor_dofs)
+            self.robot.control_dofs_force(self.torques, self.motor_dofs)
             self.scene.step()
             self.dof_pos[:] = self.robot.get_dofs_position(self.motor_dofs)
             self.dof_vel[:] = self.robot.get_dofs_velocity(self.motor_dofs)

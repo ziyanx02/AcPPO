@@ -73,10 +73,6 @@ class Go2(LocoEnv):
             dim=1,
         )
 
-    def _reward_termination(self):
-        # Terminal reward / penalty
-        return self.reset_buf * ~self.time_out_buf
-
     def _reward_dof_pos_limits(self):
         # Penalize dof positions too close to the limit
         out_of_limits = -(self.dof_pos - self.dof_pos_limits[:, 0]).clip(max=0.0)  # lower limit
@@ -101,11 +97,11 @@ class Go2(LocoEnv):
 
     def _reward_alive(self):
         # Reward for staying alive
-        return 1 - self.terminate_buf
+        return 1 - self.terminate_buf.float()
 
     def _reward_terminate(self):
-        # Reward for staying alive
-        return self.terminate_buf
+        # Terminal reward / penalty
+        return self.terminate_buf.float()
 
 class Backflip(Go2):
 

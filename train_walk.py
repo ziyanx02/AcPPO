@@ -49,6 +49,7 @@ def get_train_cfg(args):
         'wandb_entity': 'ziyanx02',
         'exp_name': None,
         'record_interval': 50,
+        'print_infos': True,
     }
 
     return train_cfg_dict
@@ -177,7 +178,7 @@ def get_cfgs():
             'collision': -1.,
             'action_rate': -0.01,
             'dof_pos_diff': -0.3,
-            'alive': 0.5,
+            'terminate': -10.0,
         },
     }
     command_cfg = {
@@ -227,6 +228,7 @@ def main():
     if not args.offline:
         train_cfg['logger'] = 'wandb'
         train_cfg['exp_name'] = args.exp_name
+        train_cfg['print_infos'] = False
 
     if os.path.exists(log_dir):
         shutil.rmtree(log_dir)
