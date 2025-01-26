@@ -5,8 +5,9 @@ import math
 import genesis as gs
 from genesis.engine.solvers.rigid.rigid_solver_decomp import RigidSolver
 from utils import *
+from rsl_rl.env import VecEnv
 
-class LocoEnv:
+class LocoEnv(VecEnv):
     def __init__(
         self,
         num_envs,
@@ -24,14 +25,20 @@ class LocoEnv:
         self.num_obs = obs_cfg['num_obs']
         self.num_privileged_obs = obs_cfg['num_priv_obs']
         self.num_actions = env_cfg['num_actions']
+        self.num_states = env_cfg['num_states']
+        self.num_dof = env_cfg['num_dofs']
 
         self.headless = not show_viewer
         self.eval = eval
         self.debug = debug
 
+        if not torch.cuda.is_available():
+            self.device = torch.device('cpu')
+        else:
+            assert device in ['cpu', 'cuda']
+            self.device = torch.device(device)
+
         self.dt = 1 / env_cfg['control_freq']
-        sim_dt = self.dt / env_cfg['decimation']
-        sim_substeps = 1
         self.max_episode_length_s = env_cfg['episode_length_s']
         self.period_length_s = env_cfg['period_length_s']
         self.max_episode_length = int(np.ceil(self.max_episode_length_s / self.dt))
@@ -42,22 +49,22 @@ class LocoEnv:
         self.reward_cfg = reward_cfg
         self.reward_scales = reward_cfg['reward_scales']
         self.env_cfg = env_cfg
+        self.delay_action = env_cfg['delay_action']
         self.command_cfg = command_cfg
-
         self.command_type = env_cfg['command_type']
-        assert self.command_type in ['heading', 'ang_vel_yaw']
 
-        self.action_latency = env_cfg['action_latency']
-        assert self.action_latency in [0, 0.02]
+        self._create_scene()
+        if gs.platform != 'macOS':
+            self._set_camera()
+        self.scene.build(n_envs=num_envs)
+        self._init_buffers()
+        self._prepare_reward_function()
+        self._domain_randomization()
 
-        self.num_dof = env_cfg['num_dofs']
-        if not torch.cuda.is_available():
-            self.device = torch.device('cpu')
-        else:
-            assert device in ['cpu', 'cuda']
-            self.device = torch.device(device)
+    def _create_scene(self):
+        sim_dt = self.dt / self.env_cfg['decimation']
+        sim_substeps = 1
 
-        # create scene
         self.scene = gs.Scene(
             sim_options=gs.options.SimOptions(
                 dt=sim_dt,
@@ -79,7 +86,7 @@ class LocoEnv:
                 enable_self_collision=True,
                 enable_joint_limit=True,
             ),
-            show_viewer=show_viewer,
+            show_viewer=not self.headless,
             show_FPS=False,
         )
 
@@ -111,8 +118,9 @@ class LocoEnv:
             ) * self.terrain_cfg['vertical_scale']
         else:
             self.scene.add_entity(
-            gs.morphs.URDF(file='urdf/plane/plane.urdf', fixed=True),
-        )
+                gs.morphs.URDF(file='urdf/plane/plane.urdf', fixed=True),
+            )
+
         self.base_init_pos = torch.tensor(
             self.env_cfg['base_init_pos'], device=self.device
         )
@@ -130,19 +138,6 @@ class LocoEnv:
             ),
             visualize_contact=self.debug,
         )
-
-        if gs.platform != 'macOS':
-            self._set_camera()
-
-        # build
-        self.scene.build(n_envs=num_envs)
-
-        self._init_buffers()
-        self._prepare_reward_function()
-
-        # domain randomization
-        self._randomize_controls()
-        self._randomize_rigids()
 
     def _prepare_reward_function(self):
         # remove zero scales + multiply non-zero ones by dt
@@ -190,13 +185,20 @@ class LocoEnv:
         )
         self.forward_vec[:, 0] = 1.0
 
+        self.state_buf = torch.zeros(
+            (self.num_envs, self.num_states), device=self.device, dtype=gs.tc_float
+        )
         self.obs_buf = torch.zeros(
             (self.num_envs, self.num_obs), device=self.device, dtype=gs.tc_float
         )
         self.obs_noise = torch.zeros(
             (self.num_envs, self.num_obs), device=self.device, dtype=gs.tc_float
         )
-        self._prepare_obs_noise()
+        self.obs_noise[:3] = self.obs_cfg['obs_noise']['ang_vel']
+        self.obs_noise[3:6] = self.obs_cfg['obs_noise']['gravity']
+        self.obs_noise[9:21] = self.obs_cfg['obs_noise']['dof_pos']
+        self.obs_noise[21:33] = self.obs_cfg['obs_noise']['dof_vel']
+
         self.privileged_obs_buf = (
             None
             if self.num_privileged_obs is None
@@ -404,6 +406,174 @@ class LocoEnv:
             self.num_envs, 3, device=self.device, dtype=gs.tc_float,
         )
 
+    def _domain_randomization(self):
+        self._randomize_controls()
+        self._randomize_rigids()
+        self.pos_init_randomization_scale = self.env_cfg['pos_randomization']
+        self.rot_init_randomization_scale = self.env_cfg['rot_randomization']
+        self.dof_pos_init_randomization_scale = self.env_cfg['dof_pos_randomization']
+
+    def reset(self):
+        self.reset_buf[:] = True
+        self.reset_idx(torch.arange(self.num_envs, device=self.device))
+        return None, None
+
+    def step(self, actions):
+        clip_actions = self.env_cfg['clip_actions']
+        self.actions = torch.clip(actions, -clip_actions, clip_actions)
+        exec_actions = self.last_actions if self.delay_action else self.actions
+
+        for _ in range(self.env_cfg['decimation']):
+            self.torques = self._compute_torques(exec_actions)
+            self.robot.control_dofs_force(self.torques, self.motor_dofs)
+            self.scene.step()
+            self.dof_pos[:] = self.robot.get_dofs_position(self.motor_dofs)
+            self.dof_vel[:] = self.robot.get_dofs_velocity(self.motor_dofs)
+
+        self.post_physics_step()
+
+        return (
+            self.obs_buf,
+            self.rew_buf,
+            self.reset_buf,
+            self.extras,
+        )
+
+    def reset_idx(self, envs_idx):
+        if len(envs_idx) == 0:
+            return
+
+        # reset dofs
+        self.dof_pos[envs_idx] = gs_rand_float(
+            -1.0, 1.0, (len(envs_idx), self.num_dof), self.device
+        ) * self.dof_pos_init_randomization_scale + self.default_dof_pos
+        self.dof_vel[envs_idx] = 0.0
+        self.robot.set_dofs_position(
+            position=self.dof_pos[envs_idx],
+            dofs_idx_local=self.motor_dofs,
+            zero_velocity=True,
+            envs_idx=envs_idx,
+        )
+
+        # reset root states - position
+        self.base_pos[envs_idx] = self.base_init_pos
+        self.base_pos[envs_idx, :2] += gs_rand_float(
+            -1.0, 1.0, (len(envs_idx), 2), self.device
+        ) * self.pos_init_randomization_scale
+        self.robot.set_pos(
+            self.base_pos[envs_idx],
+            zero_velocity=False,
+            envs_idx=envs_idx,
+        )
+
+        self.base_quat[envs_idx] = self.base_init_quat.reshape(1, -1)
+        base_euler = gs_rand_float(
+            -1.0, 1.0, (len(envs_idx), 3), self.device
+        ) * self.rot_init_randomization_scale
+        base_euler[:, 2] = 0.0
+        self.base_quat[envs_idx] = gs_quat_mul(
+            gs_euler2quat(base_euler),
+            self.base_quat[envs_idx],
+        )
+        self.robot.set_quat(
+            self.base_quat[envs_idx],
+            zero_velocity=False,
+            envs_idx=envs_idx,
+        )
+
+        self.robot.zero_all_dofs_velocity(envs_idx)
+
+        # update projected gravity
+        inv_base_quat = gs_inv_quat(self.base_quat)
+        self.projected_gravity = gs_transform_by_quat(
+            self.global_gravity, inv_base_quat
+        )
+
+        # reset root states - velocity
+        self.base_lin_vel[envs_idx] = 0.0 # gs_rand_float(-0.5, 0.5, (len(envs_idx), 3), self.device)
+        self.base_lin_vel[envs_idx, 2] = 5.0
+        self.base_ang_vel[envs_idx] = 0.0 # gs_rand_float(-0.5, 0.5, (len(envs_idx), 3), self.device)
+        base_vel = torch.concat(
+            [self.base_lin_vel[envs_idx], self.base_ang_vel[envs_idx]], dim=1
+        )
+        self.robot.set_dofs_velocity(
+            velocity=base_vel, dofs_idx_local=[0, 1, 2, 3, 4, 5], envs_idx=envs_idx
+        )
+
+        # reset buffers
+        self.actions[envs_idx] = 0.0
+        self.last_actions[envs_idx] = 0.0
+        self.last_last_actions[envs_idx] = 0.0
+        self.last_dof_vel[envs_idx] = 0.0
+        self.feet_air_time[envs_idx] = 0.0
+        self.feet_max_height[envs_idx] = 0.0
+        self.episode_length_buf[envs_idx] = 0
+        self.reset_buf[envs_idx] = 1
+
+    def _compute_torques(self, actions):
+        # control_type = 'P'
+        actions_scaled = actions * self.env_cfg['action_scale']
+        torques = (
+            self.batched_p_gains * (actions_scaled + self.default_dof_pos - self.dof_pos + self.motor_offsets)
+            - self.batched_d_gains * self.dof_vel
+        )
+        torques = torch.clip(torques, -self.torque_limits, self.torque_limits)
+        # self.extras["log"]["mean_torque"] = torques.abs().mean().item()
+        # self.extras["log"]["max_torque"] = torques.abs().max().item()
+        return torques * self.motor_strengths
+
+    def _compute_target_dof_pos(self, actions):
+        # control_type = 'P'
+        actions_scaled = actions * self.env_cfg['action_scale']
+        target_dof_pos = actions_scaled + self.default_dof_pos
+        return target_dof_pos
+
+    def post_physics_step(self):
+        self.episode_length_buf += 1
+        self.common_step_counter += 1
+
+        self._update_buffers()
+        self.check_termination()
+        self.compute_reward()
+        self.compute_critic_observation()
+
+        resampling_time_s = self.env_cfg['resampling_time_s']
+        envs_idx = (
+            (self.episode_length_buf % int(resampling_time_s / self.dt) == 0)
+            .nonzero(as_tuple=False)
+            .flatten()
+        )
+        self._resample_commands(envs_idx)
+        self._randomize_rigids(envs_idx)
+        self._randomize_controls(envs_idx)
+
+        # random push
+        push_interval_s = self.env_cfg['push_interval_s']
+        if push_interval_s > 0 and not (self.debug or self.eval):
+            max_push_vel_xy = self.env_cfg['max_push_vel_xy']
+            dofs_vel = self.robot.get_dofs_velocity() # (num_envs, num_dof) [0:3] ~ base_link_vel
+            push_vel = gs_rand_float(-max_push_vel_xy, max_push_vel_xy, (self.num_envs, 2), self.device)
+            push_vel[((self.common_step_counter + self.env_identities) % int(push_interval_s / self.dt) != 0)] = 0
+            dofs_vel[:, :2] += push_vel
+            self.robot.set_dofs_velocity(dofs_vel)
+
+        envs_idx = self.reset_buf.nonzero(as_tuple=False).flatten()
+        self.compute_extras(envs_idx)
+        if self.env_cfg['reset_after_termination']:
+            self.reset_idx(envs_idx)
+        self.compute_observation()
+        self.compute_state()
+
+        if gs.platform != 'macOS':
+            self._render_headless()
+        if not self.headless and self.debug:
+            self._draw_debug_vis()
+
+        self.last_actions[:] = self.actions[:]
+        self.last_last_actions[:] = self.last_actions[:]
+        self.last_dof_vel[:] = self.dof_vel[:]
+        self.last_root_vel[:] = self.robot.get_vel()
+
     def _update_buffers(self):
         
         # update buffers
@@ -439,25 +609,6 @@ class LocoEnv:
             # print(self.height_field[height_field_ids[:, 0], height_field_ids[:, 1]])
             self.terrain_heights = self.height_field[height_field_ids[:, 0], height_field_ids[:, 1]]
 
-    def _compute_torques(self, actions):
-        # control_type = 'P'
-        actions_scaled = actions * self.env_cfg['action_scale']
-        torques = (
-            self.batched_p_gains * (actions_scaled + self.default_dof_pos - self.dof_pos + self.motor_offsets)
-            - self.batched_d_gains * self.dof_vel
-        )
-        torques = torch.clip(torques, -self.torque_limits, self.torque_limits)
-        # self.extras["log"]["mean_torque"] = torques.abs().mean().item()
-        # self.extras["log"]["max_torque"] = torques.abs().max().item()
-        return torques * self.motor_strengths
-
-    def _compute_target_dof_pos(self, actions):
-        # control_type = 'P'
-        actions_scaled = actions * self.env_cfg['action_scale']
-        target_dof_pos = actions_scaled + self.default_dof_pos
-
-        return target_dof_pos
-
     def check_termination(self):
 
         self.terminate_buf = torch.any(
@@ -488,118 +639,18 @@ class LocoEnv:
             self.time_out_buf = self.episode_length_buf > self.max_episode_length
         self.reset_buf = torch.logical_or(self.terminate_buf, self.time_out_buf)
 
-    def compute_reward(self):
-        self.rew_buf[:] = 0.
-        self.extras['rewards'] = {}
-        for i in range(len(self.reward_functions)):
-            name = self.reward_names[i]
-            rew = self.reward_functions[i]() * self.reward_scales[name]
-            self.rew_buf += rew
-            self.episode_sums[name] += rew
-            self.extras['rewards'][name] = torch.mean(rew).item()
-
-    def get_observations(self):
-        return self.obs_buf, self.extras
-
-    def get_privileged_observations(self):
-        return self.privileged_obs_buf
-
-    def post_physics_step(self):
-        self.episode_length_buf += 1
-        self.common_step_counter += 1
-
-        self._update_buffers()
-        self.check_termination()
-        self.compute_reward()
-        self.compute_critic_observation()
-
-        resampling_time_s = self.env_cfg['resampling_time_s']
-        envs_idx = (
-            (self.episode_length_buf % int(resampling_time_s / self.dt) == 0)
-            .nonzero(as_tuple=False)
-            .flatten()
-        )
-        self._resample_commands(envs_idx)
-        self._randomize_rigids(envs_idx)
-        self._randomize_controls(envs_idx)
-        if self.command_type == 'heading':
-            forward = gs_transform_by_quat(self.forward_vec, self.base_quat)
-            heading = torch.atan2(forward[:, 1], forward[:, 0])
-            self.commands[:, 2] = torch.clip(
-                0.5 * wrap_to_pi(self.commands[:, 3] - heading), -1.0, 1.0
-            )
-
-        # random push
-        push_interval_s = self.env_cfg['push_interval_s']
-        if push_interval_s > 0 and not (self.debug or self.eval):
-            max_push_vel_xy = self.env_cfg['max_push_vel_xy']
-            dofs_vel = self.robot.get_dofs_velocity() # (num_envs, num_dof) [0:3] ~ base_link_vel
-            push_vel = gs_rand_float(-max_push_vel_xy, max_push_vel_xy, (self.num_envs, 2), self.device)
-            push_vel[((self.common_step_counter + self.env_identities) % int(push_interval_s / self.dt) != 0)] = 0
-            dofs_vel[:, :2] += push_vel
-            self.robot.set_dofs_velocity(dofs_vel)
-
-        envs_idx = self.reset_buf.nonzero(as_tuple=False).flatten()
-        self.update_extras(envs_idx)
-        self.reset_idx(envs_idx)
-        self.compute_observation()
-
-        if gs.platform != 'macOS':
-            self._render_headless()
-        if not self.headless and self.debug:
-            self._draw_debug_vis()
-
-        self.last_actions[:] = self.actions[:]
-        self.last_last_actions[:] = self.last_actions[:]
-        self.last_dof_vel[:] = self.dof_vel[:]
-        self.last_root_vel[:] = self.robot.get_vel()
-
-    def update_extras(self, reset_envs_idx):
-
-        # fill extras
-        self.extras['episode'] = {}
-        for key in self.episode_sums.keys():
-            mean_episode_sum = torch.mean(self.episode_sums[key][reset_envs_idx]).item()
-            self.extras['episode'][key] = None if math.isnan(mean_episode_sum) else mean_episode_sum
-            self.episode_sums[key][reset_envs_idx] = 0.0
-
-        if self.env_cfg['use_timeout']:
-            self.extras['time_outs'] = self.time_out_buf
-
-    def _prepare_obs_noise(self):
-        self.obs_noise[:3] = self.obs_cfg['obs_noise']['ang_vel']
-        self.obs_noise[3:6] = self.obs_cfg['obs_noise']['gravity']
-        self.obs_noise[9:21] = self.obs_cfg['obs_noise']['dof_pos']
-        self.obs_noise[21:33] = self.obs_cfg['obs_noise']['dof_vel']
-
-    def _compute_observation(self):
-
-        obs_buf = torch.cat(
+    def compute_state(self):
+        self.state_buf = torch.cat(
             [
-                self.base_ang_vel * self.obs_scales['ang_vel'],                     # 3
-                self.projected_gravity,                                             # 3
-                self.commands * self.commands_scale,                                # 3
-                (self.dof_pos - self.default_dof_pos) * self.obs_scales['dof_pos'],
-                self.dof_vel * self.obs_scales['dof_vel'],
-                self.actions,
+                self.base_pos[:, 2:],
+                self.base_euler[:, :2],
+                self.base_lin_vel,
+                self.base_ang_vel,
+                self.dof_pos,
+                self.dof_vel,
             ],
             axis=-1,
         )
-        privileged_obs = torch.cat(
-            [
-                self.base_lin_vel * self.obs_scales['lin_vel'],                     # 3
-                self.base_ang_vel * self.obs_scales['ang_vel'],                     # 3
-                self.projected_gravity,                                             # 3
-                self.commands * self.commands_scale,                                # 3
-                (self.dof_pos - self.default_dof_pos) * self.obs_scales['dof_pos'],
-                self.dof_vel * self.obs_scales['dof_vel'],
-                self.actions,
-                self.last_actions,
-            ],
-            axis=-1,
-        )
-
-        return obs_buf, privileged_obs
 
     def compute_observation(self):
         obs_buf = torch.cat(
@@ -639,6 +690,121 @@ class LocoEnv:
         clip_obs = 100.0
         self.privileged_obs_buf = torch.clip(privileged_obs_buf, -clip_obs, clip_obs)
 
+    def compute_reward(self):
+        self.rew_buf[:] = 0.
+        self.extras['rewards'] = {}
+        for i in range(len(self.reward_functions)):
+            name = self.reward_names[i]
+            rew = self.reward_functions[i]() * self.reward_scales[name]
+            self.rew_buf += rew
+            self.episode_sums[name] += rew
+            self.extras['rewards'][name] = torch.mean(rew).item()
+
+    def compute_extras(self, reset_envs_idx):
+
+        # fill extras
+        self.extras['episode'] = {}
+        for key in self.episode_sums.keys():
+            mean_episode_sum = torch.mean(self.episode_sums[key][reset_envs_idx]).item()
+            self.extras['episode'][key] = None if math.isnan(mean_episode_sum) else mean_episode_sum
+            self.episode_sums[key][reset_envs_idx] = 0.0
+
+        if self.env_cfg['use_timeout']:
+            self.extras['time_outs'] = self.time_out_buf
+
+    def get_state(self):
+        return self.state_buf
+
+    def get_observations(self):
+        return self.obs_buf, self.extras
+
+    def get_privileged_observations(self):
+        return self.privileged_obs_buf
+
+    def set_state(self, states, envs_idx=None):
+        if envs_idx is None:
+            envs_idx = torch.arange(self.num_envs, device=self.device)
+        if len(envs_idx) == 0:
+            return
+
+        z = states[:, 0]
+        pitch_yaw = states[:, 1:3]
+        lin_vel = states[:, 3:6]
+        ang_vel = states[:, 6:9]
+        dof_pos = states[:, 9:21]
+        dof_vel = states[:, 21:]
+
+        # reset dofs
+        self.dof_pos[envs_idx] = dof_pos
+        self.dof_vel[envs_idx] = dof_vel
+        self.robot.set_dofs_position(
+            position=self.dof_pos[envs_idx],
+            dofs_idx_local=self.motor_dofs,
+            zero_velocity=False,
+            envs_idx=envs_idx,
+        )
+        self.robot.set_dofs_velocity(
+            velocity=self.dof_vel[envs_idx],
+            dofs_idx_local=self.motor_dofs,
+            envs_idx=envs_idx,
+        )
+
+        # reset root states - position
+        self.base_pos[envs_idx] = self.base_init_pos
+        self.base_pos[envs_idx, :2] += gs_rand_float(
+            -1.0, 1.0, (len(envs_idx), 2), self.device
+        ) * self.pos_init_randomization_scale
+        self.base_pos[envs_idx, 2] = z
+        self.robot.set_pos(
+            self.base_pos[envs_idx],
+            zero_velocity=False,
+            envs_idx=envs_idx,
+        )
+
+        self.base_quat[envs_idx] = self.base_init_quat.reshape(1, -1)
+        base_euler = torch.zeros(
+            (len(envs_idx), 3),
+            device=self.device,
+            dtype=gs.tc_float,
+        )
+        base_euler[:, :2] = pitch_yaw
+        self.base_quat[envs_idx] = gs_quat_mul(
+            gs_euler2quat(base_euler),
+            self.base_quat[envs_idx],
+        )
+        self.robot.set_quat(
+            self.base_quat[envs_idx],
+            zero_velocity=False,
+            envs_idx=envs_idx
+        )
+
+        self.base_lin_vel[envs_idx] = lin_vel
+        self.base_ang_vel[envs_idx] = gs_transform_by_quat(ang_vel, self.base_quat)
+        base_vel = torch.concat(
+            [self.base_lin_vel[envs_idx], self.base_ang_vel[envs_idx]], dim=1
+        )
+        self.robot.set_dofs_velocity(
+            velocity=base_vel,
+            dofs_idx_local=[0, 1, 2, 3, 4, 5],
+            envs_idx=envs_idx,
+        )
+
+        # update projected gravity
+        inv_base_quat = gs_inv_quat(self.base_quat)
+        self.projected_gravity = gs_transform_by_quat(
+            self.global_gravity, inv_base_quat
+        )
+
+        # reset buffers
+        self.actions[envs_idx] = 0.0
+        self.last_actions[envs_idx] = 0.0
+        self.last_last_actions[envs_idx] = 0.0
+        self.last_dof_vel[envs_idx] = 0.0
+        self.feet_air_time[envs_idx] = 0.0
+        self.feet_max_height[envs_idx] = 0.0
+        self.episode_length_buf[envs_idx] = 0
+        self.reset_buf[envs_idx] = 1
+
     def _resample_commands(self, envs_idx):
         # resample commands
 
@@ -658,102 +824,6 @@ class LocoEnv:
             *self.command_cfg['ang_vel_range'], (len(envs_idx),), self.device
         )
         self.commands[envs_idx, 2] *= torch.abs(self.commands[envs_idx, 2]) > 0.2
-
-    def reset_idx(self, envs_idx):
-        if len(envs_idx) == 0:
-            return
-
-        # reset dofs
-        self.dof_pos[envs_idx] = (
-            self.default_dof_pos
-        )  + gs_rand_float(-0.3, 0.3, (len(envs_idx), self.num_dof), self.device)
-        self.dof_vel[envs_idx] = 0.0
-        self.robot.set_dofs_position(
-            position=self.dof_pos[envs_idx],
-            dofs_idx_local=self.motor_dofs,
-            zero_velocity=True,
-            envs_idx=envs_idx,
-        )
-
-        # reset root states - position
-        self.base_pos[envs_idx] = self.base_init_pos
-        self.base_pos[envs_idx, :2] += gs_rand_float(
-            -1.0, 1.0, (len(envs_idx), 2), self.device
-        )
-        self.base_quat[envs_idx] = self.base_init_quat.reshape(1, -1)
-        base_euler = gs_rand_float(
-            -0.1, 0.1, (len(envs_idx), 3), self.device
-        )
-        base_euler[:, 2] = gs_rand_float(0.0, 3.14, (len(envs_idx),), self.device)
-        self.base_quat[envs_idx] = gs_quat_mul(
-            gs_euler2quat(base_euler),
-            self.base_quat[envs_idx],
-        )
-        self.robot.set_pos(
-            self.base_pos[envs_idx], zero_velocity=False, envs_idx=envs_idx
-        )
-        self.robot.set_quat(
-            self.base_quat[envs_idx], zero_velocity=False, envs_idx=envs_idx
-        )
-        self.robot.zero_all_dofs_velocity(envs_idx)
-
-        # update projected gravity
-        inv_base_quat = gs_inv_quat(self.base_quat)
-        self.projected_gravity = gs_transform_by_quat(
-            self.global_gravity, inv_base_quat
-        )
-
-        # reset root states - velocity
-        self.base_lin_vel[envs_idx] = (
-            0  # gs_rand_float(-0.5, 0.5, (len(envs_idx), 3), self.device)
-        )
-        self.base_ang_vel[envs_idx] = (
-            0.0  # gs_rand_float(-0.5, 0.5, (len(envs_idx), 3), self.device)
-        )
-        base_vel = torch.concat(
-            [self.base_lin_vel[envs_idx], self.base_ang_vel[envs_idx]], dim=1
-        )
-        self.robot.set_dofs_velocity(
-            velocity=base_vel, dofs_idx_local=[0, 1, 2, 3, 4, 5], envs_idx=envs_idx
-        )
-
-        self._resample_commands(envs_idx)
-
-        # reset buffers
-        self.actions[envs_idx] = 0.0
-        self.last_actions[envs_idx] = 0.0
-        self.last_last_actions[envs_idx] = 0.0
-        self.last_dof_vel[envs_idx] = 0.0
-        self.feet_air_time[envs_idx] = 0.0
-        self.feet_max_height[envs_idx] = 0.0
-        self.episode_length_buf[envs_idx] = 0
-        self.reset_buf[envs_idx] = 1
-
-    def reset(self):
-        self.reset_buf[:] = True
-        self.reset_idx(torch.arange(self.num_envs, device=self.device))
-        return None, None
-
-    def step(self, actions):
-        clip_actions = self.env_cfg['clip_actions']
-        self.actions = torch.clip(actions, -clip_actions, clip_actions)
-        exec_actions = self.last_actions if self.action_latency > 0 else self.actions
-
-        for i in range(self.env_cfg['decimation']):
-            self.torques = self._compute_torques(exec_actions)
-            self.robot.control_dofs_force(self.torques, self.motor_dofs)
-            self.scene.step()
-            self.dof_pos[:] = self.robot.get_dofs_position(self.motor_dofs)
-            self.dof_vel[:] = self.robot.get_dofs_velocity(self.motor_dofs)
-
-        self.post_physics_step()
-
-        return (
-            self.obs_buf,
-            self.rew_buf,
-            self.reset_buf,
-            self.extras,
-        )
 
     # ------------ domain randomization----------------
 

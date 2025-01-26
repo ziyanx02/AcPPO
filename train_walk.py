@@ -20,7 +20,7 @@ def get_train_cfg(args):
         'algorithm': {
             'clip_param': 0.2,
             'desired_kl': 0.01,
-            'entropy_coef': 0.01,
+            'entropy_coef': 0.003,
             'gamma': 0.99,
             'lam': 0.95,
             'learning_rate': 0.001,
@@ -61,6 +61,7 @@ def get_cfgs():
         'links_to_keep': ['FL_foot', 'FR_foot', 'RL_foot', 'RR_foot',],
         'num_actions': 12,
         'num_dofs': 12,
+        'num_states': 33, # z, pitch, roll, lin vel, ang vel, dof pos, dof vel,
         # joint/link names
         'default_joint_angles': {  # [rad]
             'FL_hip_joint': 0.0,
@@ -98,12 +99,16 @@ def get_cfgs():
         'PD_stiffness': {'joint': 40.0},
         'PD_damping': {'joint': 2.0},
         # termination
+        'reset_after_termination': True,
         'termination_if_roll_greater_than': 0.4,
         'termination_if_pitch_greater_than': 0.4,
         'termination_if_height_lower_than': 0.0,
         # base pose
         'base_init_pos': [0.0, 0.0, 0.42],
         'base_init_quat': [1.0, 0.0, 0.0, 0.0],
+        'pos_randomization': 0.0,
+        'rot_randomization': 0.0,
+        'dof_pos_randomization': 0.3,
         # random push
         'push_interval_s': -1,
         'max_push_vel_xy': 1.0,
@@ -114,7 +119,7 @@ def get_cfgs():
         'resampling_time_s': 4.0,
         'command_type': 'ang_vel_yaw',  # 'ang_vel_yaw' or 'heading'
         'action_scale': 0.25,
-        'action_latency': 0.02,
+        'delay_action': True,
         'clip_actions': 100.0,
         'control_freq': 50,
         'decimation': 4,
@@ -205,6 +210,7 @@ def main():
         args.vis = True
         args.offline = True
         args.num_envs = 1
+        args.cpu = True
 
     if not torch.cuda.is_available():
         args.cpu = True
@@ -239,6 +245,7 @@ def main():
         show_viewer=args.vis,
         eval=args.eval,
         debug=args.debug,
+        device=device,
     )
 
     runner = OnPolicyRunner(env, train_cfg, log_dir, device=device)

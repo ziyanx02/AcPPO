@@ -28,6 +28,8 @@ class VecEnv(ABC):
     """Number of privileged observations."""
     num_actions: int
     """Number of actions."""
+    num_states: int
+    """Number of states."""
     max_episode_length: int
     """Maximum episode length."""
     privileged_obs_buf: torch.Tensor
