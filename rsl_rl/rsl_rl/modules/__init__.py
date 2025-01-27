@@ -6,5 +6,6 @@
 from .actor_critic import ActorCritic
 from .actor_critic_recurrent import ActorCriticRecurrent
 from .normalizer import EmpiricalNormalization
+from .temporal_distribution import TemporalDistribution
 
 __all__ = ["ActorCritic", "ActorCriticRecurrent"]

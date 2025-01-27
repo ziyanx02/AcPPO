@@ -31,6 +31,8 @@ class VecEnv(ABC):
     num_states: int
     """Number of states."""
     max_episode_length: int
+    """Period length."""
+    period_length: int
     """Maximum episode length."""
     privileged_obs_buf: torch.Tensor
     """Buffer for privileged observations."""
@@ -41,6 +43,8 @@ class VecEnv(ABC):
     reset_buf: torch.Tensor
     """Buffer for resets."""
     episode_length_buf: torch.Tensor  # current episode duration
+    """Buffer for temporal information."""
+    time_buf: torch.Tensor  # current time for each environment
     """Buffer for current episode lengths."""
     extras: dict
     """Extra information (metrics).
@@ -65,11 +69,35 @@ class VecEnv(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def reset(self) -> tuple[torch.Tensor, dict]:
-        """Reset all environment instances.
+    def get_state(self) -> tuple[torch.Tensor, torch.Tensor]:
+        """Return the current states.
 
         Returns:
-            Tuple[torch.Tensor, dict]: Tuple containing the observations and extras.
+            Tuple[torch.Tensor, torch.Tensor]: Tuple containing the states and times.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def set_state(self, states, envs_idx=None) -> None:
+        """Set states.
+
+        Returns:
+            Tuple[torch.Tensor, torch.Tensor]: Tuple containing the states and times.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_init_state_distribution(self, period_length) -> tuple[torch.Tensor, torch.Tensor]:
+        """Get initialization of state distributions.
+
+        Returns:
+            Tuple[torch.Tensor, torch.Tensor]: Tuple containing the mean values and standard deviations.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def reset(self) -> tuple[torch.Tensor, dict]:
+        """Reset all environment instances.
         """
         raise NotImplementedError
 

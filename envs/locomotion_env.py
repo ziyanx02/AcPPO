@@ -714,6 +714,33 @@ class LocoEnv(VecEnv):
 
     def get_state(self):
         return self.state_buf
+    
+    def get_init_state_distribution(self, period_length):
+        state_mean = torch.cat(
+            [
+                self.base_init_pos[2:],
+                gs_quat2euler(self.base_init_quat)[:2],
+                torch.zeros((3,), device=self.device, dtype=gs.tc_float),
+                torch.zeros((3,), device=self.device, dtype=gs.tc_float),
+                self.default_dof_pos,
+                torch.zeros((12,), device=self.device, dtype=gs.tc_float),
+            ],
+            axis=-1,
+        )
+        state_std = torch.cat(
+            [
+                0.05 * torch.ones((1,), device=self.device, dtype=gs.tc_float),
+                0.05 * torch.ones((2,), device=self.device, dtype=gs.tc_float),
+                0.1 * torch.ones((3,), device=self.device, dtype=gs.tc_float),
+                0.1 * torch.ones((3,), device=self.device, dtype=gs.tc_float),
+                0.3 * torch.ones((12,), device=self.device, dtype=gs.tc_float),
+                0.3 * torch.ones((12,), device=self.device, dtype=gs.tc_float),
+            ],
+            axis=-1,
+        )
+        state_mean = state_mean.unsqueeze(0).repeat(period_length, 1)
+        state_std = state_std.unsqueeze(0).repeat(period_length, 1)
+        return state_mean, state_std
 
     def get_observations(self):
         return self.obs_buf, self.extras

@@ -22,16 +22,20 @@ class RolloutStorage:
             self.action_mean = None
             self.action_sigma = None
             self.hidden_states = None
+            self.state = None
+            self.phase = None
 
         def clear(self):
             self.__init__()
 
-    def __init__(self, num_envs, num_transitions_per_env, obs_shape, privileged_obs_shape, actions_shape, device="cpu"):
+    def __init__(self, num_envs, num_transitions_per_env, obs_shape, privileged_obs_shape, actions_shape, states_shape=None, device="cpu"):
         self.device = device
 
         self.obs_shape = obs_shape
         self.privileged_obs_shape = privileged_obs_shape
         self.actions_shape = actions_shape
+        if states_shape is not None:
+            self.states_shape = states_shape
 
         # Core
         self.observations = torch.zeros(num_transitions_per_env, num_envs, *obs_shape, device=self.device)
@@ -43,6 +47,11 @@ class RolloutStorage:
             self.privileged_observations = None
         self.rewards = torch.zeros(num_transitions_per_env, num_envs, 1, device=self.device)
         self.actions = torch.zeros(num_transitions_per_env, num_envs, *actions_shape, device=self.device)
+        if states_shape is not None:
+            self.states = torch.zeros(num_transitions_per_env, num_envs, *states_shape, device=self.device)
+            self.phases = torch.zeros(num_transitions_per_env, num_envs, 1, device=self.device)
+        else:
+            self.states = None
         self.dones = torch.zeros(num_transitions_per_env, num_envs, 1, device=self.device).byte()
 
         # For PPO
@@ -70,6 +79,9 @@ class RolloutStorage:
             self.privileged_observations[self.step].copy_(transition.critic_observations)
         self.actions[self.step].copy_(transition.actions)
         self.rewards[self.step].copy_(transition.rewards.view(-1, 1))
+        if self.states is not None:
+            self.states[self.step].copy_(transition.state)
+            self.phases[self.step].copy_(transition.phase.view(-1, 1))
         self.dones[self.step].copy_(transition.dones.view(-1, 1))
         self.values[self.step].copy_(transition.values)
         self.actions_log_prob[self.step].copy_(transition.actions_log_prob.view(-1, 1))
