@@ -51,7 +51,7 @@ class TDORunner:
         temporal_distribution.init_params(env)
 
         alg_class = eval(self.alg_cfg.pop("class_name"))  # TDO
-        self.alg: TDO = alg_class(actor_critic, temporal_distribution, device=self.device, **self.alg_cfg)
+        self.alg: TDO = alg_class(actor_critic, temporal_distribution, skip_td_update=self.env.skip_temporal_distribution, device=self.device, **self.alg_cfg)
 
         self.num_steps_per_env = self.cfg["num_steps_per_env"]
         self.save_interval = self.cfg["save_interval"]

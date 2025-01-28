@@ -491,7 +491,6 @@ class LocoEnv(VecEnv):
 
         # reset root states - velocity
         self.base_lin_vel[envs_idx] = 0.0 # gs_rand_float(-0.5, 0.5, (len(envs_idx), 3), self.device)
-        self.base_lin_vel[envs_idx, 2] = 5.0
         self.base_ang_vel[envs_idx] = 0.0 # gs_rand_float(-0.5, 0.5, (len(envs_idx), 3), self.device)
         base_vel = torch.concat(
             [self.base_lin_vel[envs_idx], self.base_ang_vel[envs_idx]], dim=1
@@ -806,7 +805,7 @@ class LocoEnv(VecEnv):
         )
 
         self.base_lin_vel[envs_idx] = lin_vel
-        self.base_ang_vel[envs_idx] = gs_transform_by_quat(ang_vel, self.base_quat)
+        self.base_ang_vel[envs_idx] = gs_transform_by_quat(ang_vel, self.base_quat[envs_idx])
         base_vel = torch.concat(
             [self.base_lin_vel[envs_idx], self.base_ang_vel[envs_idx]], dim=1
         )

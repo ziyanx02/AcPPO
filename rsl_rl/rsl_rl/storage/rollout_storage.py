@@ -49,7 +49,7 @@ class RolloutStorage:
         self.actions = torch.zeros(num_transitions_per_env, num_envs, *actions_shape, device=self.device)
         if states_shape is not None:
             self.states = torch.zeros(num_transitions_per_env, num_envs, *states_shape, device=self.device)
-            self.phases = torch.zeros(num_transitions_per_env, num_envs, 1, device=self.device)
+            self.phases = torch.zeros(num_transitions_per_env, num_envs, 1, device=self.device).int()
         else:
             self.states = None
         self.dones = torch.zeros(num_transitions_per_env, num_envs, 1, device=self.device).byte()

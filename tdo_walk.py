@@ -46,7 +46,7 @@ def get_train_cfg(args):
         'save_interval': 100,
         'runner_class_name': 'OnPolicyRunner',
         'num_steps_per_env': 24,
-        'reset_rate': 0.3,
+        'reset_rate': 0.0,
         'seed': 1,
         # "logger": "wandb",
         'empirical_normalization': False,
