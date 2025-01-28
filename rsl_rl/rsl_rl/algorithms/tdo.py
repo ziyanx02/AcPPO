@@ -31,6 +31,7 @@ class TDO:
         use_clipped_value_loss=True,
         schedule="fixed",
         desired_kl=0.01,
+        skip_td_update=False,
         device="cpu",
     ):
         self.device = device
@@ -38,6 +39,7 @@ class TDO:
         self.desired_kl = desired_kl
         self.schedule = schedule
         self.learning_rate = learning_rate
+        self.skip_td_update = skip_td_update
 
         # PPO components
         self.actor_critic = actor_critic
@@ -49,8 +51,8 @@ class TDO:
         # TDO components
         self.temporal_distribution = temporal_distribution
         self.temporal_distribution.to(self.device)
-        self.td_optimizer = optim.Adam(self.temporal_distribution.parameters(), lr=learning_rate)
-        
+        self.td_optimizer = optim.Adam(self.temporal_distribution.parameters(), lr=self.temporal_distribution.learning_rate)
+
         # PPO parameters
         self.clip_param = clip_param
         self.num_learning_epochs = num_learning_epochs
@@ -113,10 +115,7 @@ class TDO:
     def update(self):
         mean_value_loss = 0
         mean_surrogate_loss = 0
-        if self.actor_critic.is_recurrent:
-            generator = self.storage.reccurent_mini_batch_generator(self.num_mini_batches, self.num_learning_epochs)
-        else:
-            generator = self.storage.mini_batch_generator(self.num_mini_batches, self.num_learning_epochs)
+        generator = self.storage.tdo_mini_batch_generator(self.num_mini_batches, self.num_learning_epochs)
         for (
             obs_batch,
             critic_obs_batch,
@@ -127,17 +126,17 @@ class TDO:
             old_actions_log_prob_batch,
             old_mu_batch,
             old_sigma_batch,
-            hid_states_batch,
-            masks_batch,
+            states_batch,
+            phases_batch,
         ) in generator:
-            self.actor_critic.act(obs_batch, masks=masks_batch, hidden_states=hid_states_batch[0])
+            self.actor_critic.act(obs_batch)
             actions_log_prob_batch = self.actor_critic.get_actions_log_prob(actions_batch)
-            value_batch = self.actor_critic.evaluate(
-                critic_obs_batch, masks=masks_batch, hidden_states=hid_states_batch[1]
-            )
+            value_batch = self.actor_critic.evaluate(critic_obs_batch)
             mu_batch = self.actor_critic.action_mean
             sigma_batch = self.actor_critic.action_std
             entropy_batch = self.actor_critic.entropy
+            states_log_prob_batch = self.temporal_distribution.get_states_log_prob(states_batch, phases_batch)
+            states_entropy_batch = self.temporal_distribution.entropy
 
             # KL
             if self.desired_kl is not None and self.schedule == "adaptive":
@@ -189,6 +188,16 @@ class TDO:
 
             mean_value_loss += value_loss.item()
             mean_surrogate_loss += surrogate_loss.item()
+
+            if self.skip_td_update:
+                continue
+
+            # State distribution loss
+            state_loss = -states_log_prob_batch.mean()
+
+            # Return boosting loss
+            returns_batch = returns_batch.reshape(self.temporal_distribution.period_length, -1)
+            phases_batch = phases_batch.reshape(self.temporal_distribution.period_length, -1)
 
         num_updates = self.num_learning_epochs * self.num_mini_batches
         mean_value_loss /= num_updates

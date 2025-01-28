@@ -33,6 +33,7 @@ def get_train_cfg(args):
             'class_name': 'TDO',
         },
         'temporal_distribution': {
+            'learning_rate': 0.001,
             'class_name': 'TemporalDistribution',
         },
         'policy': {
