@@ -571,9 +571,7 @@ class LocoEnv:
     # ------------ update buffers ----------------
 
     def _update_buffers(self):
-        
-        # update buffers
-        # [:] is for non-parallelized scene
+
         self.base_pos[:] = self.robot.get_pos()
         self.base_quat[:] = self.robot.get_quat()
         base_quat_rel = gs_quat_mul(self.base_quat, gs_inv_quat(self.base_init_quat.reshape(1, -1).repeat(self.num_envs, 1)))
