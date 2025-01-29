@@ -29,7 +29,7 @@ class TemporalDistribution(nn.Module):
         self.learning_rate = learning_rate
         activation = get_activation(activation)
         self.mean_params = nn.Parameter(torch.zeros((period_length, num_state)))
-        self.state_std = nn.Parameter(torch.ones((period_length, num_state)))
+        self.std_params = nn.Parameter(torch.ones((period_length, num_state)))
         self.value_mean = torch.zeros((period_length,))
         self.value_std = torch.ones((period_length,))
 
@@ -58,26 +58,10 @@ class TemporalDistribution(nn.Module):
         return self.distribution.sample()
 
     def get_states_log_prob(self, states, times):
-        import time
-        start = time.time()
-        for i in range(self.period_length):
-            state = states[times[:, 0] == i]
-            self.distribution = Normal(self.mean_params[i], self.std_params[i])
-            log_prob = self.distribution.log_prob(state)
-            print(log_prob.shape)
-        end = time.time()
-        print(end-start)
-        exit()
+        if len(times.shape) == 2:
+            times = times.squeeze(1)
         self.distribution = Normal(self.mean_params[times], self.std_params[times])
         return self.distribution.log_prob(states).sum(dim=-1)
-
-    def act_inference(self, observations):
-        actions_mean = self.actor(observations)
-        return actions_mean
-
-    def evaluate(self, critic_observations, **kwargs):
-        value = self.critic(critic_observations)
-        return value
 
 
 def get_activation(act_name):

@@ -131,7 +131,6 @@ class TDO:
         ) in generator:
             self.actor_critic.act(obs_batch)
             actions_log_prob_batch = self.actor_critic.get_actions_log_prob(actions_batch)
-            exit()
             value_batch = self.actor_critic.evaluate(critic_obs_batch)
             mu_batch = self.actor_critic.action_mean
             sigma_batch = self.actor_critic.action_std

@@ -80,9 +80,12 @@ class VecEnv(ABC):
     @abstractmethod
     def set_state(self, states, envs_idx=None) -> None:
         """Set states.
+        """
+        raise NotImplementedError
 
-        Returns:
-            Tuple[torch.Tensor, torch.Tensor]: Tuple containing the states and times.
+    @abstractmethod
+    def resample_commands(self, envs_idx) -> None:
+        """Resample commands.
         """
         raise NotImplementedError
 

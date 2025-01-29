@@ -15,6 +15,8 @@ class TimeWrapper:
             print(f"Warning: num_envs ({self.env.num_envs}) is not divisible by period_length ({self.period_length}).")
             print("Skip temporal distribution learning")
             self.skip_temporal_distribution = True
+        else:
+            self.skip_temporal_distribution = False
 
         self.device = env.device
         self.num_envs = env.num_envs

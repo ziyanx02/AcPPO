@@ -492,7 +492,7 @@ class LocoEnv:
             velocity=base_vel, dofs_idx_local=[0, 1, 2, 3, 4, 5], envs_idx=envs_idx
         )
 
-        self._resample_commands(envs_idx)
+        self.resample_commands(envs_idx)
 
         # reset buffers
         self.actions[envs_idx] = 0.0
@@ -537,7 +537,7 @@ class LocoEnv:
             .nonzero(as_tuple=False)
             .flatten()
         )
-        self._resample_commands(envs_idx)
+        self.resample_commands(envs_idx)
         self._randomize_rigids(envs_idx)
         self._randomize_controls(envs_idx)
 
@@ -826,7 +826,7 @@ class LocoEnv:
         self.episode_length_buf[envs_idx] = 0
         self.reset_buf[envs_idx] = 1
 
-    def _resample_commands(self, envs_idx):
+    def resample_commands(self, envs_idx):
         # resample commands
 
         # lin_vel
