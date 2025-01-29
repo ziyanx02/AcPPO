@@ -5,9 +5,8 @@ import math
 import genesis as gs
 from genesis.engine.solvers.rigid.rigid_solver_decomp import RigidSolver
 from utils import *
-from rsl_rl.env import VecEnv
 
-class LocoEnv(VecEnv):
+class LocoEnv:
     def __init__(
         self,
         num_envs,
@@ -51,7 +50,6 @@ class LocoEnv(VecEnv):
         self.env_cfg = env_cfg
         self.delay_action = env_cfg['delay_action']
         self.command_cfg = command_cfg
-        self.command_type = env_cfg['command_type']
 
         self._create_scene()
         if gs.platform != 'macOS':
@@ -406,13 +404,6 @@ class LocoEnv(VecEnv):
             self.num_envs, 3, device=self.device, dtype=gs.tc_float,
         )
 
-    def _domain_randomization(self):
-        self._randomize_controls()
-        self._randomize_rigids()
-        self.pos_init_randomization_scale = self.env_cfg['pos_randomization']
-        self.rot_init_randomization_scale = self.env_cfg['rot_randomization']
-        self.dof_pos_init_randomization_scale = self.env_cfg['dof_pos_randomization']
-
     def reset(self):
         self.reset_buf[:] = True
         self.reset_idx(torch.arange(self.num_envs, device=self.device))
@@ -470,7 +461,9 @@ class LocoEnv(VecEnv):
         base_euler = gs_rand_float(
             -1.0, 1.0, (len(envs_idx), 3), self.device
         ) * self.rot_init_randomization_scale
-        base_euler[:, 2] = 0.0
+        base_euler[:, 2] = gs_rand_float(
+            0.0, 3.14, (len(envs_idx),), self.device
+        ) * 0
         self.base_quat[envs_idx] = gs_quat_mul(
             gs_euler2quat(base_euler),
             self.base_quat[envs_idx],
@@ -498,6 +491,8 @@ class LocoEnv(VecEnv):
         self.robot.set_dofs_velocity(
             velocity=base_vel, dofs_idx_local=[0, 1, 2, 3, 4, 5], envs_idx=envs_idx
         )
+
+        self._resample_commands(envs_idx)
 
         # reset buffers
         self.actions[envs_idx] = 0.0
@@ -557,7 +552,7 @@ class LocoEnv(VecEnv):
             self.robot.set_dofs_velocity(dofs_vel)
 
         envs_idx = self.reset_buf.nonzero(as_tuple=False).flatten()
-        self.compute_extras(envs_idx)
+        self.update_extras(envs_idx)
         if self.env_cfg['reset_after_termination']:
             self.reset_idx(envs_idx)
         self.compute_observation()
@@ -572,6 +567,8 @@ class LocoEnv(VecEnv):
         self.last_last_actions[:] = self.last_actions[:]
         self.last_dof_vel[:] = self.dof_vel[:]
         self.last_root_vel[:] = self.robot.get_vel()
+
+    # ------------ update buffers ----------------
 
     def _update_buffers(self):
         
@@ -699,7 +696,7 @@ class LocoEnv(VecEnv):
             self.episode_sums[name] += rew
             self.extras['rewards'][name] = torch.mean(rew).item()
 
-    def compute_extras(self, reset_envs_idx):
+    def update_extras(self, reset_envs_idx):
 
         # fill extras
         self.extras['episode'] = {}
@@ -851,7 +848,14 @@ class LocoEnv(VecEnv):
         )
         self.commands[envs_idx, 2] *= torch.abs(self.commands[envs_idx, 2]) > 0.2
 
-    # ------------ domain randomization----------------
+    # ------------ domain randomization ----------------
+
+    def _domain_randomization(self):
+        self._randomize_controls()
+        self._randomize_rigids()
+        self.pos_init_randomization_scale = self.env_cfg['pos_randomization']
+        self.rot_init_randomization_scale = self.env_cfg['rot_randomization']
+        self.dof_pos_init_randomization_scale = self.env_cfg['dof_pos_randomization']
 
     def _randomize_rigids(self, env_ids=None):
 
@@ -948,6 +952,8 @@ class LocoEnv(VecEnv):
         kd_scales = torch.rand((len(env_ids), self.num_dof), dtype=torch.float, device=self.device) \
                     * (max_scale - min_scale) + min_scale
         self.batched_d_gains[env_ids, :] = kd_scales * self.d_gains[None, :]
+
+    # ------------ visualization ----------------
 
     def _draw_debug_vis(self):
         ''' Draws visualizations for dubugging (slows down simulation a lot).

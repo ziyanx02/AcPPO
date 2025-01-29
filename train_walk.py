@@ -107,7 +107,7 @@ def get_cfgs():
         'base_init_pos': [0.0, 0.0, 0.42],
         'base_init_quat': [1.0, 0.0, 0.0, 0.0],
         'pos_randomization': 0.0,
-        'rot_randomization': 0.0,
+        'rot_randomization': 0.1,
         'dof_pos_randomization': 0.3,
         # random push
         'push_interval_s': -1,
