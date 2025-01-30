@@ -8,7 +8,7 @@ import yaml
 import numpy as np
 import torch
 import wandb
-from envs.reward_wrapper import Go2
+from envs.reward_wrapper import Walk
 from envs.time_wrapper import TimeWrapper
 from rsl_rl.runners import TDORunner
 
@@ -17,7 +17,7 @@ import genesis as gs
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-e', '--exp_name', type=str, default='Go2')
+    parser.add_argument('-e', '--exp_name', type=str, default='Go2_walk')
     parser.add_argument('-v', '--vis', action='store_true', default=False)
     parser.add_argument('-c', '--cpu', action='store_true', default=False)
     parser.add_argument('-B', '--num_envs', type=int, default=10000)
@@ -67,7 +67,7 @@ def main():
         shutil.rmtree(log_dir)
     os.makedirs(log_dir, exist_ok=True)
 
-    env = Go2(
+    env = Walk(
         num_envs=args.num_envs,
         env_cfg=env_cfg,
         show_viewer=args.vis,

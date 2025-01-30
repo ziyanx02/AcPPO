@@ -4,7 +4,7 @@ import torch
 import genesis as gs
 from envs.locomotion_env import *
 
-class Go2(LocoEnv):
+class Walk(LocoEnv):
     
     def _reward_tracking_lin_vel(self):
         # Tracking of linear velocity commands (xy axes)
@@ -103,74 +103,7 @@ class Go2(LocoEnv):
         # Terminal reward / penalty
         return self.terminate_buf.float()
 
-class Backflip(Go2):
-
-    def reset_idx(self, envs_idx):
-        if len(envs_idx) == 0:
-            return
-
-        # reset dofs
-        self.dof_pos[envs_idx] = self.default_dof_pos
-        self.dof_vel[envs_idx] = 0.0
-        self.robot.set_dofs_position(
-            position=self.dof_pos[envs_idx],
-            dofs_idx_local=self.motor_dofs,
-            zero_velocity=True,
-            envs_idx=envs_idx,
-        )
-
-        # reset root states - position
-        self.base_pos[envs_idx] = self.base_init_pos
-        self.base_pos[envs_idx, 2] = 0.32
-        self.base_quat[envs_idx] = self.base_init_quat.reshape(1, -1)
-        self.robot.set_pos(
-            self.base_pos[envs_idx], zero_velocity=False, envs_idx=envs_idx
-        )
-        self.robot.set_quat(
-            self.base_quat[envs_idx], zero_velocity=False, envs_idx=envs_idx
-        )
-        self.robot.zero_all_dofs_velocity(envs_idx)
-
-        # update projected gravity
-        inv_base_quat = gs_inv_quat(self.base_quat)
-        self.projected_gravity = gs_transform_by_quat(
-            self.global_gravity, inv_base_quat
-        )
-
-        # reset root states - velocity
-        self.base_lin_vel[envs_idx] = 0
-        self.base_ang_vel[envs_idx] = 0
-        base_vel = torch.concat(
-            [self.base_lin_vel[envs_idx], self.base_ang_vel[envs_idx]], dim=1
-        )
-        self.robot.set_dofs_velocity(
-            velocity=base_vel, dofs_idx_local=[0, 1, 2, 3, 4, 5], envs_idx=envs_idx
-        )
-
-        self._resample_commands(envs_idx)
-
-        # reset buffers
-        self.obs_history_buf[envs_idx] = 0.0
-        self.actions[envs_idx] = 0.0
-        self.last_actions[envs_idx] = 0.0
-        self.last_last_actions[envs_idx] = 0.0
-        self.last_dof_vel[envs_idx] = 0.0
-        self.feet_air_time[envs_idx] = 0.0
-        self.feet_max_height[envs_idx] = 0.0
-        self.episode_length_buf[envs_idx] = 0
-        self.reset_buf[envs_idx] = 1
-
-        # fill extras
-        self.extras['episode'] = {}
-        for key in self.episode_sums.keys():
-            self.extras['episode']['rew_' + key] = (
-                torch.mean(self.episode_sums[key][envs_idx]).item()
-                / self.max_episode_length_s
-            )
-            self.episode_sums[key][envs_idx] = 0.0
-        # send timeout info to the algorithm
-        if self.env_cfg['send_timeouts']:
-            self.extras['time_outs'] = self.time_out_buf
+class Backflip(Walk):
 
     def _prepare_obs_noise(self):
         self.obs_noise[:3] = self.obs_cfg['obs_noise']['ang_vel']
@@ -208,6 +141,9 @@ class Backflip(Go2):
         return obs_buf, privileged_obs_buf
 
     def check_termination(self):
+        self.terminate_buf = (
+            self.episode_length_buf > self.max_episode_length
+        )
         self.reset_buf = (
             self.episode_length_buf > self.max_episode_length
         )

@@ -188,10 +188,7 @@ class LocoEnv:
         self.obs_noise = torch.zeros(
             (self.num_envs, self.num_obs), device=self.device, dtype=gs.tc_float
         )
-        self.obs_noise[:3] = self.obs_cfg['obs_noise']['ang_vel']
-        self.obs_noise[3:6] = self.obs_cfg['obs_noise']['gravity']
-        self.obs_noise[9:21] = self.obs_cfg['obs_noise']['dof_pos']
-        self.obs_noise[21:33] = self.obs_cfg['obs_noise']['dof_vel']
+        self._prepare_obs_noise()
 
         self.privileged_obs_buf = (
             None
@@ -366,28 +363,7 @@ class LocoEnv:
             [default_joint_angles[name] for name in self.env_cfg['dof_names']],
             device=self.device,
         )
-        self.init_state_mean = torch.cat(
-            [
-                self.base_init_pos[2:],
-                torch.zeros((2,), device=self.device, dtype=gs.tc_float),
-                torch.zeros((3,), device=self.device, dtype=gs.tc_float),
-                torch.zeros((3,), device=self.device, dtype=gs.tc_float),
-                self.default_dof_pos,
-                torch.zeros((12,), device=self.device, dtype=gs.tc_float),
-            ],
-            axis=-1,
-        )
-        self.init_state_std = torch.cat(
-            [
-                0.0 * torch.ones((1,), device=self.device, dtype=gs.tc_float),
-                0.1 * torch.ones((2,), device=self.device, dtype=gs.tc_float),
-                0.0 * torch.ones((3,), device=self.device, dtype=gs.tc_float),
-                0.0 * torch.ones((3,), device=self.device, dtype=gs.tc_float),
-                0.3 * torch.ones((12,), device=self.device, dtype=gs.tc_float),
-                0.0 * torch.ones((12,), device=self.device, dtype=gs.tc_float),
-            ],
-            axis=-1,
-        )
+        self._prepare_init_state()
 
         self.dof_pos_limits = torch.stack(self.robot.get_dofs_limit(self.motor_dofs), dim=1)
         self.torque_limits = self.robot.get_dofs_force_range(self.motor_dofs)[1]
@@ -422,6 +398,36 @@ class LocoEnv:
             self.num_envs, 3, device=self.device, dtype=gs.tc_float,
         )
 
+    def _prepare_obs_noise(self):
+        self.obs_noise[:3] = self.obs_cfg['obs_noise']['ang_vel']
+        self.obs_noise[3:6] = self.obs_cfg['obs_noise']['gravity']
+        self.obs_noise[9:21] = self.obs_cfg['obs_noise']['dof_pos']
+        self.obs_noise[21:33] = self.obs_cfg['obs_noise']['dof_vel']
+
+    def _prepare_init_state(self):
+        self.init_state_mean = torch.cat(
+            [
+                self.base_init_pos[2:],
+                torch.zeros((2,), device=self.device, dtype=gs.tc_float),
+                torch.zeros((3,), device=self.device, dtype=gs.tc_float),
+                torch.zeros((3,), device=self.device, dtype=gs.tc_float),
+                self.default_dof_pos,
+                torch.zeros((12,), device=self.device, dtype=gs.tc_float),
+            ],
+            axis=-1,
+        )
+        self.init_state_std = torch.cat(
+            [
+                0.0 * torch.ones((1,), device=self.device, dtype=gs.tc_float),
+                0.1 * torch.ones((2,), device=self.device, dtype=gs.tc_float),
+                0.0 * torch.ones((3,), device=self.device, dtype=gs.tc_float),
+                0.0 * torch.ones((3,), device=self.device, dtype=gs.tc_float),
+                0.3 * torch.ones((12,), device=self.device, dtype=gs.tc_float),
+                0.0 * torch.ones((12,), device=self.device, dtype=gs.tc_float),
+            ],
+            axis=-1,
+        )
+
     def reset(self):
         self.reset_buf[:] = True
         self.reset_idx(torch.arange(self.num_envs, device=self.device))
@@ -454,7 +460,7 @@ class LocoEnv:
         init_states = self.init_state_mean + gs_rand_float(
             -1.0, 1.0, (len(envs_idx), self.num_states), self.device
         ) * self.init_state_std
-        self.set_state(init_states, envs_idx)
+        self.set_state(init_states, 0, envs_idx)
         self.resample_commands(envs_idx)
 
     def _compute_torques(self, actions):
@@ -695,12 +701,16 @@ class LocoEnv:
     def get_privileged_observations(self):
         return self.privileged_obs_buf
 
-    def set_state(self, states, envs_idx=None):
+    def set_state(self, states, times, envs_idx=None):
         if envs_idx is None:
             envs_idx = torch.arange(self.num_envs, device=self.device)
         if len(envs_idx) == 0:
             return
 
+        self.episode_length_buf[envs_idx] = times
+        self._set_state(states, envs_idx)
+
+    def _set_state(self, states, envs_idx):
         z = states[:, 0]
         pitch_yaw = states[:, 1:3]
         lin_vel = states[:, 3:6]

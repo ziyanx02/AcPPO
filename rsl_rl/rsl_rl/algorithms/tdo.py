@@ -196,12 +196,17 @@ class TDO:
             states_log_prob_batch = self.temporal_distribution.get_states_log_prob(states_batch, phases_batch)
             states_entropy_batch = self.temporal_distribution.entropy
 
-            # State distribution loss
-            state_loss = -states_log_prob_batch.mean()
+            # Transition loss
+            transition_loss = -states_log_prob_batch.mean()
 
             # Return boosting loss
             returns_batch = returns_batch.reshape(self.temporal_distribution.period_length, -1)
             phases_batch = phases_batch.reshape(self.temporal_distribution.period_length, -1)
+
+            # self.td_optimizer.zero_grad()
+            # transition_loss.backward()
+            # nn.utils.clip_grad_norm_(self.temporal_distribution.parameters(), self.max_grad_norm)
+            # self.td_optimizer.step()
 
         num_updates = self.num_learning_epochs * self.num_mini_batches
         mean_value_loss /= num_updates
