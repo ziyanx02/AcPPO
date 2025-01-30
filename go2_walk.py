@@ -1,0 +1,111 @@
+import argparse
+import copy
+import os
+import pickle
+import shutil
+import yaml
+
+import numpy as np
+import torch
+import wandb
+from envs.reward_wrapper import Go2
+from envs.time_wrapper import TimeWrapper
+from rsl_rl.runners import TDORunner
+
+import genesis as gs
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-e', '--exp_name', type=str, default='Go2')
+    parser.add_argument('-v', '--vis', action='store_true', default=False)
+    parser.add_argument('-c', '--cpu', action='store_true', default=False)
+    parser.add_argument('-B', '--num_envs', type=int, default=10000)
+    parser.add_argument('--max_iterations', type=int, default=1000)
+    parser.add_argument('--resume', type=str, default=None)
+    parser.add_argument('-o', '--offline', action='store_true', default=False)
+    parser.add_argument('-p', '--ppo', action='store_true', default=False)
+    parser.add_argument('-t', '--time', action='store_true', default=False)
+
+    parser.add_argument('--eval', action='store_true', default=False)
+    parser.add_argument('--debug', action='store_true', default=False)
+    parser.add_argument('--ckpt', type=int, default=1000)
+    args = parser.parse_args()
+
+    if args.debug:
+        args.vis = True
+        args.offline = True
+        args.num_envs = 1
+        args.cpu = True
+
+    if not torch.cuda.is_available():
+        args.cpu = True
+
+    gs.init(
+        backend=gs.cpu if args.cpu else gs.gpu,
+        logging_level='warning',
+    )
+    device = 'cpu' if args.cpu else 'cuda'
+
+    log_dir = f'logs/{args.exp_name}'
+    with open('./cfgs/go2_walk.yaml', 'r') as file:
+        cfg = yaml.safe_load(file)
+    train_cfg = cfg['learning']
+    env_cfg = cfg['environment']
+
+    if args.debug:
+        train_cfg['record_interval'] = -1
+    if not args.offline:
+        train_cfg['logger'] = 'wandb'
+        train_cfg['exp_name'] = args.exp_name
+        train_cfg['print_infos'] = False
+    if args.ppo:
+        train_cfg['PPO'] = True
+        env_cfg['PPO'] = True
+
+    if os.path.exists(log_dir):
+        shutil.rmtree(log_dir)
+    os.makedirs(log_dir, exist_ok=True)
+
+    env = Go2(
+        num_envs=args.num_envs,
+        env_cfg=env_cfg,
+        show_viewer=args.vis,
+        eval=args.eval,
+        debug=args.debug,
+        device=device,
+    )
+
+    if not args.ppo:
+        env = TimeWrapper(env, int(env_cfg['period_length_s'] * env_cfg['control_freq']), reset_each_period=False, observe_time=args.time)
+
+    runner = TDORunner(env, train_cfg, log_dir, device=device)
+
+    if args.resume is not None:
+        resume_dir = f'logs/{args.resume}'
+        resume_path = os.path.join(resume_dir, f'model_{args.ckpt}.pt')
+        print('==> resume training from', resume_path)
+        runner.load(resume_path)
+
+    # wandb.login(key='1d5fe5b941feff91e5dbb834d4f687fdbec8e516')
+    # wandb.init(project='genesis', name=args.exp_name, entity='ziyanx02', dir=log_dir, mode='offline' if args.offline else 'online', config=train_cfg)
+
+    pickle.dump(
+        cfg,
+        open(f'{log_dir}/cfgs.pkl', 'wb'),
+    )
+
+    runner.learn(num_learning_iterations=args.max_iterations, init_at_random_ep_len=True)
+
+
+if __name__ == '__main__':
+    main()
+
+
+'''
+# training
+python train_backflip.py -e EXP_NAME
+
+# evaluation
+python eval_backflip.py -e EXP_NAME --ckpt NUM_CKPT
+'''

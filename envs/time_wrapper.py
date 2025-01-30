@@ -6,23 +6,18 @@ import genesis as gs
 from rsl_rl.env import VecEnv
 
 class TimeWrapper:
-    def __init__(self, env: VecEnv, period_length: int, reset_each_period: bool):
+    def __init__(self, env: VecEnv, period_length: int, reset_each_period: bool, observe_time: bool):
         self.env = env
         self.period_length = period_length
         self.reset_each_period = reset_each_period
-
-        if self.env.num_envs % self.period_length != 0:
-            print(f"Warning: num_envs ({self.env.num_envs}) is not divisible by period_length ({self.period_length}).")
-            print("Skip temporal distribution learning")
-            self.skip_temporal_distribution = True
-        else:
-            self.skip_temporal_distribution = False
+        self.observe_time = observe_time
 
         self.device = env.device
         self.num_envs = env.num_envs
         self.num_states = env.num_states
-        self.num_obs = env.num_obs + 6
-        self.num_privileged_obs = env.num_privileged_obs + 6
+        if self.observe_time:
+            self.num_obs = env.num_obs + 6
+            self.num_privileged_obs = env.num_privileged_obs + 6
 
         self.time_buf = torch.zeros(
             (self.num_envs), device=self.device, dtype=gs.tc_int
@@ -34,32 +29,34 @@ class TimeWrapper:
     def get_observations(self):
         obs, info = self.env.get_observations()
         time_obs = self._get_time_obs()
-        obs = torch.cat(
-            [
-                obs,
-                time_obs,
-            ],
-            dim=-1
-        )
-        info["critic_obs"] = torch.cat(
-            [
-                info["observations"]["critic"],
-                time_obs,
-            ],
-            dim=-1
-        )
+        if self.observe_time:
+            obs = torch.cat(
+                [
+                    obs,
+                    time_obs,
+                ],
+                dim=-1
+            )
+            info["critic_obs"] = torch.cat(
+                [
+                    info["observations"]["critic"],
+                    time_obs,
+                ],
+                dim=-1
+            )
         return obs, info
 
     def get_privileged_observations(self):
         privileged_obs = self.env.get_privileged_observations()
-        time_obs = self._get_time_obs()
-        privileged_obs = torch.cat(
-            [
-                privileged_obs,
-                time_obs,
-            ],
-            dim=-1
-        )
+        if self.observe_time:
+            time_obs = self._get_time_obs()
+            privileged_obs = torch.cat(
+                [
+                    privileged_obs,
+                    time_obs,
+                ],
+                dim=-1
+            )
         return privileged_obs
 
     def step(self, action):
@@ -68,26 +65,28 @@ class TimeWrapper:
         if self.reset_each_period:
             done = torch.logical_or(done, self.time_buf == 0)
 
-        time_obs = self._get_time_obs()
-        obs = torch.cat(
-            [
-                obs,
-                time_obs,
-            ],
-            dim=-1
-        )
-        info["critic_obs"] = torch.cat(
-            [
-                info["observations"]["critic"],
-                time_obs,
-            ],
-            dim=-1
-        )
+        if self.observe_time:
+            time_obs = self._get_time_obs()
+            obs = torch.cat(
+                [
+                    obs,
+                    time_obs,
+                ],
+                dim=-1
+            )
+            info["critic_obs"] = torch.cat(
+                [
+                    info["observations"]["critic"],
+                    time_obs,
+                ],
+                dim=-1
+            )
 
         return obs, reward, done, info
 
     def get_state(self):
-        return self.env.get_state(), self.time_buf
+        state, _ = self.env.get_state()
+        return state, self.time_buf
 
     def get_time(self, env_idx):
         return self.time_buf[env_idx]

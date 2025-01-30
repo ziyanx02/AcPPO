@@ -25,6 +25,7 @@ class TDORunner:
 
     def __init__(self, env: VecEnv, train_cfg, log_dir=None, device="cpu"):
         self.cfg = train_cfg
+        self.is_PPO = train_cfg["PPO"]
         self.alg_cfg = train_cfg["algorithm"]
         self.policy_cfg = train_cfg["policy"]
         self.temporal_distribution_cfg = train_cfg["temporal_distribution"]
@@ -51,7 +52,7 @@ class TDORunner:
         temporal_distribution.init_params(env)
 
         alg_class = eval(self.alg_cfg.pop("class_name"))  # TDO
-        self.alg: TDO = alg_class(actor_critic, temporal_distribution, skip_td_update=self.env.skip_temporal_distribution, device=self.device, **self.alg_cfg)
+        self.alg: TDO = alg_class(actor_critic, temporal_distribution, is_PPO=self.is_PPO, device=self.device, **self.alg_cfg)
 
         self.num_steps_per_env = self.cfg["num_steps_per_env"]
         self.save_interval = self.cfg["save_interval"]
@@ -107,12 +108,17 @@ class TDORunner:
                 raise AssertionError("logger type not found")
 
         if init_at_random_ep_len:
-            self.env.time_buf = torch.randint_like(
-                self.env.time_buf, high=int(self.env.period_length)
+            self.env.episode_length_buf = torch.randint_like(
+                self.env.episode_length_buf, high=int(self.env.period_length)
             )
+            if not self.is_PPO:
+                self.env.time_buf = torch.randint_like(
+                    self.env.time_buf, high=int(self.env.period_length)
+                )
         self.env.reset()
-        init_state = self.alg.sample(self.env.time_buf)
-        self.env.set_state(init_state)
+        if not self.is_PPO:
+            init_state = self.alg.sample(self.env.time_buf)
+            self.env.set_state(init_state)
         obs, extras = self.env.get_observations()
         critic_obs = extras.get("critic_obs", obs)
         obs, critic_obs = obs.to(self.device), critic_obs.to(self.device)
@@ -130,24 +136,33 @@ class TDORunner:
             start = time.time()
             # Rollout
             with torch.inference_mode():
-                reset_idx = torch.bernoulli(torch.tensor([self.reset_rate] * self.env.num_envs).to(self.device)).int()
-                reset_idx = reset_idx.nonzero(as_tuple=False).flatten()
-                reset_states = self.alg.sample(self.env.time_buf[reset_idx])
-                self.env.set_state(reset_states, reset_idx)
-                self.env.resample_commands(reset_idx)
+                if not self.is_PPO:
+                    reset_idx = torch.bernoulli(torch.tensor([self.reset_rate] * self.env.num_envs).to(self.device)).int()
+                    reset_idx = reset_idx.nonzero(as_tuple=False).flatten()
+                    reset_states = self.alg.sample(self.env.time_buf[reset_idx])
+                    self.env.set_state(reset_states, reset_idx)
+                    self.env.resample_commands(reset_idx)
                 for i in range(self.num_steps_per_env):
                     actions = self.alg.act(obs, critic_obs)
                     obs, rewards, dones, infos = self.env.step(actions.to(self.env.device))
                     state, phase = self.env.get_state()
+                    if not self.is_PPO:
+                        if i == self.num_steps_per_env:
+                            reset_after_roll_out = torch.bernoulli(torch.tensor([self.reset_rate] * self.env.num_envs).to(self.device)).int()
+                            dones |= reset_after_roll_out
+                            infos["time_outs"] |= reset_after_roll_out
+                        reset_idx = dones.nonzero(as_tuple=False).flatten()
+                        reset_states = self.alg.sample(self.env.time_buf[reset_idx])
+                        self.env.set_state(reset_states, reset_idx)
+                        self.env.resample_commands(reset_idx)
+                        self.env.compute_observation()
+                        obs, _ = self.env.get_observations()
                     # move to the right device
                     obs, rewards, dones = (
                         obs.to(self.device),
                         rewards.to(self.device),
                         dones.to(self.device),
                     )
-                    reset_states = self.alg.sample(self.env.time_buf[dones])
-                    self.env.set_state(reset_states, dones.nonzero(as_tuple=False).flatten())
-                    obs, infos = self.env.get_observations()
                     # perform normalization
                     obs = self.obs_normalizer(obs)
                     if "critic_obs" in infos:

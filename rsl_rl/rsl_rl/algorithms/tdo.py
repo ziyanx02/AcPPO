@@ -31,7 +31,7 @@ class TDO:
         use_clipped_value_loss=True,
         schedule="fixed",
         desired_kl=0.01,
-        skip_td_update=False,
+        is_PPO=False,
         device="cpu",
     ):
         self.device = device
@@ -39,7 +39,7 @@ class TDO:
         self.desired_kl = desired_kl
         self.schedule = schedule
         self.learning_rate = learning_rate
-        self.skip_td_update = skip_td_update
+        self.is_PPO = is_PPO
 
         # PPO components
         self.actor_critic = actor_critic
@@ -115,7 +115,10 @@ class TDO:
     def update(self):
         mean_value_loss = 0
         mean_surrogate_loss = 0
-        generator = self.storage.tdo_mini_batch_generator(self.num_mini_batches, self.num_learning_epochs)
+        if self.is_PPO:
+            generator = self.storage.mini_batch_generator(self.num_mini_batches, self.num_learning_epochs)
+        else:
+            generator = self.storage.tdo_mini_batch_generator(self.num_mini_batches, self.num_learning_epochs)
         for (
             obs_batch,
             critic_obs_batch,
@@ -187,7 +190,7 @@ class TDO:
             mean_value_loss += value_loss.item()
             mean_surrogate_loss += surrogate_loss.item()
 
-            if self.skip_td_update:
+            if self.is_PPO:
                 continue
 
             states_log_prob_batch = self.temporal_distribution.get_states_log_prob(states_batch, phases_batch)

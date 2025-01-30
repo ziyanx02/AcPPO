@@ -53,14 +53,18 @@ class TemporalDistribution(nn.Module):
     def entropy(self):
         return self.distribution.entropy().sum(dim=-1)
 
-    def sample(self, times):
+    def update_distribution(self, times):
+        self.std_params.data.clamp_(min=0.01)
         self.distribution = Normal(self.mean_params[times], self.std_params[times])
+
+    def sample(self, times):
+        self.update_distribution(times)
         return self.distribution.sample()
 
     def get_states_log_prob(self, states, times):
         if len(times.shape) == 2:
             times = times.squeeze(1)
-        self.distribution = Normal(self.mean_params[times], self.std_params[times])
+        self.update_distribution(times)
         return self.distribution.log_prob(states).sum(dim=-1)
 
 
