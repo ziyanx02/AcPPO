@@ -30,8 +30,6 @@ class TemporalDistribution(nn.Module):
         activation = get_activation(activation)
         self.mean_params = nn.Parameter(torch.zeros((period_length, num_state)))
         self.std_params = nn.Parameter(torch.ones((period_length, num_state)))
-        self.value_mean = torch.zeros((period_length,))
-        self.value_std = torch.ones((period_length,))
 
     def init_params(self, env):
         self.mean_params.data = env.state_mean
@@ -66,6 +64,9 @@ class TemporalDistribution(nn.Module):
         self.update_distribution(times)
         return self.distribution.log_prob(states).sum(dim=-1)
 
+    def sample_inference(self, times):
+        state_mean = self.mean_params[times]
+        return state_mean
 
 def get_activation(act_name):
     if act_name == "elu":

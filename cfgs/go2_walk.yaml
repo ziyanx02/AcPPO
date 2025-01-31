@@ -22,7 +22,7 @@ learning:
     - 512
     - 256
     - 128
-    class_name: ActorCritic
+    class_name: ActorCriticTDO
     critic_hidden_dims:
     - 512
     - 256
@@ -38,7 +38,6 @@ learning:
   reset_rate: 0.0
   print_infos: true
   record_interval: 50
-  runner_class_name: OnPolicyRunner
   save_interval: 100
   seed: 1
   wandb_entity: ziyanx02

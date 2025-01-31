@@ -16,7 +16,7 @@ import math
 import rsl_rl
 from rsl_rl.algorithms import TDO
 from rsl_rl.env import VecEnv
-from rsl_rl.modules import ActorCritic, ActorCriticRecurrent, EmpiricalNormalization, TemporalDistribution
+from rsl_rl.modules import ActorCritic, ActorCriticRecurrent, ActorCriticTDO, EmpiricalNormalization, TemporalDistribution
 from rsl_rl.utils import store_code_state
 
 
@@ -39,8 +39,8 @@ class TDORunner:
             num_critic_obs = num_obs
 
         actor_critic_class = eval(self.policy_cfg.pop("class_name"))  # ActorCritic
-        actor_critic: ActorCritic | ActorCriticRecurrent = actor_critic_class(
-            num_obs, num_critic_obs, self.env.num_actions, **self.policy_cfg
+        actor_critic: ActorCriticTDO = actor_critic_class(
+            num_obs, num_critic_obs, self.env.num_actions, self.env.period_length, **self.policy_cfg
         ).to(self.device)
 
         num_state = env.num_states
@@ -148,7 +148,7 @@ class TDORunner:
                     self.env.set_state(reset_states, reset_idx)
                     self.env.resample_commands(reset_idx)
                 for i in range(self.num_steps_per_env):
-                    actions = self.alg.act(obs, critic_obs)
+                    actions = self.alg.act(obs, critic_obs, self.env.time_buf)
                     obs, rewards, dones, infos = self.env.step(actions.to(self.env.device))
                     state, phase = self.env.get_state()
                     if not self.is_PPO:
@@ -327,6 +327,7 @@ class TDORunner:
     def save(self, path, infos=None):
         saved_dict = {
             "model_state_dict": self.alg.actor_critic.state_dict(),
+            "td_state_dict": self.alg.temporal_distribution.state_dict(),
             "optimizer_state_dict": self.alg.ac_optimizer.state_dict(),
             "iter": self.current_learning_iteration,
             "infos": infos,
@@ -343,6 +344,7 @@ class TDORunner:
     def load(self, path, load_optimizer=True):
         loaded_dict = torch.load(path)
         self.alg.actor_critic.load_state_dict(loaded_dict["model_state_dict"])
+        self.alg.temporal_distribution.load_state_dict(loaded_dict["td_state_dict"])
         if self.empirical_normalization:
             self.obs_normalizer.load_state_dict(loaded_dict["obs_norm_state_dict"])
             self.critic_obs_normalizer.load_state_dict(loaded_dict["critic_obs_norm_state_dict"])
@@ -361,6 +363,13 @@ class TDORunner:
                 self.obs_normalizer.to(device)
             policy = lambda x: self.alg.actor_critic.act_inference(self.obs_normalizer(x))  # noqa: E731
         return policy
+
+    def get_inference_temporal_distribution(self, device=None):
+        self.eval_mode()  # switch to evaluation mode (dropout for example)
+        if device is not None:
+            self.alg.temporal_distribution.to(device)
+        temporal_distribution = self.alg.temporal_distribution.sample_inference
+        return temporal_distribution
 
     def train_mode(self):
         self.alg.actor_critic.train()

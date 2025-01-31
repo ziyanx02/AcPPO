@@ -103,6 +103,26 @@ class Walk(LocoEnv):
         # Terminal reward / penalty
         return self.terminate_buf.float()
 
+    def _reward_tracking_base_height(self):
+        target_state = self.state_mean[self.episode_length_buf]
+        base_state_error = (target_state[:, 0] - self.state_buf[:, 0]).square()
+        return base_state_error
+
+    def _reward_tracking_projected_gravity(self):
+        target_state = self.state_mean[self.episode_length_buf]
+        base_state_error = (target_state[:, 1:4] - self.state_buf[:, 1:4]).square().sum(dim=1)
+        return base_state_error
+
+    def _reward_tracking_lin_vel(self):
+        target_state = self.state_mean[self.episode_length_buf]
+        base_state_error = (target_state[:, 4:7] - self.state_buf[:, 4:7]).square().sum(dim=1)
+        return base_state_error
+
+    def _reward_tracking_ang_vel(self):
+        target_state = self.state_mean[self.episode_length_buf]
+        base_state_error = (target_state[:, 7:10] - self.state_buf[:, 7:10]).square().sum(dim=1)
+        return base_state_error
+
 class Jump(Walk):
 
     def _prepare_obs_noise(self):
@@ -172,10 +192,18 @@ class Jump(Walk):
 
     def _prepare_temporal_distribution(self):
         super()._prepare_temporal_distribution()
-        for i in range(50, 75):
+        for i in range(0, 25):
+            self.state_mean[i, 0] = 0.3 - 0.1 * i / 25
+            self.state_mean[i, [11, 14, 17, 20]] += 0.4 * i / 25
+            self.state_mean[i, [12, 15, 18, 21]] += -0.8 * i / 25
+        for i in range(25, 50):
             self.state_mean[i, 4] = 2
-            self.state_mean[i, 6] = 9.8 * (62.5 - i) / 50
-            self.state_mean[i, 0] = 0.2 + 9.8 / 2 * (12.5 ** 2 - (62.5 - i) ** 2) / 50 ** 2
+            self.state_mean[i, 6] = 9.8 * (37.5 - i) / 50
+            self.state_mean[i, 0] = 0.2 + 9.8 / 2 * (12.5 ** 2 - (37.5 - i) ** 2) / 50 ** 2
+        for i in range(50, 75):
+            self.state_mean[i, 0] = 0.3 - 0.1 * (75 - i) / 25
+            self.state_mean[i, [11, 14, 17, 20]] += 0.4 * (75 - i) / 25
+            self.state_mean[i, [12, 15, 18, 21]] += -0.8 * (75 - i) / 25
 
 class Backflip(Walk):
 

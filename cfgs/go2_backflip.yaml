@@ -38,7 +38,6 @@ learning:
   reset_rate: 1.0
   print_infos: true
   record_interval: 50
-  runner_class_name: OnPolicyRunner
   save_interval: 100
   seed: 1
   wandb_entity: ziyanx02

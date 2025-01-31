@@ -22,7 +22,7 @@ learning:
     - 512
     - 256
     - 128
-    class_name: ActorCritic
+    class_name: ActorCriticTDO
     critic_hidden_dims:
     - 512
     - 256
@@ -34,11 +34,10 @@ learning:
   PPO: false
   empirical_normalization: false
   exp_name: null
-  num_steps_per_env: 12
+  num_steps_per_env: 24
   reset_rate: 1.0
   print_infos: true
   record_interval: 50
-  runner_class_name: OnPolicyRunner
   save_interval: 100
   seed: 1
   wandb_entity: ziyanx02
@@ -91,8 +90,8 @@ environment:
   - RL_thigh_joint
   - RL_calf_joint
   # termination
-  episode_length_s: 2.0
-  period_length_s: 2.0
+  episode_length_s: 1.5
+  period_length_s: 1.5
   use_timeout: true
   reset_after_termination: true
   termination_if_height_lower_than: 0.0
@@ -185,19 +184,15 @@ environment:
   reward:
     base_height_target: 0.3
     reward_scales:
-      tracking_lin_vel: 1.0
-      tracking_ang_vel: 0.5
       action_rate: -0.01
       ang_vel_xy: -0.05
-      base_height: -5.0
       collision: -1.0
       dof_acc: -2.5e-07
-      dof_pos_diff: -0.3
       dof_vel: -0.0
-      feet_air_time: 1.0
-      lin_vel_z: -2.0
-      orientation: -1.0
       torques: -0.0001
-      terminate: -30.0
+      tracking_base_height: -1.0
+      tracking_projected_gravity: -1.0
+      tracking_lin_vel : -1.0
+      tracking_ang_vel : -1.0
     soft_dof_pos_limit: 0.9
     tracking_sigma: 0.25

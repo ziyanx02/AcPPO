@@ -7,12 +7,12 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
-from rsl_rl.modules import ActorCritic, TemporalDistribution
+from rsl_rl.modules import ActorCriticTDO, TemporalDistribution
 from rsl_rl.storage import TDORolloutStorage
 
 
 class TDO:
-    actor_critic: ActorCritic
+    actor_critic: ActorCriticTDO
     temporal_distribution: TemporalDistribution
 
     def __init__(
@@ -84,11 +84,11 @@ class TDO:
     def sample(self, time):
         return self.temporal_distribution.sample(time)
 
-    def act(self, obs, critic_obs):
+    def act(self, obs, critic_obs, times):
         if self.actor_critic.is_recurrent:
             self.transition.hidden_states = self.actor_critic.get_hidden_states()
         # Compute the actions and values
-        self.transition.actions = self.actor_critic.act(obs).detach()
+        self.transition.actions = self.actor_critic.act(obs, times).detach()
         self.transition.values = self.actor_critic.evaluate(critic_obs).detach()
         self.transition.actions_log_prob = self.actor_critic.get_actions_log_prob(self.transition.actions).detach()
         self.transition.action_mean = self.actor_critic.action_mean.detach()
@@ -141,7 +141,7 @@ class TDO:
             states_batch,
             phases_batch,
         ) in generator:
-            self.actor_critic.act(obs_batch)
+            self.actor_critic.act(obs_batch, phases_batch)
             actions_log_prob_batch = self.actor_critic.get_actions_log_prob(actions_batch)
             value_batch = self.actor_critic.evaluate(critic_obs_batch)
             mu_batch = self.actor_critic.action_mean

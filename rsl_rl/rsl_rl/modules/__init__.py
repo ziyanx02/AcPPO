@@ -5,7 +5,8 @@
 
 from .actor_critic import ActorCritic
 from .actor_critic_recurrent import ActorCriticRecurrent
+from .actor_critic_tdo import ActorCriticTDO
 from .normalizer import EmpiricalNormalization
 from .temporal_distribution import TemporalDistribution
 
-__all__ = ["ActorCritic", "ActorCriticRecurrent"]
+__all__ = ["ActorCritic", "ActorCriticRecurrent", "ActorCriticTDO",]
