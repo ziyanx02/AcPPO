@@ -26,6 +26,9 @@ class TDO:
         lam=0.95,
         value_loss_coef=1.0,
         entropy_coef=0.0,
+        td_entropy_coef=0.0,
+        return_boosting_coef=0.0,
+        action_noise_threshold=1.0,
         learning_rate=1e-3,
         max_grad_norm=1.0,
         use_clipped_value_loss=True,
@@ -53,7 +56,7 @@ class TDO:
         self.temporal_distribution.to(self.device)
         self.td_optimizer = optim.Adam(self.temporal_distribution.parameters(), lr=self.temporal_distribution.learning_rate)
 
-        # PPO parameters
+        # TDO parameters
         self.clip_param = clip_param
         self.num_learning_epochs = num_learning_epochs
         self.num_mini_batches = num_mini_batches
@@ -63,6 +66,9 @@ class TDO:
         self.lam = lam
         self.max_grad_norm = max_grad_norm
         self.use_clipped_value_loss = use_clipped_value_loss
+        self.td_entropy_coef = td_entropy_coef
+        self.return_boosting_coef = return_boosting_coef
+        self.action_noise_threshold = action_noise_threshold
 
     def init_storage(self, num_envs, num_transitions_per_env, actor_obs_shape, critic_obs_shape, action_shape, state_shape, period_length):
         self.storage = TDORolloutStorage(
@@ -204,11 +210,15 @@ class TDO:
 
             # Return boosting loss
             ratio = (returns_batch - value_mean_by_time[phases_batch]) / value_std_by_time[phases_batch]
+            return_boosting_loss = (ratio * states_log_prob_batch).mean()
 
-            # self.td_optimizer.zero_grad()
-            # transition_loss.backward()
-            # nn.utils.clip_grad_norm_(self.temporal_distribution.parameters(), self.max_grad_norm)
-            # self.td_optimizer.step()
+            loss = transition_loss + self.return_boosting_coef * return_boosting_loss + self.td_entropy_coef * states_entropy_batch.mean()
+
+            self.td_optimizer.zero_grad()
+            if sigma_batch.mean().item() < self.action_noise_threshold:
+                transition_loss.backward()
+                nn.utils.clip_grad_norm_(self.temporal_distribution.parameters(), self.max_grad_norm)
+                self.td_optimizer.step()
 
         num_updates = self.num_learning_epochs * self.num_mini_batches
         mean_value_loss /= num_updates

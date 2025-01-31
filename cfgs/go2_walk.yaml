@@ -13,6 +13,9 @@ learning:
     schedule: adaptive
     use_clipped_value_loss: true
     value_loss_coef: 1.0
+    td_entropy_coef: 0.0
+    return_boosting_coef: 0.0
+    action_noise_threshold: 0.0
   policy:
     activation: elu
     actor_hidden_dims:
