@@ -86,12 +86,13 @@ class TDORolloutStorage:
         self.mu[self.step].copy_(transition.action_mean)
         self.sigma[self.step].copy_(transition.action_sigma)
         self._save_hidden_states(transition.hidden_states)
-        self.values_by_time[self.step].copy_(
-            self._sort_values_by_time(
-                transition.values,
-                transition.phase,
+        if self.num_envs % self.period_length == 0:
+            self.values_by_time[self.step].copy_(
+                self._sort_values_by_time(
+                    transition.values,
+                    transition.phase,
+                )
             )
-        )
         self.step += 1
 
     def _save_hidden_states(self, hidden_states):
