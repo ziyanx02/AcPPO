@@ -96,8 +96,10 @@ class TimeWrapper:
     def get_time(self, env_idx):
         return self.time_buf[env_idx]
 
-    def _get_time_obs(self):
-        phase = self.time_buf.float().unsqueeze(1) / self.period_length * 2 * np.pi
+    def _get_time_obs(self, times=None):
+        if times is None:
+            times = self.time_buf
+        phase = times.float().unsqueeze(1) / self.period_length * 2 * np.pi
         time_obs = torch.cat([
             torch.sin(phase),
             torch.cos(phase),

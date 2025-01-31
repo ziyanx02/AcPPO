@@ -111,8 +111,8 @@ class Backflip(Walk):
         self.obs_noise[6:18] = self.obs_cfg['obs_noise']['dof_pos']
         self.obs_noise[18:30] = self.obs_cfg['obs_noise']['dof_vel']
 
-    def _compute_observation(self):
-
+    def compute_observation(self):
+        phase = self.episode_length_buf.float().unsqueeze(1) / self.max_episode_length * 2 * np.pi
         obs_buf = torch.cat(
             [
                 self.base_ang_vel * self.obs_scales['ang_vel'],                     # 3
@@ -120,10 +120,26 @@ class Backflip(Walk):
                 (self.dof_pos - self.default_dof_pos) * self.obs_scales['dof_pos'], # 12
                 self.dof_vel * self.obs_scales['dof_vel'],                          # 12
                 self.actions,                                                       # 12
+                torch.sin(phase),
+                torch.cos(phase),
+                torch.sin(phase / 2),
+                torch.cos(phase / 2),
+                torch.sin(phase / 4),
+                torch.cos(phase / 4),
             ],
             axis=-1,
         )
+        # add noise
+        if not self.eval:
+            obs_buf += gs_rand_float(
+                -1.0, 1.0, (self.num_obs,), self.device
+            )  * self.obs_noise
 
+        clip_obs = 100.0
+        self.obs_buf = torch.clip(obs_buf, -clip_obs, clip_obs)
+
+    def compute_critic_observation(self):
+        phase = self.episode_length_buf.float().unsqueeze(1) / self.max_episode_length * 2 * np.pi
         privileged_obs_buf = torch.cat(
             [
                 self.base_pos[:, 2:3],                                              # 1
@@ -134,11 +150,17 @@ class Backflip(Walk):
                 self.dof_vel * self.obs_scales['dof_vel'],                          # 12
                 self.actions,                                                       # 12
                 self.last_actions,                                                  # 12
+                torch.sin(phase),
+                torch.cos(phase),
+                torch.sin(phase / 2),
+                torch.cos(phase / 2),
+                torch.sin(phase / 4),
+                torch.cos(phase / 4),
             ],
             axis=-1,
         )
-
-        return obs_buf, privileged_obs_buf
+        clip_obs = 100.0
+        self.privileged_obs_buf = torch.clip(privileged_obs_buf, -clip_obs, clip_obs)
 
     def check_termination(self):
         self.terminate_buf = (
@@ -147,6 +169,16 @@ class Backflip(Walk):
         self.reset_buf = (
             self.episode_length_buf > self.max_episode_length
         )
+
+    def _prepare_temporal_distribution(self):
+        super()._prepare_temporal_distribution()
+        for i in range(50, 75):
+            flip_angle = 2 * np.pi * (i - 50) / 25
+            self.state_mean[i, 1] = -np.sin(flip_angle)
+            self.state_mean[i, 3] = -np.cos(flip_angle)
+            self.state_mean[i, 8] = -4 * np.pi
+            self.state_mean[i, 6] = 9.8 * (62.5 - i) / 50
+            self.state_mean[i, 0] += 9.8 / 2 * (12.5 ** 2 - (62.5 - i) ** 2) / 50 ** 2
 
     def _reward_orientation_control(self):
         # Penalize non flat base orientation
@@ -162,7 +194,7 @@ class Backflip(Walk):
         orientation_diff = torch.sum(torch.square(self.projected_gravity - desired_projected_gravity), dim=1)
 
         return orientation_diff
-    
+
     def _reward_ang_vel_y(self):
         current_time = self.episode_length_buf * self.dt
         ang_vel = -self.base_ang_vel[:, 1].clamp(max=7.2, min=-7.2)

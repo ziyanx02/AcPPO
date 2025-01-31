@@ -32,7 +32,7 @@ learning:
   empirical_normalization: false
   exp_name: null
   num_steps_per_env: 24
-  reset_rate: 0.0
+  reset_rate: 1.0
   print_infos: true
   record_interval: 50
   runner_class_name: OnPolicyRunner
@@ -51,7 +51,7 @@ environment:
   - RR_foot
   num_actions: 12
   num_dofs: 12
-  num_states: 33
+  num_states: 34
   termination_contact_link_names:
   - base
   penalized_contact_link_names:
@@ -64,12 +64,12 @@ environment:
   - base
   # control
   PD_stiffness:
-    joint: 40.0
+    joint: 60.0
   PD_damping:
-    joint: 2.0
+    joint: 3.0
   armature: 0.05
   dof_damping: 0.0
-  action_scale: 0.25
+  action_scale: 0.5
   clip_actions: 100.0
   control_freq: 50
   decimation: 4
@@ -88,8 +88,8 @@ environment:
   - RL_thigh_joint
   - RL_calf_joint
   # termination
-  episode_length_s: 20.0
-  period_length_s: 0.5
+  episode_length_s: 2.0
+  period_length_s: 2.0
   use_timeout: true
   reset_after_termination: true
   termination_if_height_lower_than: 0.0
@@ -99,7 +99,7 @@ environment:
   base_init_pos:
   - 0.0
   - 0.0
-  - 0.42
+  - 0.32
   base_init_quat:
   - 1.0
   - 0.0
@@ -167,8 +167,8 @@ environment:
     - -2.0
     - 2.0
   observation:
-    num_obs: 45
-    num_priv_obs: 60
+    num_obs: 48
+    num_priv_obs: 64
     obs_noise:
       ang_vel: 0.1
       dof_pos: 0.01

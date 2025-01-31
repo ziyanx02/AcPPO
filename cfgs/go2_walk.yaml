@@ -51,7 +51,7 @@ environment:
   - RR_foot
   num_actions: 12
   num_dofs: 12
-  num_states: 33
+  num_states: 34
   termination_contact_link_names:
   - base
   penalized_contact_link_names:

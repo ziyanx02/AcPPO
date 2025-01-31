@@ -4,5 +4,6 @@
 """Implementation of transitions storage for RL-agent."""
 
 from .rollout_storage import RolloutStorage
+from .tdo_rollout_storage import TDORolloutStorage
 
 __all__ = ["RolloutStorage"]

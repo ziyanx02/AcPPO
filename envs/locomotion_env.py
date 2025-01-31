@@ -6,6 +6,37 @@ import genesis as gs
 from genesis.engine.solvers.rigid.rigid_solver_decomp import RigidSolver
 from utils import *
 
+def quaternion_from_projected_gravity(gravity):
+    """
+    Compute the minimum quaternion to rotate v1 to v2 for batched tensors.
+    v1: Fixed vector (0, 0, -1), shape (3,)
+    v2: Target batched vectors, shape (N, 3)
+    Returns: Quaternions of shape (N, 4) (w, x, y, z)
+    """
+    # Normalize gravity vectors
+    v1 = torch.nn.functional.normalize(gravity, dim=-1)
+
+    # Define fixed vector
+    v2 = torch.zeros_like(gravity, dtype=gravity.dtype, device=gravity.device)
+    v2[..., 2] = -1.0
+
+    # Compute dot product and angle
+    dot = torch.sum(v1 * v2, dim=-1, keepdim=True)  # Shape (N, 1)
+    angle = torch.acos(torch.clamp(dot, -1.0, 1.0))  # Clamp to avoid NaN due to precision errors
+    
+    # Compute rotation axis
+    axis = torch.cross(v1.expand_as(v2), v2, dim=-1)  # Shape (N, 3)
+    axis_norm = torch.norm(axis, dim=-1, keepdim=True)
+    
+    # Handle parallel vectors (zero cross product)
+    axis = torch.where(axis_norm > 1e-6, axis / axis_norm, torch.tensor([1.0, 0.0, 0.0], device=v2.device))
+    
+    # Compute quaternion components
+    w = torch.cos(angle / 2)
+    xyz = axis * torch.sin(angle / 2)
+    
+    return torch.cat([w, xyz], dim=-1)  # Shape (N, 4)
+
 class LocoEnv:
     def __init__(
         self,
@@ -363,7 +394,7 @@ class LocoEnv:
             [default_joint_angles[name] for name in self.env_cfg['dof_names']],
             device=self.device,
         )
-        self._prepare_init_state()
+        self._prepare_temporal_distribution()
 
         self.dof_pos_limits = torch.stack(self.robot.get_dofs_limit(self.motor_dofs), dim=1)
         self.torque_limits = self.robot.get_dofs_force_range(self.motor_dofs)[1]
@@ -404,11 +435,12 @@ class LocoEnv:
         self.obs_noise[9:21] = self.obs_cfg['obs_noise']['dof_pos']
         self.obs_noise[21:33] = self.obs_cfg['obs_noise']['dof_vel']
 
-    def _prepare_init_state(self):
-        self.init_state_mean = torch.cat(
+    def _prepare_temporal_distribution(self):
+        init_state_mean = torch.cat(
             [
                 self.base_init_pos[2:],
                 torch.zeros((2,), device=self.device, dtype=gs.tc_float),
+                -torch.ones((1,), device=self.device, dtype=gs.tc_float),
                 torch.zeros((3,), device=self.device, dtype=gs.tc_float),
                 torch.zeros((3,), device=self.device, dtype=gs.tc_float),
                 self.default_dof_pos,
@@ -416,10 +448,10 @@ class LocoEnv:
             ],
             axis=-1,
         )
-        self.init_state_std = torch.cat(
+        init_state_std = torch.cat(
             [
                 0.0 * torch.ones((1,), device=self.device, dtype=gs.tc_float),
-                0.1 * torch.ones((2,), device=self.device, dtype=gs.tc_float),
+                0.1 * torch.ones((3,), device=self.device, dtype=gs.tc_float),
                 0.0 * torch.ones((3,), device=self.device, dtype=gs.tc_float),
                 0.0 * torch.ones((3,), device=self.device, dtype=gs.tc_float),
                 0.3 * torch.ones((12,), device=self.device, dtype=gs.tc_float),
@@ -427,6 +459,8 @@ class LocoEnv:
             ],
             axis=-1,
         )
+        self.state_mean = init_state_mean.unsqueeze(0).repeat(self.period_length, 1)
+        self.state_std = init_state_std.unsqueeze(0).repeat(self.period_length, 1)
 
     def reset(self):
         self.reset_buf[:] = True
@@ -457,9 +491,9 @@ class LocoEnv:
     def reset_idx(self, envs_idx):
         if len(envs_idx) == 0:
             return
-        init_states = self.init_state_mean + gs_rand_float(
+        init_states = self.state_mean[0] + gs_rand_float(
             -1.0, 1.0, (len(envs_idx), self.num_states), self.device
-        ) * self.init_state_std
+        ) * self.state_std[0]
         self.set_state(init_states, 0, envs_idx)
         self.resample_commands(envs_idx)
 
@@ -596,7 +630,7 @@ class LocoEnv:
         self.state_buf = torch.cat(
             [
                 self.base_pos[:, 2:],
-                self.base_euler[:, :2],
+                self.projected_gravity,
                 self.base_lin_vel,
                 self.base_ang_vel,
                 self.dof_pos,
@@ -667,33 +701,6 @@ class LocoEnv:
 
     def get_state(self):
         return self.state_buf, self.episode_length_buf
-    
-    def get_init_state_distribution(self, period_length):
-        state_mean = torch.cat(
-            [
-                self.base_init_pos[2:],
-                torch.zeros((2,), device=self.device, dtype=gs.tc_float),
-                torch.zeros((3,), device=self.device, dtype=gs.tc_float),
-                torch.zeros((3,), device=self.device, dtype=gs.tc_float),
-                self.default_dof_pos,
-                torch.zeros((12,), device=self.device, dtype=gs.tc_float),
-            ],
-            axis=-1,
-        )
-        state_std = torch.cat(
-            [
-                0.0 * torch.ones((1,), device=self.device, dtype=gs.tc_float),
-                0.1 * torch.ones((2,), device=self.device, dtype=gs.tc_float),
-                0.0 * torch.ones((3,), device=self.device, dtype=gs.tc_float),
-                0.0 * torch.ones((3,), device=self.device, dtype=gs.tc_float),
-                0.3 * torch.ones((12,), device=self.device, dtype=gs.tc_float),
-                0.0 * torch.ones((12,), device=self.device, dtype=gs.tc_float),
-            ],
-            axis=-1,
-        )
-        state_mean = state_mean.unsqueeze(0).repeat(period_length, 1)
-        state_std = state_std.unsqueeze(0).repeat(period_length, 1)
-        return state_mean, state_std
 
     def get_observations(self):
         return self.obs_buf, self.extras
@@ -712,11 +719,11 @@ class LocoEnv:
 
     def _set_state(self, states, envs_idx):
         z = states[:, 0]
-        pitch_yaw = states[:, 1:3]
-        lin_vel = states[:, 3:6]
-        ang_vel = states[:, 6:9]
-        dof_pos = states[:, 9:21]
-        dof_vel = states[:, 21:]
+        projected_gravity = states[:, 1:4]
+        lin_vel = states[:, 4:7]
+        ang_vel = states[:, 7:10]
+        dof_pos = states[:, 10:22]
+        dof_vel = states[:, 22:]
 
         # reset dofs
         self.dof_pos[envs_idx] = dof_pos
@@ -745,15 +752,10 @@ class LocoEnv:
             envs_idx=envs_idx,
         )
 
+        rotation = quaternion_from_projected_gravity(projected_gravity)
         self.base_quat[envs_idx] = self.base_init_quat.reshape(1, -1)
-        base_euler = torch.zeros(
-            (len(envs_idx), 3),
-            device=self.device,
-            dtype=gs.tc_float,
-        )
-        base_euler[:, :2] = pitch_yaw
         self.base_quat[envs_idx] = gs_quat_mul(
-            gs_euler2quat(base_euler),
+            rotation,
             self.base_quat[envs_idx],
         )
         self.robot.set_quat(

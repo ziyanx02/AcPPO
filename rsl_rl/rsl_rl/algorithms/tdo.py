@@ -8,7 +8,7 @@ import torch.nn as nn
 import torch.optim as optim
 
 from rsl_rl.modules import ActorCritic, TemporalDistribution
-from rsl_rl.storage import RolloutStorage
+from rsl_rl.storage import TDORolloutStorage
 
 
 class TDO:
@@ -46,7 +46,7 @@ class TDO:
         self.actor_critic.to(self.device)
         self.storage = None  # initialized later
         self.ac_optimizer = optim.Adam(self.actor_critic.parameters(), lr=learning_rate)
-        self.transition = RolloutStorage.Transition()
+        self.transition = TDORolloutStorage.Transition()
 
         # TDO components
         self.temporal_distribution = temporal_distribution
@@ -65,7 +65,7 @@ class TDO:
         self.use_clipped_value_loss = use_clipped_value_loss
 
     def init_storage(self, num_envs, num_transitions_per_env, actor_obs_shape, critic_obs_shape, action_shape, state_shape):
-        self.storage = RolloutStorage(
+        self.storage = TDORolloutStorage(
             num_envs, num_transitions_per_env, actor_obs_shape, critic_obs_shape, action_shape, state_shape, self.device
         )
 
@@ -200,8 +200,8 @@ class TDO:
             transition_loss = -states_log_prob_batch.mean()
 
             # Return boosting loss
-            returns_batch = returns_batch.reshape(self.temporal_distribution.period_length, -1)
-            phases_batch = phases_batch.reshape(self.temporal_distribution.period_length, -1)
+            returns_batch = returns_batch
+            phases_batch = phases_batch
 
             # self.td_optimizer.zero_grad()
             # transition_loss.backward()

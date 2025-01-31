@@ -34,9 +34,8 @@ class TemporalDistribution(nn.Module):
         self.value_std = torch.ones((period_length,))
 
     def init_params(self, env):
-        state_mean, state_std = env.get_init_state_distribution(self.period_length)
-        self.mean_params.data = state_mean
-        self.std_params.data = state_std
+        self.mean_params.data = env.state_mean
+        self.std_params.data = env.state_std
 
     @staticmethod
     # not used at the moment
