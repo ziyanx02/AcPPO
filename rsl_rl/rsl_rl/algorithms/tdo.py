@@ -64,9 +64,9 @@ class TDO:
         self.max_grad_norm = max_grad_norm
         self.use_clipped_value_loss = use_clipped_value_loss
 
-    def init_storage(self, num_envs, num_transitions_per_env, actor_obs_shape, critic_obs_shape, action_shape, state_shape):
+    def init_storage(self, num_envs, num_transitions_per_env, actor_obs_shape, critic_obs_shape, action_shape, state_shape, period_length):
         self.storage = TDORolloutStorage(
-            num_envs, num_transitions_per_env, actor_obs_shape, critic_obs_shape, action_shape, state_shape, self.device
+            num_envs, num_transitions_per_env, actor_obs_shape, critic_obs_shape, action_shape, state_shape, period_length, self.device
         )
 
     def test_mode(self):
@@ -113,6 +113,9 @@ class TDO:
         self.storage.compute_returns(last_values, self.gamma, self.lam)
 
     def update(self):
+        values_by_time = self.storage.values_by_time
+        value_mean_by_time = values_by_time.mean(dim=(0, 2))
+        value_std_by_time = values_by_time.std(dim=(0, 2)) + 1e-7
         mean_value_loss = 0
         mean_surrogate_loss = 0
         if self.is_PPO:
@@ -200,8 +203,7 @@ class TDO:
             transition_loss = -states_log_prob_batch.mean()
 
             # Return boosting loss
-            returns_batch = returns_batch
-            phases_batch = phases_batch
+            ratio = (returns_batch - value_mean_by_time[phases_batch]) / value_std_by_time[phases_batch]
 
             # self.td_optimizer.zero_grad()
             # transition_loss.backward()

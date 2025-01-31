@@ -53,6 +53,7 @@ class TDORolloutStorage:
         # For PPO
         self.actions_log_prob = torch.zeros(num_transitions_per_env, num_envs, 1, device=self.device)
         self.values = torch.zeros(num_transitions_per_env, num_envs, 1, device=self.device)
+        self.values_by_time = torch.zeros(num_transitions_per_env, period_length, num_envs // period_length, device=self.device)
         self.returns = torch.zeros(num_transitions_per_env, num_envs, 1, device=self.device)
         self.advantages = torch.zeros(num_transitions_per_env, num_envs, 1, device=self.device)
         self.mu = torch.zeros(num_transitions_per_env, num_envs, *actions_shape, device=self.device)
@@ -61,6 +62,7 @@ class TDORolloutStorage:
         self.num_transitions_per_env = num_transitions_per_env
         self.num_envs = num_envs
         self.period_length = period_length
+        self.num_period_per_step = num_envs // period_length
 
         # rnn
         self.saved_hidden_states_a = None
@@ -84,9 +86,12 @@ class TDORolloutStorage:
         self.mu[self.step].copy_(transition.action_mean)
         self.sigma[self.step].copy_(transition.action_sigma)
         self._save_hidden_states(transition.hidden_states)
-        # num_envs must be a multiple of period_length
-        print(self.phases[self.step])
-        raise NotImplementedError
+        self.values_by_time[self.step].copy_(
+            self._sort_values_by_time(
+                transition.values,
+                transition.phase,
+            )
+        )
         self.step += 1
 
     def _save_hidden_states(self, hidden_states):
@@ -108,6 +113,26 @@ class TDORolloutStorage:
         for i in range(len(hid_a)):
             self.saved_hidden_states_a[i][self.step].copy_(hid_a[i])
             self.saved_hidden_states_c[i][self.step].copy_(hid_c[i])
+
+    def _sort_values_by_time(self, values, phases):
+        # store values by time
+        # num_envs must be a multiple of period_length
+        time = phases[0].item()
+        sorted_values = torch.cat(
+            [
+                values[-time:],
+                values[:-time],
+            ],
+            dim=0,
+        ).reshape([self.period_length, self.num_period_per_step]).permute(1, 0)
+        # sorted_values = torch.cat(
+        #     [
+        #         phases[-time:],
+        #         phases[:-time],
+        #     ],
+        #     dim=0,
+        # ).reshape([self.period_length, self.num_period_per_step]).permute(1, 0)
+        return sorted_values
 
     def clear(self):
         self.step = 0

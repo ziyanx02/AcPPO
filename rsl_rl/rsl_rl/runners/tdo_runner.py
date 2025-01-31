@@ -74,6 +74,7 @@ class TDORunner:
             [num_critic_obs],
             [self.env.num_actions],
             [num_state],
+            period_length,
         )
 
         # Log
@@ -108,13 +109,17 @@ class TDORunner:
                 raise AssertionError("logger type not found")
 
         if init_at_random_ep_len:
-            self.env.episode_length_buf = torch.randint_like(
-                self.env.episode_length_buf, high=int(self.env.period_length)
-            )
+            self.env.episode_length_buf = torch.arange(
+                self.env.num_envs,
+                dtype=self.env.episode_length_buf.dtype,
+                device=self.env.episode_length_buf.device,
+            ).remainder(self.env.max_episode_length)
             if not self.is_PPO:
-                self.env.time_buf = torch.randint_like(
-                    self.env.time_buf, high=int(self.env.period_length)
-                )
+                self.env.time_buf = torch.arange(
+                    self.env.num_envs,
+                    dtype=self.env.time_buf.dtype,
+                    device=self.env.time_buf.device,
+                ).remainder(self.env.period_length)
         self.env.reset()
         if not self.is_PPO:
             init_state = self.alg.sample(self.env.time_buf)
