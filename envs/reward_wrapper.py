@@ -123,6 +123,11 @@ class Walk(LocoEnv):
         base_state_error = (target_state[:, 7:10] - self.state_buf[:, 7:10]).square().sum(dim=1)
         return base_state_error
 
+    def _reward_tracking_dof_pos(self):
+        target_state = self.state_mean[self.episode_length_buf]
+        base_state_error = (target_state[:, 10:22] - self.state_buf[:, 10:22]).square().sum(dim=1)
+        return base_state_error
+
 class Jump(Walk):
 
     def _prepare_obs_noise(self):

@@ -103,6 +103,7 @@ class ActorCriticTDO(nn.Module):
         self.distribution = Normal(mean, mean * 0.0 + std)
 
     def act(self, observations, times, **kwargs):
+        times = times.reshape(-1)
         self.update_distribution(observations, times)
         return self.distribution.sample()
 

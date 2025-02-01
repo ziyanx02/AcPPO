@@ -125,14 +125,14 @@ class TDORolloutStorage:
                 values[:-time],
             ],
             dim=0,
-        ).reshape([self.period_length, self.num_period_per_step]).permute(1, 0)
+        ).reshape([self.num_period_per_step, self.period_length]).permute(1, 0)
         # sorted_values = torch.cat(
         #     [
         #         phases[-time:],
         #         phases[:-time],
         #     ],
         #     dim=0,
-        # ).reshape([self.period_length, self.num_period_per_step]).permute(1, 0)
+        # ).reshape([self.num_period_per_step, self.period_length]).permute(1, 0)
         return sorted_values
 
     def clear(self):

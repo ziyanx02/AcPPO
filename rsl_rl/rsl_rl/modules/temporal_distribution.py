@@ -59,8 +59,7 @@ class TemporalDistribution(nn.Module):
         return self.distribution.sample()
 
     def get_states_log_prob(self, states, times):
-        if len(times.shape) == 2:
-            times = times.squeeze(1)
+        times = times.reshape(-1)
         self.update_distribution(times)
         return self.distribution.log_prob(states).sum(dim=-1)
 
