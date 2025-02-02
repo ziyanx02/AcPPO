@@ -15,7 +15,7 @@ learning:
     value_loss_coef: 1.0
     td_entropy_coef: 0.0
     return_boosting_coef: 0.0
-    action_noise_threshold: 0.8
+    action_noise_threshold: 0.0
   policy:
     activation: elu
     actor_hidden_dims:
@@ -190,10 +190,10 @@ environment:
       dof_acc: -2.5e-07
       dof_vel: -0.0
       torques: -0.0001
-      tracking_base_height: -1.0
+      tracking_base_height: -10.0
       tracking_projected_gravity: -1.0
-      tracking_lin_vel : -1.0
-      tracking_ang_vel : -1.0
-      terminate: -1.0
+      tracking_lin_vel : -0.3
+      tracking_ang_vel : -0.01
+      # tracking_dof_pos : -0.03
     soft_dof_pos_limit: 0.9
     tracking_sigma: 0.25

@@ -207,7 +207,7 @@ class Jump(Walk):
             self.state_mean[i, [11, 14, 17, 20]] += 0.4 * i / 25
             self.state_mean[i, [12, 15, 18, 21]] += -0.8 * i / 25
         for i in range(25, 50):
-            # self.state_mean[i, 4] = 2
+            self.state_mean[i, 4] = 2
             self.state_mean[i, 6] = 9.8 * (37.5 - i) / 50
             self.state_mean[i, 0] = 0.2 + 9.8 / 2 * (12.5 ** 2 - (37.5 - i) ** 2) / 50 ** 2
         for i in range(50, 75):

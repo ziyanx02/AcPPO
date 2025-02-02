@@ -143,12 +143,6 @@ class TDORunner:
             start = time.time()
             # Rollout
             with torch.inference_mode():
-                # if not self.is_PPO:
-                #     reset_idx = torch.bernoulli(torch.tensor([self.reset_rate] * self.env.num_envs).to(self.device)).int()
-                #     reset_idx = reset_idx.nonzero(as_tuple=False).flatten()
-                #     reset_states = self.alg.sample(self.env.time_buf[reset_idx])
-                #     self.env.set_state(reset_states, reset_idx)
-                #     self.env.resample_commands(reset_idx)
                 for i in range(self.num_steps_per_env):
                     actions = self.alg.act(obs, critic_obs, self.env.time_buf)
                     obs, rewards, dones, infos = self.env.step(actions.to(self.env.device))
