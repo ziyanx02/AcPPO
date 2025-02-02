@@ -34,8 +34,8 @@ learning:
   PPO: false
   empirical_normalization: false
   exp_name: null
-  num_steps_per_env: 24
-  reset_rate: 1.0
+  num_steps_per_env: 12
+  reset_rate: 0.5
   print_infos: true
   record_interval: 50
   save_interval: 100

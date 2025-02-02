@@ -148,8 +148,8 @@ class TDORunner:
                     obs, rewards, dones, infos = self.env.step(actions.to(self.env.device))
                     state, phase = self.env.get_state()
                     if not self.is_PPO:
-                        if i == self.num_steps_per_env:
-                            reset_after_roll_out = torch.bernoulli(torch.tensor([self.reset_rate] * self.env.num_envs).to(self.device)).int()
+                        if i == self.num_steps_per_env - 1:
+                            reset_after_roll_out = torch.bernoulli(torch.tensor([self.reset_rate] * self.env.num_envs).to(self.device)).bool()
                             dones |= reset_after_roll_out
                             infos["time_outs"] |= reset_after_roll_out
                         reset_idx = dones.nonzero(as_tuple=False).flatten()
