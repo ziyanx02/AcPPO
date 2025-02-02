@@ -451,10 +451,10 @@ class LocoEnv:
         init_state_std = torch.cat(
             [
                 0.0 * torch.ones((1,), device=self.device, dtype=gs.tc_float),
-                0.1 * torch.ones((3,), device=self.device, dtype=gs.tc_float),
                 0.0 * torch.ones((3,), device=self.device, dtype=gs.tc_float),
                 0.0 * torch.ones((3,), device=self.device, dtype=gs.tc_float),
-                0.3 * torch.ones((12,), device=self.device, dtype=gs.tc_float),
+                0.0 * torch.ones((3,), device=self.device, dtype=gs.tc_float),
+                0.0 * torch.ones((12,), device=self.device, dtype=gs.tc_float),
                 0.0 * torch.ones((12,), device=self.device, dtype=gs.tc_float),
             ],
             axis=-1,

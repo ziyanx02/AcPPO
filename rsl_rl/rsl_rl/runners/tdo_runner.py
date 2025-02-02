@@ -146,12 +146,16 @@ class TDORunner:
                 for i in range(self.num_steps_per_env):
                     actions = self.alg.act(obs, critic_obs, self.env.time_buf)
                     obs, rewards, dones, infos = self.env.step(actions.to(self.env.device))
+                    if "critic_obs" in infos:
+                        critic_obs = self.critic_obs_normalizer(infos["critic_obs"])
+                    else:
+                        critic_obs = obs
                     state, phase = self.env.get_state()
                     if not self.is_PPO:
                         if i == self.num_steps_per_env - 1:
                             reset_after_roll_out = torch.bernoulli(torch.tensor([self.reset_rate] * self.env.num_envs).to(self.device)).bool()
                             dones |= reset_after_roll_out
-                            infos["time_outs"] |= reset_after_roll_out
+                            # infos["time_outs"] |= (reset_after_roll_out | infos["time_outs"]) & ~self.env.terminate_buf
                         reset_idx = dones.nonzero(as_tuple=False).flatten()
                         reset_states = self.alg.sample(self.env.time_buf[reset_idx])
                         self.env.set_state(reset_states, reset_idx)
@@ -166,10 +170,6 @@ class TDORunner:
                     )
                     # perform normalization
                     obs = self.obs_normalizer(obs)
-                    if "critic_obs" in infos:
-                        critic_obs = self.critic_obs_normalizer(infos["critic_obs"])
-                    else:
-                        critic_obs = obs
                     # process the step
                     self.alg.process_env_step(rewards, dones, infos, state, phase)
 
