@@ -788,7 +788,6 @@ class LocoEnv:
         self.last_dof_vel[envs_idx] = 0.0
         self.feet_air_time[envs_idx] = 0.0
         self.feet_max_height[envs_idx] = 0.0
-        self.episode_length_buf[envs_idx] = 0
         self.reset_buf[envs_idx] = 1
 
     def resample_commands(self, envs_idx):

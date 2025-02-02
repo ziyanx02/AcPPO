@@ -108,6 +108,7 @@ class TDORunner:
             else:
                 raise AssertionError("logger type not found")
 
+        self.env.reset()
         if init_at_random_ep_len:
             self.env.episode_length_buf = torch.arange(
                 self.env.num_envs,
@@ -115,12 +116,13 @@ class TDORunner:
                 device=self.env.episode_length_buf.device,
             ).remainder(self.env.max_episode_length)
             if not self.is_PPO:
-                self.env.time_buf = torch.arange(
-                    self.env.num_envs,
-                    dtype=self.env.time_buf.dtype,
-                    device=self.env.time_buf.device,
-                ).remainder(self.env.period_length)
-        self.env.reset()
+                self.env.set_time(
+                    torch.arange(
+                        self.env.num_envs,
+                        dtype=self.env.time_buf.dtype,
+                        device=self.env.time_buf.device,
+                    ).remainder(self.env.period_length)
+                )
         if not self.is_PPO:
             init_state = self.alg.sample(self.env.time_buf)
             self.env.set_state(init_state)
@@ -141,12 +143,12 @@ class TDORunner:
             start = time.time()
             # Rollout
             with torch.inference_mode():
-                if not self.is_PPO:
-                    reset_idx = torch.bernoulli(torch.tensor([self.reset_rate] * self.env.num_envs).to(self.device)).int()
-                    reset_idx = reset_idx.nonzero(as_tuple=False).flatten()
-                    reset_states = self.alg.sample(self.env.time_buf[reset_idx])
-                    self.env.set_state(reset_states, reset_idx)
-                    self.env.resample_commands(reset_idx)
+                # if not self.is_PPO:
+                #     reset_idx = torch.bernoulli(torch.tensor([self.reset_rate] * self.env.num_envs).to(self.device)).int()
+                #     reset_idx = reset_idx.nonzero(as_tuple=False).flatten()
+                #     reset_states = self.alg.sample(self.env.time_buf[reset_idx])
+                #     self.env.set_state(reset_states, reset_idx)
+                #     self.env.resample_commands(reset_idx)
                 for i in range(self.num_steps_per_env):
                     actions = self.alg.act(obs, critic_obs, self.env.time_buf)
                     obs, rewards, dones, infos = self.env.step(actions.to(self.env.device))

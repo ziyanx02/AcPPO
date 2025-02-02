@@ -84,6 +84,12 @@ class VecEnv(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def set_time(self, time, envs_idx=None) -> None:
+        """Set time.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
     def resample_commands(self, envs_idx) -> None:
         """Resample commands.
         """

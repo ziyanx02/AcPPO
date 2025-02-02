@@ -104,29 +104,34 @@ class Walk(LocoEnv):
         return self.terminate_buf.float()
 
     def _reward_tracking_base_height(self):
-        target_state = self.state_mean[self.episode_length_buf]
+        time = self.episode_length_buf.remainder(self.period_length)
+        target_state = self.state_mean[time]
         base_state_error = (target_state[:, 0] - self.state_buf[:, 0]).square()
-        return base_state_error
+        return base_state_error * (time > 0)
 
     def _reward_tracking_projected_gravity(self):
-        target_state = self.state_mean[self.episode_length_buf]
+        time = self.episode_length_buf.remainder(self.period_length)
+        target_state = self.state_mean[time]
         base_state_error = (target_state[:, 1:4] - self.state_buf[:, 1:4]).square().sum(dim=1)
-        return base_state_error
+        return base_state_error * (time > 0)
 
     def _reward_tracking_lin_vel(self):
-        target_state = self.state_mean[self.episode_length_buf]
+        time = self.episode_length_buf.remainder(self.period_length)
+        target_state = self.state_mean[time]
         base_state_error = (target_state[:, 4:7] - self.state_buf[:, 4:7]).square().sum(dim=1)
-        return base_state_error
+        return base_state_error * (time > 0)
 
     def _reward_tracking_ang_vel(self):
-        target_state = self.state_mean[self.episode_length_buf]
+        time = self.episode_length_buf.remainder(self.period_length)
+        target_state = self.state_mean[time]
         base_state_error = (target_state[:, 7:10] - self.state_buf[:, 7:10]).square().sum(dim=1)
-        return base_state_error
+        return base_state_error * (time > 0)
 
     def _reward_tracking_dof_pos(self):
-        target_state = self.state_mean[self.episode_length_buf]
+        time = self.episode_length_buf.remainder(self.period_length)
+        target_state = self.state_mean[time]
         base_state_error = (target_state[:, 10:22] - self.state_buf[:, 10:22]).square().sum(dim=1)
-        return base_state_error
+        return base_state_error * (time > 0)
 
 class Jump(Walk):
 
@@ -202,7 +207,7 @@ class Jump(Walk):
             self.state_mean[i, [11, 14, 17, 20]] += 0.4 * i / 25
             self.state_mean[i, [12, 15, 18, 21]] += -0.8 * i / 25
         for i in range(25, 50):
-            self.state_mean[i, 4] = 2
+            # self.state_mean[i, 4] = 2
             self.state_mean[i, 6] = 9.8 * (37.5 - i) / 50
             self.state_mean[i, 0] = 0.2 + 9.8 / 2 * (12.5 ** 2 - (37.5 - i) ** 2) / 50 ** 2
         for i in range(50, 75):
@@ -210,72 +215,7 @@ class Jump(Walk):
             self.state_mean[i, [11, 14, 17, 20]] += 0.4 * (75 - i) / 25
             self.state_mean[i, [12, 15, 18, 21]] += -0.8 * (75 - i) / 25
 
-class Backflip(Walk):
-
-    def _prepare_obs_noise(self):
-        self.obs_noise[:3] = self.obs_cfg['obs_noise']['ang_vel']
-        self.obs_noise[3:6] = self.obs_cfg['obs_noise']['gravity']
-        self.obs_noise[6:18] = self.obs_cfg['obs_noise']['dof_pos']
-        self.obs_noise[18:30] = self.obs_cfg['obs_noise']['dof_vel']
-
-    def compute_observation(self):
-        phase = self.episode_length_buf.float().unsqueeze(1) / self.max_episode_length * 2 * np.pi
-        obs_buf = torch.cat(
-            [
-                self.base_ang_vel * self.obs_scales['ang_vel'],                     # 3
-                self.projected_gravity,                                             # 3
-                (self.dof_pos - self.default_dof_pos) * self.obs_scales['dof_pos'], # 12
-                self.dof_vel * self.obs_scales['dof_vel'],                          # 12
-                self.actions,                                                       # 12
-                torch.sin(phase),
-                torch.cos(phase),
-                torch.sin(phase / 2),
-                torch.cos(phase / 2),
-                torch.sin(phase / 4),
-                torch.cos(phase / 4),
-            ],
-            axis=-1,
-        )
-        # add noise
-        if not self.eval:
-            obs_buf += gs_rand_float(
-                -1.0, 1.0, (self.num_obs,), self.device
-            )  * self.obs_noise
-
-        clip_obs = 100.0
-        self.obs_buf = torch.clip(obs_buf, -clip_obs, clip_obs)
-
-    def compute_critic_observation(self):
-        phase = self.episode_length_buf.float().unsqueeze(1) / self.max_episode_length * 2 * np.pi
-        privileged_obs_buf = torch.cat(
-            [
-                self.base_pos[:, 2:3],                                              # 1
-                self.base_lin_vel * self.obs_scales['lin_vel'],                     # 3
-                self.base_ang_vel * self.obs_scales['ang_vel'],                     # 3
-                self.projected_gravity,                                             # 3
-                (self.dof_pos - self.default_dof_pos) * self.obs_scales['dof_pos'], # 12
-                self.dof_vel * self.obs_scales['dof_vel'],                          # 12
-                self.actions,                                                       # 12
-                self.last_actions,                                                  # 12
-                torch.sin(phase),
-                torch.cos(phase),
-                torch.sin(phase / 2),
-                torch.cos(phase / 2),
-                torch.sin(phase / 4),
-                torch.cos(phase / 4),
-            ],
-            axis=-1,
-        )
-        clip_obs = 100.0
-        self.privileged_obs_buf = torch.clip(privileged_obs_buf, -clip_obs, clip_obs)
-
-    def check_termination(self):
-        self.terminate_buf = (
-            self.episode_length_buf > self.max_episode_length
-        )
-        self.reset_buf = (
-            self.episode_length_buf > self.max_episode_length
-        )
+class Backflip(Jump):
 
     def _prepare_temporal_distribution(self):
         super()._prepare_temporal_distribution()

@@ -194,5 +194,6 @@ environment:
       tracking_projected_gravity: -1.0
       tracking_lin_vel : -1.0
       tracking_ang_vel : -1.0
+      terminate: -1.0
     soft_dof_pos_limit: 0.9
     tracking_sigma: 0.25

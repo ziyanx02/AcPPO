@@ -89,6 +89,12 @@ class TimeWrapper:
             envs_idx = torch.arange(self.num_envs, device=self.device)
         self.env.set_state(states, self.time_buf[envs_idx], envs_idx)
 
+    def set_time(self, times, envs_idx=None):
+        if envs_idx is None:
+            envs_idx = torch.arange(self.num_envs, device=self.device)
+        self.time_buf[envs_idx] = times
+        self.env.episode_length_buf[envs_idx] = times
+
     def get_state(self):
         state, _ = self.env.get_state()
         return state, self.time_buf
