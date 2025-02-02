@@ -149,18 +149,18 @@ class TDO:
             entropy_batch = self.actor_critic.entropy
 
             # KL
-            if self.desired_kl is not None and self.schedule == "adaptive":
-                with torch.inference_mode():
-                    kl = torch.sum(
-                        torch.log(sigma_batch / old_sigma_batch + 1.0e-5)
-                        + (torch.square(old_sigma_batch) + torch.square(old_mu_batch - mu_batch))
-                        / (2.0 * torch.square(sigma_batch))
-                        - 0.5,
-                        axis=-1,
-                    )
-                    kl_mean = torch.mean(kl)
-                    self.kl_mean = kl_mean
+            with torch.inference_mode():
+                kl = torch.sum(
+                    torch.log(sigma_batch / old_sigma_batch + 1.0e-5)
+                    + (torch.square(old_sigma_batch) + torch.square(old_mu_batch - mu_batch))
+                    / (2.0 * torch.square(sigma_batch))
+                    - 0.5,
+                    axis=-1,
+                )
+                kl_mean = torch.mean(kl)
+                self.kl_mean = kl_mean
 
+                if self.desired_kl is not None and self.schedule == "adaptive":
                     if kl_mean > self.desired_kl * 2.0:
                         self.learning_rate = max(1e-5, self.learning_rate / 1.5)
                     elif kl_mean < self.desired_kl / 2.0 and kl_mean > 0.0:
