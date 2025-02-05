@@ -225,10 +225,11 @@ class Backflip(Jump):
 
     def _prepare_temporal_distribution(self):
         super()._prepare_temporal_distribution()
-        for i in range(50, 75):
-            flip_angle = 2 * np.pi * (i - 50) / 25
+        for i in range(25, 50):
+            flip_angle = 2 * np.pi * (i - 25) / 25
+            self.state_mean[i, 0] = 0.2 + 9.8 / 2 * (12.5 ** 2 - (37.5 - i) ** 2) / 50 ** 2
             self.state_mean[i, 1] = -np.sin(flip_angle)
             self.state_mean[i, 3] = -np.cos(flip_angle)
+            self.state_mean[i, 4] = 0
             self.state_mean[i, 8] = -4 * np.pi
-            self.state_mean[i, 6] = 9.8 * (62.5 - i) / 50
-            self.state_mean[i, 0] = 0.2 + 9.8 / 2 * (12.5 ** 2 - (62.5 - i) ** 2) / 50 ** 2
+            self.state_mean[i, 6] = 9.8 * (37.5 - i) / 50

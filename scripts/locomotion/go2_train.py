@@ -26,7 +26,7 @@ ENV_DICT = {
 
 def main(args):
 
-    if args.debug:
+    if args.debug or args.eval:
         args.vis = True
         args.offline = True
         args.num_envs = 1
