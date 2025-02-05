@@ -10,7 +10,7 @@ learning:
     max_grad_norm: 1.0
     num_learning_epochs: 5
     num_mini_batches: 8
-    schedule: adaptive
+    schedule: fixed
     use_clipped_value_loss: true
     value_loss_coef: 1.0
     td_entropy_coef: 0.0
@@ -189,10 +189,10 @@ environment:
       dof_acc: -2.5e-07
       dof_vel: -0.0
       torques: -0.0001
-      tracking_base_height: -50.0
-      tracking_projected_gravity: -30.0
+      tracking_base_height: -30.0
+      tracking_projected_gravity: -10.0
       tracking_lin_vel : -1.0
-      tracking_ang_vel : -0.01
+      tracking_ang_vel : -0.1
       tracking_dof_pos : -0.1
     soft_dof_pos_limit: 0.9
     tracking_sigma: 0.25

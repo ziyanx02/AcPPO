@@ -37,6 +37,7 @@ def main(args):
         open(f'logs/{args.exp_name}/cfgs.pkl', 'rb')
     )
     env_cfg['reward']['reward_scales'] = {}
+    env_cfg['PPO'] = True
 
     env_class = ENV_DICT[args.task]
     env = env_class(
