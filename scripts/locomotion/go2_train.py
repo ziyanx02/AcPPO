@@ -9,10 +9,19 @@ import numpy as np
 import torch
 import wandb
 from envs.reward_wrapper import Walk
+from envs.reward_wrapper import Jump
+from envs.reward_wrapper import Backflip
 from envs.time_wrapper import TimeWrapper
 from rsl_rl.runners import TDORunner
 
 import genesis as gs
+
+
+ENV_DICT = {
+    'walk': Walk,
+    'jump': Jump,
+    'backflip': Backflip,
+}
 
 
 def main(args):
@@ -33,7 +42,7 @@ def main(args):
     device = 'cpu' if args.cpu else 'cuda'
 
     log_dir = f'logs/{args.exp_name}'
-    with open('./cfgs/go2_walk.yaml', 'r') as file:
+    with open(f'./cfgs/go2_{args.task}.yaml', 'r') as file:
         cfg = yaml.safe_load(file)
     train_cfg = cfg['learning']
     env_cfg = cfg['environment']
@@ -52,7 +61,13 @@ def main(args):
         shutil.rmtree(log_dir)
     os.makedirs(log_dir, exist_ok=True)
 
-    env = Walk(
+    pickle.dump(
+        [env_cfg, train_cfg],
+        open(f'{log_dir}/cfgs.pkl', 'wb'),
+    )
+
+    env_class = ENV_DICT[args.task]
+    env = env_class(
         num_envs=args.num_envs,
         env_cfg=env_cfg,
         show_viewer=args.vis,
@@ -72,20 +87,12 @@ def main(args):
         print('==> resume training from', resume_path)
         runner.load(resume_path)
 
-    # wandb.login(key='1d5fe5b941feff91e5dbb834d4f687fdbec8e516')
-    # wandb.init(project='genesis', name=args.exp_name, entity='ziyanx02', dir=log_dir, mode='offline' if args.offline else 'online', config=train_cfg)
-
-    pickle.dump(
-        cfg,
-        open(f'{log_dir}/cfgs.pkl', 'wb'),
-    )
-
     runner.learn(num_learning_iterations=args.max_iterations, init_at_random_ep_len=True)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('-e', '--exp_name', type=str, default='Go2_walk')
+    parser.add_argument('-e', '--exp_name', type=str, default=None)
     parser.add_argument('-v', '--vis', action='store_true', default=False)
     parser.add_argument('-c', '--cpu', action='store_true', default=False)
     parser.add_argument('-B', '--num_envs', type=int, default=10000)
@@ -93,7 +100,8 @@ if __name__ == '__main__':
     parser.add_argument('--resume', type=str, default=None)
     parser.add_argument('-o', '--offline', action='store_true', default=False)
     parser.add_argument('-p', '--ppo', action='store_true', default=False)
-    parser.add_argument('-t', '--time', action='store_true', default=False)
+    parser.add_argument('--time', action='store_true', default=False)
+    parser.add_argument('-t', '--task', type=str, default='jump')
 
     parser.add_argument('--eval', action='store_true', default=False)
     parser.add_argument('--debug', action='store_true', default=False)
