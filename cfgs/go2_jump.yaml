@@ -101,7 +101,7 @@ environment:
   base_init_pos:
   - 0.0
   - 0.0
-  - 0.32
+  - 0.34
   base_init_quat:
   - 1.0
   - 0.0

@@ -51,7 +51,7 @@ def main():
         policy.to(device='cuda:0')
     else:
         args.max_iterations = 1
-        from train_backflip import get_train_cfg
+        from train import get_train_cfg
         runner = OnPolicyRunner(env, get_train_cfg(args), log_dir, device='cuda:0')
 
         resume_path = os.path.join(log_dir, f'model_{args.ckpt}.pt')

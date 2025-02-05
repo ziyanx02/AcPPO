@@ -8,29 +8,14 @@ import yaml
 import numpy as np
 import torch
 import wandb
-from envs.reward_wrapper import Walk
+from envs.reward_wrapper import Backflip
 from envs.time_wrapper import TimeWrapper
 from rsl_rl.runners import TDORunner
 
 import genesis as gs
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-e', '--exp_name', type=str, default='Go2_walk')
-    parser.add_argument('-v', '--vis', action='store_true', default=False)
-    parser.add_argument('-c', '--cpu', action='store_true', default=False)
-    parser.add_argument('-B', '--num_envs', type=int, default=10000)
-    parser.add_argument('--max_iterations', type=int, default=1000)
-    parser.add_argument('--resume', type=str, default=None)
-    parser.add_argument('-o', '--offline', action='store_true', default=False)
-    parser.add_argument('-p', '--ppo', action='store_true', default=False)
-    parser.add_argument('-t', '--time', action='store_true', default=False)
-
-    parser.add_argument('--eval', action='store_true', default=False)
-    parser.add_argument('--debug', action='store_true', default=False)
-    parser.add_argument('--ckpt', type=int, default=1000)
-    args = parser.parse_args()
+def main(args):
 
     if args.debug:
         args.vis = True
@@ -48,7 +33,7 @@ def main():
     device = 'cpu' if args.cpu else 'cuda'
 
     log_dir = f'logs/{args.exp_name}'
-    with open('./cfgs/go2_walk.yaml', 'r') as file:
+    with open('./cfgs/go2_backflip.yaml', 'r') as file:
         cfg = yaml.safe_load(file)
     train_cfg = cfg['learning']
     env_cfg = cfg['environment']
@@ -67,7 +52,7 @@ def main():
         shutil.rmtree(log_dir)
     os.makedirs(log_dir, exist_ok=True)
 
-    env = Walk(
+    env = Backflip(
         num_envs=args.num_envs,
         env_cfg=env_cfg,
         show_viewer=args.vis,
@@ -99,7 +84,22 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-e', '--exp_name', type=str, default='Go2_walk')
+    parser.add_argument('-v', '--vis', action='store_true', default=False)
+    parser.add_argument('-c', '--cpu', action='store_true', default=False)
+    parser.add_argument('-B', '--num_envs', type=int, default=10000)
+    parser.add_argument('--max_iterations', type=int, default=1000)
+    parser.add_argument('--resume', type=str, default=None)
+    parser.add_argument('-o', '--offline', action='store_true', default=False)
+    parser.add_argument('-p', '--ppo', action='store_true', default=False)
+    parser.add_argument('-t', '--time', action='store_true', default=False)
+
+    parser.add_argument('--eval', action='store_true', default=False)
+    parser.add_argument('--debug', action='store_true', default=False)
+    parser.add_argument('--ckpt', type=int, default=1000)
+    args = parser.parse_args()
+    main(args)
 
 
 '''

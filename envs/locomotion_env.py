@@ -72,6 +72,9 @@ class LocoEnv:
         self.eval = eval
         self.debug = debug
 
+        if self.eval:
+            self.max_episode_length = 1
+
         if not torch.cuda.is_available():
             self.device = torch.device('cpu')
         else:
@@ -459,6 +462,8 @@ class LocoEnv:
             ],
             axis=-1,
         )
+        if self.eval:
+            init_state_std *= 0.0
         self.state_mean = init_state_mean.unsqueeze(0).repeat(self.period_length, 1)
         self.state_std = init_state_std.unsqueeze(0).repeat(self.period_length, 1)
 
