@@ -63,6 +63,7 @@ def main(args):
         show_viewer=args.vis,
         eval=False,
         debug=args.debug,
+        n_render_envs=args.num_eval_envs,
         device=device,
     )
 
@@ -92,6 +93,7 @@ def main(args):
     num_envs = args.num_envs
     batch_size = args.batch_size
     num_epochs = args.num_epochs
+    num_eval_envs = args.num_eval_envs
 
     for epoch in range(num_epochs):
         model.train()
@@ -100,7 +102,10 @@ def main(args):
         env.set_state(samples, 0)
         env.step(actions)
         contact_forces = torch.norm(env.link_contact_forces, dim=2)
-        mask = (contact_forces < contact_forces_limit).all(dim=1)
+        contact_mask = (contact_forces < contact_forces_limit).all(dim=1)
+        ee_pos = env.ee_pos
+        ee_pos_mask = torch.logical_and(ee_pos[:, 0] > 0, ee_pos[:, 2] < 0.4)
+        mask = torch.logical_and(contact_mask, ee_pos_mask).float()
         total_loss = 0
         for i in range(int(num_envs // batch_size)):
             batch = samples[i * batch_size: (i + 1) * batch_size]
@@ -122,17 +127,20 @@ def main(args):
             nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             optimizer.step()
             optimizer.zero_grad()
-        print(total_loss / int(num_envs // batch_size))
-        # if epoch % 10 == 0 or epoch == num_epochs - 1:
-        #     # generate data with the model to later visualize the learning process
-        #     model.eval()
-        #     sample = torch.randn(1, env.num_states, device=device)
-        #     timesteps = list(range(len(noise_scheduler)))[::-1]
-        #     for t in timesteps:
-        #         t = torch.from_numpy(np.repeat(t, 1)).long().to(device)
-        #         with torch.no_grad():
-        #             residual = model(sample, t)
-        #         sample = noise_scheduler.step(residual, t[0], sample)
+        print(total_loss / (num_envs // batch_size + 0.01))
+        if epoch % 10 == 0 or epoch == num_epochs - 1:
+            # generate data with the model to later visualize the learning process
+            model.eval()
+            sample = torch.randn(num_eval_envs, env.num_states, device=device)
+            timesteps = list(range(len(noise_scheduler)))[::-1]
+            for t in timesteps:
+                t = torch.from_numpy(np.repeat(t, num_eval_envs)).long().to(device)
+                with torch.no_grad():
+                    residual = model(sample, t)
+                sample = noise_scheduler.step(residual, t[0], sample)
+            env.set_state(samples, 0, torch.arange(num_eval_envs, device=device))
+            env.step(sample[:, :env.num_actions])
+            print(env.ee_pos)
 
 
 if __name__ == '__main__':

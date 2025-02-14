@@ -14,6 +14,7 @@ if __name__ == '__main__':
     parser.add_argument('-v', '--vis', action='store_true', default=False)
     parser.add_argument('-c', '--cpu', action='store_true', default=False)
     parser.add_argument('-B', '--num_envs', type=int, default=10000)
+    parser.add_argument('--num_eval_envs', type=int, default=10)
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--num_epochs", type=int, default=200)
     parser.add_argument("--lr", type=float, default=1e-3)
@@ -24,7 +25,6 @@ if __name__ == '__main__':
     parser.add_argument("--hidden_layers", type=int, default=4)
     parser.add_argument("--time_emb", type=str, default="sinusoidal", choices=["sinusoidal", "learnable", "linear", "zero"])
     parser.add_argument("--input_emb", type=str, default="sinusoidal", choices=["sinusoidal", "learnable", "linear", "identity"])
-    parser.add_argument("--save_images_step", type=int, default=1)
 
     parser.add_argument('--eval', action='store_true', default=False)
     parser.add_argument('--debug', action='store_true', default=False)
@@ -38,6 +38,8 @@ if __name__ == '__main__':
 
     robot, task = args.task.split('-')
     args.task = task
+
+    args.num_eval_envs = min(args.num_eval_envs, args.num_envs)
 
     main = MAIN_FUNCS[robot]
     main(args)

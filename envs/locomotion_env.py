@@ -4,7 +4,7 @@ import math
 
 import genesis as gs
 from genesis.engine.solvers.rigid.rigid_solver_decomp import RigidSolver
-from ddpm import *
+from utils import *
 
 def quaternion_from_projected_gravity(gravity):
     """

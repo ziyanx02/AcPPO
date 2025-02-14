@@ -14,6 +14,7 @@ class ManiEnv:
         show_viewer,
         eval,
         debug,
+        n_render_envs=1,
         device='cuda',
     ) -> None:
         self.num_envs = num_envs
@@ -40,6 +41,7 @@ class ManiEnv:
         self.headless = not show_viewer
         self.eval = eval
         self.debug = debug
+        self.n_rendered_envs = n_render_envs
 
         if not torch.cuda.is_available():
             self.device = torch.device('cpu')
@@ -71,7 +73,7 @@ class ManiEnv:
                 camera_fov=40,
             ),
             vis_options=gs.options.VisOptions(
-                n_rendered_envs=1,
+                n_rendered_envs=self.n_rendered_envs,
             ),
             rigid_options=gs.options.RigidOptions(
                 dt=sim_dt,
@@ -138,6 +140,9 @@ class ManiEnv:
         }
 
     def _init_buffers(self):
+        self.ee_pos = torch.zeros(
+            (self.num_envs, 3), device=self.device, dtype=gs.tc_float
+        )
         self.state_buf = torch.zeros(
             (self.num_envs, self.num_states), device=self.device, dtype=gs.tc_float
         )
@@ -208,6 +213,9 @@ class ManiEnv:
 
         self.penalized_contact_link_indices = find_link_indices(
             self.env_cfg['penalized_contact_link_names']
+        )
+        self.end_effector_link_indices = find_link_indices(
+            self.env_cfg['end_effector_link_names']
         )
         assert len(self.penalized_contact_link_indices) > 0
 
@@ -408,6 +416,8 @@ class ManiEnv:
         self.dof_pos[:] = self.robot.get_dofs_position(self.motor_dofs)
         self.dof_vel[:] = self.robot.get_dofs_velocity(self.motor_dofs)
         self.link_contact_forces[:] = self.robot.get_links_net_contact_force()
+
+        self.ee_pos[:] = self.robot.get_links_pos(self.end_effector_link_indices).mean(dim=1)
 
     def check_termination(self):
         self.terminate_buf = self.episode_length_buf > self.max_episode_length

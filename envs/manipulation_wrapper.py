@@ -8,29 +8,7 @@ from ddpm import *
 class PickCube(ManiEnv):
 
     def _add_entities(self):
-
-        self.scene.add_entity(
-            gs.morphs.URDF(file='urdf/plane/plane.urdf', fixed=True),
-        )
-
-        self.base_init_pos = torch.tensor(
-            self.env_cfg['base_init_pos'], device=self.device
-        )
-        self.base_init_quat = torch.tensor(
-            self.env_cfg['base_init_quat'], device=self.device
-        )
-
-        self.robot = self.scene.add_entity(
-            gs.morphs.MJCF(
-                file=self.env_cfg['urdf_path'],
-                pos=self.base_init_pos.cpu().numpy(),
-                quat=self.base_init_quat.cpu().numpy(),
-            ),
-            # visualize_contact=self.debug,
-            visualize_contact=False,
-            # vis_mode='collision',
-        )
-
+        super()._add_entities()
         self.cube = self.scene.add_entity( 
             gs.morphs.Box(
                 size=(0.04, 0.04, 0.04),
@@ -57,10 +35,7 @@ class PickCube(ManiEnv):
         )
 
     def _update_buffers(self):
-        self.dof_pos[:] = self.robot.get_dofs_position(self.motor_dofs)
-        self.dof_vel[:] = self.robot.get_dofs_velocity(self.motor_dofs)
-        self.link_contact_forces[:] = self.robot.get_links_net_contact_force()
-
+        super()._update_buffers()
         self.cube_pos[:] = self.cube.get_pos()
         self.cube_quat[:] = self.cube.get_quat()
         self.cube_lin_vel[:] = self.cube.get_vel()
