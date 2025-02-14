@@ -26,7 +26,6 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 from torch.utils.data import DataLoader
-from tqdm.auto import tqdm
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -102,6 +101,7 @@ def main(args):
         env.step(actions)
         contact_forces = torch.norm(env.link_contact_forces, dim=2)
         mask = (contact_forces < contact_forces_limit).all(dim=1)
+        total_loss = 0
         for i in range(int(num_envs // batch_size)):
             batch = samples[i * batch_size: (i + 1) * batch_size]
             batch_mask = mask[i * batch_size: (i + 1) * batch_size]
@@ -116,23 +116,23 @@ def main(args):
             loss = loss.mean(dim=-1)
             loss *= batch_mask
             loss = loss.mean()
-            print(loss.item())
             loss.backward()
+            total_loss += loss.detach().clone()
 
             nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             optimizer.step()
             optimizer.zero_grad()
+        print(total_loss / int(num_envs // batch_size))
         # if epoch % 10 == 0 or epoch == num_epochs - 1:
         #     # generate data with the model to later visualize the learning process
         #     model.eval()
-        #     sample = torch.randn(1, env.num_states)
+        #     sample = torch.randn(1, env.num_states, device=device)
         #     timesteps = list(range(len(noise_scheduler)))[::-1]
         #     for t in timesteps:
-        #         t = torch.from_numpy(np.repeat(t, 1)).long()
+        #         t = torch.from_numpy(np.repeat(t, 1)).long().to(device)
         #         with torch.no_grad():
         #             residual = model(sample, t)
         #         sample = noise_scheduler.step(residual, t[0], sample)
-        #     print(sample)
 
 
 if __name__ == '__main__':
