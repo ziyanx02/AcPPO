@@ -1,0 +1,183 @@
+learning:
+  algorithm:
+    class_name: TDO
+    clip_param: 0.2
+    desired_kl: 0.01
+    entropy_coef: 0.01
+    gamma: 0.99
+    lam: 0.95
+    learning_rate: 0.001
+    max_grad_norm: 1.0
+    num_learning_epochs: 5
+    num_mini_batches: 4
+    schedule: adaptive
+    use_clipped_value_loss: true
+    value_loss_coef: 1.0
+    td_entropy_coef: 0.0
+    return_boosting_coef: 0.0
+    action_noise_threshold: 0.0
+  policy:
+    activation: elu
+    actor_hidden_dims:
+    - 512
+    - 256
+    - 128
+    class_name: ActorCriticTDO
+    critic_hidden_dims:
+    - 512
+    - 256
+    - 128
+    init_noise_std: 1.0
+  temporal_distribution:
+    learning_rate: 0.001
+    class_name: TemporalDistribution
+  PPO: false
+  empirical_normalization: false
+  exp_name: null
+  num_steps_per_env: 24
+  reset_rate: 0.0
+  print_infos: true
+  record_interval: 50
+  save_interval: 100
+  seed: 1
+  wandb_entity: ziyanx02
+  wandb_project: TDO
+environment:
+  PPO: false
+  # asset
+  urdf_path: xml/franka_emika_panda/panda.xml
+  num_actions: 8
+  num_dofs: 9
+  num_states: 31
+  penalized_contact_link_names:
+  - link0
+  - link1
+  - link2
+  - link3
+  - link4
+  - link5
+  - link6
+  - link7
+  end_effector_link_names:
+  - left_finger
+  - right_finger
+  # control
+  PD_stiffness:
+    joint1: 4500
+    joint2: 4500
+    joint3: 3500
+    joint4: 3500
+    joint5: 2000
+    joint6: 2000
+    joint7: 2000
+    finger_joint1: 100
+    finger_joint2: 100
+  PD_damping:
+    joint1: 450
+    joint2: 450
+    joint3: 350
+    joint4: 350
+    joint5: 200
+    joint6: 200
+    joint7: 200
+    finger_joint1: 10
+    finger_joint2: 10
+  armature: 0.05
+  dof_damping: 0.0
+  clip_actions: 100.0
+  control_freq: 50
+  substeps: 4
+  decimation: 1
+  delay_action: false
+  dof_names:
+  - joint1
+  - joint2
+  - joint3
+  - joint4
+  - joint5
+  - joint6
+  - joint7
+  - finger_joint1
+  - finger_joint2
+  action_scale:
+    joint1: 1.0
+    joint2: 1.0
+    joint3: 1.0
+    joint4: 1.0
+    joint5: 1.0
+    joint6: 1.0
+    joint7: 1.0
+    finger_joint1: 0.04
+    finger_joint2: 0.04
+  # termination
+  episode_length_s: 5
+  period_length_s: 5
+  use_timeout: true
+  reset_after_termination: true
+  # init pos
+  base_init_pos:
+  - 0.0
+  - 0.0
+  - 0.0
+  base_init_quat:
+  - 1.0
+  - 0.0
+  - 0.0
+  - 0.0
+  default_joint_angles:
+    joint1: -2.1089
+    joint2: 0.7827
+    joint3: 2.3343
+    joint4: -2.3561
+    joint5: -0.5421
+    joint6: 1.7280
+    joint7: 1.2746
+    finger_joint1: 0.02
+    finger_joint2: 0.02
+  # domain randomization
+  resampling_time_s: 4.0
+  randomize_friction: true
+  friction_range:
+  - 0.2
+  - 1.5
+  randomize_kd_scale: false
+  kd_scale_range:
+  - 0.8
+  - 1.2
+  randomize_kp_scale: false
+  kp_scale_range:
+  - 0.8
+  - 1.2
+  randomize_motor_offset: false
+  motor_offset_range:
+  - -0.02
+  - 0.02
+  randomize_motor_strength: false
+  motor_strength_range:
+  - 0.9
+  - 1.1
+  # random initialization
+  pos_randomization: 0.0
+  rot_randomization: 0.1
+  dof_pos_randomization: 0.3
+  command:
+    x_range:
+    - 0.2
+    - 0.6
+    y_range:
+    - -0.3
+    - 0.3
+    z_range:
+    - 0.1
+    - 0.3
+  observation:
+    num_obs: 36
+    num_priv_obs: 36
+    obs_scales:
+      command: 1.0
+      dof_pos: 1.0
+      dof_vel: 0.05
+  reward:
+    reward_scales:
+      action_rate: -0.01
+    soft_dof_pos_limit: 0.9

@@ -4,40 +4,9 @@ import math
 
 import genesis as gs
 from genesis.engine.solvers.rigid.rigid_solver_decomp import RigidSolver
-from ddpm import *
+from utils import *
 
-def quaternion_from_projected_gravity(gravity):
-    """
-    Compute the minimum quaternion to rotate v1 to v2 for batched tensors.
-    v1: Fixed vector (0, 0, -1), shape (3,)
-    v2: Target batched vectors, shape (N, 3)
-    Returns: Quaternions of shape (N, 4) (w, x, y, z)
-    """
-    # Normalize gravity vectors
-    v1 = torch.nn.functional.normalize(gravity, dim=-1)
-
-    # Define fixed vector
-    v2 = torch.zeros_like(gravity, dtype=gravity.dtype, device=gravity.device)
-    v2[..., 2] = -1.0
-
-    # Compute dot product and angle
-    dot = torch.sum(v1 * v2, dim=-1, keepdim=True)  # Shape (N, 1)
-    angle = torch.acos(torch.clamp(dot, -1.0, 1.0))  # Clamp to avoid NaN due to precision errors
-    
-    # Compute rotation axis
-    axis = torch.cross(v1.expand_as(v2), v2, dim=-1)  # Shape (N, 3)
-    axis_norm = torch.norm(axis, dim=-1, keepdim=True)
-    
-    # Handle parallel vectors (zero cross product)
-    axis = torch.where(axis_norm > 1e-6, axis / axis_norm, torch.tensor([1.0, 0.0, 0.0], device=v2.device))
-    
-    # Compute quaternion components
-    w = torch.cos(angle / 2)
-    xyz = axis * torch.sin(angle / 2)
-    
-    return torch.cat([w, xyz], dim=-1)  # Shape (N, 4)
-
-class LocoEnv:
+class ManiEnv:
     def __init__(
         self,
         num_envs,
@@ -88,7 +57,7 @@ class LocoEnv:
 
     def _create_scene(self):
         sim_dt = self.dt / self.env_cfg['decimation']
-        sim_substeps = 1
+        sim_substeps = self.env_cfg['substeps']
 
         self.scene = gs.Scene(
             sim_options=gs.options.SimOptions(
@@ -119,32 +88,13 @@ class LocoEnv:
             if not isinstance(solver, RigidSolver):
                 continue
             self.rigid_solver = solver
+        
+        self._add_entities()
 
-        # add entities
-        if self.env_cfg['use_terrain']:
-            self.terrain_cfg = self.env_cfg['terrain_cfg']
-            self.terrain = self.scene.add_entity(
-                gs.morphs.Terrain(
-                    n_subterrains=self.terrain_cfg['n_subterrains'],
-                    horizontal_scale=self.terrain_cfg['horizontal_scale'],
-                    vertical_scale=self.terrain_cfg['vertical_scale'],
-                    subterrain_size=self.terrain_cfg['subterrain_size'],
-                    subterrain_types=self.terrain_cfg['subterrain_types'],
-                ),
-            )
-            terrain_margin_x = self.terrain_cfg['n_subterrains'][0] * self.terrain_cfg['subterrain_size'][0]
-            terrain_margin_y = self.terrain_cfg['n_subterrains'][1] * self.terrain_cfg['subterrain_size'][1]
-            self.terrain_margin = torch.tensor(
-                [terrain_margin_x, terrain_margin_y], device=self.device, dtype=gs.tc_float
-            )
-            height_field = self.terrain.geoms[0].metadata["height_field"]
-            self.height_field = torch.tensor(
-                height_field, device=self.device, dtype=gs.tc_float
-            ) * self.terrain_cfg['vertical_scale']
-        else:
-            self.scene.add_entity(
-                gs.morphs.URDF(file='urdf/plane/plane.urdf', fixed=True),
-            )
+    def _add_entities(self):
+        self.scene.add_entity(
+            gs.morphs.URDF(file='urdf/plane/plane.urdf', fixed=True),
+        )
 
         self.base_init_pos = torch.tensor(
             self.env_cfg['base_init_pos'], device=self.device
@@ -154,10 +104,8 @@ class LocoEnv:
         )
 
         self.robot = self.scene.add_entity(
-            gs.morphs.URDF(
+            gs.morphs.MJCF(
                 file=self.env_cfg['urdf_path'],
-                merge_fixed_links=True,
-                links_to_keep=self.env_cfg['links_to_keep'],
                 pos=self.base_init_pos.cpu().numpy(),
                 quat=self.base_init_quat.cpu().numpy(),
             ),
@@ -190,37 +138,12 @@ class LocoEnv:
         }
 
     def _init_buffers(self):
-        self.base_euler = torch.zeros(
-            (self.num_envs, 3), device=self.device, dtype=gs.tc_float
-        )
-        self.base_lin_vel = torch.zeros(
-            (self.num_envs, 3), device=self.device, dtype=gs.tc_float
-        )
-        self.base_ang_vel = torch.zeros(
-            (self.num_envs, 3), device=self.device, dtype=gs.tc_float
-        )
-        self.projected_gravity = torch.zeros(
-            (self.num_envs, 3), device=self.device, dtype=gs.tc_float
-        )
-        self.global_gravity = torch.tensor(
-            np.array([0.0, 0.0, -1.0]), device=self.device, dtype=gs.tc_float
-        )
-        self.forward_vec = torch.zeros(
-            (self.num_envs, 3), device=self.device, dtype=gs.tc_float
-        )
-        self.forward_vec[:, 0] = 1.0
-
         self.state_buf = torch.zeros(
             (self.num_envs, self.num_states), device=self.device, dtype=gs.tc_float
         )
         self.obs_buf = torch.zeros(
             (self.num_envs, self.num_obs), device=self.device, dtype=gs.tc_float
         )
-        self.obs_noise = torch.zeros(
-            (self.num_envs, self.num_obs), device=self.device, dtype=gs.tc_float
-        )
-        self._prepare_obs_noise()
-
         self.privileged_obs_buf = (
             None
             if self.num_privileged_obs is None
@@ -258,15 +181,12 @@ class LocoEnv:
         )
         self.commands_scale = torch.tensor(
             [
-                self.obs_scales['lin_vel'],
-                self.obs_scales['lin_vel'],
-                self.obs_scales['ang_vel'],
+                self.obs_scales['command'],
+                self.obs_scales['command'],
+                self.obs_scales['command'],
             ],
             device=self.device,
             dtype=gs.tc_float,
-        )
-        self.stand_still = torch.zeros(
-            (self.num_envs,), device=self.device, dtype=gs.tc_int
         )
 
         # names to indices
@@ -286,29 +206,20 @@ class LocoEnv:
                     link_indices.append(link.idx - self.robot.link_start)
             return link_indices
 
-        self.termination_contact_link_indices = find_link_indices(
-            self.env_cfg['termination_contact_link_names']
-        )
         self.penalized_contact_link_indices = find_link_indices(
             self.env_cfg['penalized_contact_link_names']
         )
-        self.feet_link_indices = find_link_indices(
-            self.env_cfg['feet_link_names']
-        )
-        assert len(self.termination_contact_link_indices) > 0
         assert len(self.penalized_contact_link_indices) > 0
-        assert len(self.feet_link_indices) > 0
-        self.feet_link_indices_world_frame = [i+1 for i in self.feet_link_indices]
 
         # actions
         self.actions = torch.zeros(
-            (self.num_envs, self.num_dof), device=self.device, dtype=gs.tc_float
+            (self.num_envs, self.num_actions), device=self.device, dtype=gs.tc_float
         )
         self.last_actions = torch.zeros(
-            (self.num_envs, self.num_dof), device=self.device, dtype=gs.tc_float
+            (self.num_envs, self.num_actions), device=self.device, dtype=gs.tc_float
         )
         self.last_last_actions = torch.zeros(
-            (self.num_envs, self.num_dof), device=self.device, dtype=gs.tc_float
+            (self.num_envs, self.num_actions), device=self.device, dtype=gs.tc_float
         )
         self.dof_pos = torch.zeros(
             (self.num_envs, self.num_dof), device=self.device, dtype=gs.tc_float
@@ -319,43 +230,11 @@ class LocoEnv:
         self.last_dof_vel = torch.zeros(
             (self.num_envs, self.num_dof), device=self.device, dtype=gs.tc_float
         )
-        self.root_vel = torch.zeros(
-            (self.num_envs, 3), device=self.device, dtype=gs.tc_float
-        )
-        self.last_root_vel = torch.zeros(
-            (self.num_envs, 3), device=self.device, dtype=gs.tc_float
-        )
-        self.base_pos = torch.zeros(
-            (self.num_envs, 3), device=self.device, dtype=gs.tc_float
-        )
-        self.base_quat = torch.zeros(
-            (self.num_envs, 4), device=self.device, dtype=gs.tc_float
-        )
         self.link_contact_forces = torch.zeros(
             (self.num_envs, self.robot.n_links, 3), device=self.device, dtype=gs.tc_float
         )
 
-        self.feet_air_time = torch.zeros(
-            (self.num_envs, len(self.feet_link_indices)),
-            device=self.device,
-            dtype=gs.tc_float,
-        )
-        self.feet_max_height = torch.zeros(
-            (self.num_envs, len(self.feet_link_indices)),
-            device=self.device,
-            dtype=gs.tc_float,
-        )
-
-        self.last_contacts = torch.zeros(
-            (self.num_envs, len(self.feet_link_indices)),
-            device=self.device,
-            dtype=gs.tc_int,
-        )
-
         # extras
-        self.continuous_push = torch.zeros(
-            (self.num_envs, 3), device=self.device, dtype=gs.tc_float
-        )
         self.env_identities = torch.arange(
             self.num_envs,
             device=self.device,
@@ -365,29 +244,24 @@ class LocoEnv:
         self.extras = {"log": {}}
         self.extras["observations"] = {"critic": self.privileged_obs_buf}
 
-        self.terrain_heights = torch.zeros(
-            (self.num_envs,),
-            device=self.device,
-            dtype=gs.tc_float,
-        )
-
         # PD control
         stiffness = self.env_cfg['PD_stiffness']
         damping = self.env_cfg['PD_damping']
+        action_scale = self.env_cfg['action_scale']
 
-        self.p_gains, self.d_gains = [], []
+        self.p_gains, self.d_gains, self.action_scale = [], [], []
         for dof_name in self.env_cfg['dof_names']:
-            for key in stiffness.keys():
-                if key in dof_name:
-                    self.p_gains.append(stiffness[key])
-                    self.d_gains.append(damping[key])
+            self.p_gains.append(stiffness[dof_name])
+            self.d_gains.append(damping[dof_name])
+            self.action_scale.append(action_scale[dof_name])
         self.p_gains = torch.tensor(self.p_gains, device=self.device)
         self.d_gains = torch.tensor(self.d_gains, device=self.device)
+        self.action_scale = torch.tensor(self.action_scale, device=self.device)
         self.batched_p_gains = self.p_gains[None, :].repeat(self.num_envs, 1)
         self.batched_d_gains = self.d_gains[None, :].repeat(self.num_envs, 1)
 
-        self.robot.set_dofs_kp(self.p_gains, self.motor_dofs)
-        self.robot.set_dofs_kv(self.d_gains, self.motor_dofs)
+        # self.robot.set_dofs_kp(self.p_gains, self.motor_dofs)
+        # self.robot.set_dofs_kv(self.d_gains, self.motor_dofs)
 
         default_joint_angles = self.env_cfg['default_joint_angles']
         self.default_dof_pos = torch.tensor(
@@ -412,50 +286,18 @@ class LocoEnv:
         self.motor_strengths = torch.ones((self.num_envs, self.num_dof), dtype=torch.float, device=self.device)
         self.motor_offsets = torch.zeros((self.num_envs, self.num_dof), dtype=torch.float, device=self.device)
 
-        # gait control
-        self.foot_positions = torch.ones(
-            self.num_envs, len(self.feet_link_indices), 3, device=self.device, dtype=gs.tc_float,
-        )
-        self.foot_quaternions = torch.ones(
-            self.num_envs, len(self.feet_link_indices), 4, device=self.device, dtype=gs.tc_float,
-        )
-        self.foot_velocities = torch.ones(
-            self.num_envs, len(self.feet_link_indices), 3, device=self.device, dtype=gs.tc_float,
-        )
-
-        self.base_link_index = 1
-
-        self.com = torch.zeros(
-            self.num_envs, 3, device=self.device, dtype=gs.tc_float,
-        )
-
-    def _prepare_obs_noise(self):
-        self.obs_noise[:3] = self.obs_cfg['obs_noise']['ang_vel']
-        self.obs_noise[3:6] = self.obs_cfg['obs_noise']['gravity']
-        self.obs_noise[9:21] = self.obs_cfg['obs_noise']['dof_pos']
-        self.obs_noise[21:33] = self.obs_cfg['obs_noise']['dof_vel']
-
     def _prepare_temporal_distribution(self):
         init_state_mean = torch.cat(
             [
-                self.base_init_pos[2:],
-                torch.zeros((2,), device=self.device, dtype=gs.tc_float),
-                -torch.ones((1,), device=self.device, dtype=gs.tc_float),
-                torch.zeros((3,), device=self.device, dtype=gs.tc_float),
-                torch.zeros((3,), device=self.device, dtype=gs.tc_float),
                 self.default_dof_pos,
-                torch.zeros((12,), device=self.device, dtype=gs.tc_float),
+                torch.zeros((9,), device=self.device, dtype=gs.tc_float),
             ],
             axis=-1,
         )
         init_state_std = torch.cat(
             [
-                0.0 * torch.ones((1,), device=self.device, dtype=gs.tc_float),
-                0.0 * torch.ones((3,), device=self.device, dtype=gs.tc_float),
-                0.0 * torch.ones((3,), device=self.device, dtype=gs.tc_float),
-                0.0 * torch.ones((3,), device=self.device, dtype=gs.tc_float),
-                0.0 * torch.ones((12,), device=self.device, dtype=gs.tc_float),
-                0.0 * torch.ones((12,), device=self.device, dtype=gs.tc_float),
+                0.0 * torch.ones((9,), device=self.device, dtype=gs.tc_float),
+                0.0 * torch.ones((9,), device=self.device, dtype=gs.tc_float),
             ],
             axis=-1,
         )
@@ -463,6 +305,24 @@ class LocoEnv:
             init_state_std *= 0.0
         self.state_mean = init_state_mean.unsqueeze(0).repeat(self.period_length, 1)
         self.state_std = init_state_std.unsqueeze(0).repeat(self.period_length, 1)
+
+        self.init_state_min = torch.cat(
+            [
+                self.dof_pos_limits[:, 0],
+                -torch.ones((9,), device=self.device, dtype=gs.tc_float),
+            ],
+            axis=-1,
+        )
+        self.init_state_max = torch.cat(
+            [
+                self.dof_pos_limits[:, 1],
+                torch.ones((9,), device=self.device, dtype=gs.tc_float),
+            ],
+            axis=-1,
+        )
+        self.link_contact_forces_limit = torch.tensor(
+            [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 100.0, 100.0,], device=self.device
+        )
 
     def reset(self):
         self.reset_buf[:] = True
@@ -473,16 +333,19 @@ class LocoEnv:
         clip_actions = self.env_cfg['clip_actions']
         self.actions = torch.clip(actions, -clip_actions, clip_actions)
         exec_actions = self.last_actions if self.delay_action else self.actions
-
-        for _ in range(self.env_cfg['decimation']):
-            self.torques = self._compute_torques(exec_actions)
-            self.robot.control_dofs_force(self.torques, self.motor_dofs)
-            self.scene.step()
-            self.dof_pos[:] = self.robot.get_dofs_position(self.motor_dofs)
-            self.dof_vel[:] = self.robot.get_dofs_velocity(self.motor_dofs)
-
+        exec_actions = torch.cat(
+            [
+                exec_actions,
+                exec_actions[:, -1:],
+            ],
+            axis=-1,
+        )
+        target_dof_pos = self._compute_target_dof_pos(exec_actions)
+        self.robot.control_dofs_position(target_dof_pos, self.motor_dofs)
+        self.scene.step()
+        self.dof_pos[:] = self.robot.get_dofs_position(self.motor_dofs)
+        self.dof_vel[:] = self.robot.get_dofs_velocity(self.motor_dofs)
         self.post_physics_step()
-
         return (
             self.obs_buf,
             self.rew_buf,
@@ -499,21 +362,8 @@ class LocoEnv:
         self.set_state(init_states, 0, envs_idx)
         self.resample_commands(envs_idx)
 
-    def _compute_torques(self, actions):
-        # control_type = 'P'
-        actions_scaled = actions * self.env_cfg['action_scale']
-        torques = (
-            self.batched_p_gains * (actions_scaled + self.default_dof_pos - self.dof_pos + self.motor_offsets)
-            - self.batched_d_gains * self.dof_vel
-        )
-        torques = torch.clip(torques, -self.torque_limits, self.torque_limits)
-        # self.extras["log"]["mean_torque"] = torques.abs().mean().item()
-        # self.extras["log"]["max_torque"] = torques.abs().max().item()
-        return torques * self.motor_strengths
-
     def _compute_target_dof_pos(self, actions):
-        # control_type = 'P'
-        actions_scaled = actions * self.env_cfg['action_scale']
+        actions_scaled = actions * self.action_scale
         target_dof_pos = actions_scaled + self.default_dof_pos
         return target_dof_pos
 
@@ -536,16 +386,6 @@ class LocoEnv:
         self._randomize_rigids(envs_idx)
         self._randomize_controls(envs_idx)
 
-        # random push
-        push_interval_s = self.env_cfg['push_interval_s']
-        if push_interval_s > 0 and not (self.debug or self.eval):
-            max_push_vel_xy = self.env_cfg['max_push_vel_xy']
-            dofs_vel = self.robot.get_dofs_velocity() # (num_envs, num_dof) [0:3] ~ base_link_vel
-            push_vel = gs_rand_float(-max_push_vel_xy, max_push_vel_xy, (self.num_envs, 2), self.device)
-            push_vel[((self.common_step_counter + self.env_identities) % int(push_interval_s / self.dt) != 0)] = 0
-            dofs_vel[:, :2] += push_vel
-            self.robot.set_dofs_velocity(dofs_vel)
-
         envs_idx = self.reset_buf.nonzero(as_tuple=False).flatten()
         self.update_extras(envs_idx)
         if self.is_PPO:
@@ -561,80 +401,21 @@ class LocoEnv:
         self.last_actions[:] = self.actions[:]
         self.last_last_actions[:] = self.last_actions[:]
         self.last_dof_vel[:] = self.dof_vel[:]
-        self.last_root_vel[:] = self.robot.get_vel()
 
     # ------------ update buffers ----------------
 
     def _update_buffers(self):
-
-        self.base_pos[:] = self.robot.get_pos()
-        self.base_quat[:] = self.robot.get_quat()
-        base_quat_rel = gs_quat_mul(self.base_quat, gs_inv_quat(self.base_init_quat.reshape(1, -1).repeat(self.num_envs, 1)))
-        self.base_euler = gs_quat2euler(base_quat_rel)
-
-        inv_quat_yaw = gs_quat_from_angle_axis(-self.base_euler[:, 2],
-                                               torch.tensor([0, 0, 1], device=self.device, dtype=torch.float))
-
-        inv_base_quat = gs_inv_quat(self.base_quat)
-        self.base_lin_vel[:] = gs_transform_by_quat(self.robot.get_vel(), inv_quat_yaw)
-        self.base_ang_vel[:] = gs_transform_by_quat(self.robot.get_ang(), inv_base_quat)
-        self.projected_gravity = gs_transform_by_quat(
-            self.global_gravity, inv_base_quat
-        )
-
         self.dof_pos[:] = self.robot.get_dofs_position(self.motor_dofs)
         self.dof_vel[:] = self.robot.get_dofs_velocity(self.motor_dofs)
         self.link_contact_forces[:] = self.robot.get_links_net_contact_force()
-        self.com[:] = self.rigid_solver.get_links_COM([self.base_link_index,]).squeeze(dim=1)
-
-        self.foot_positions[:] = self.rigid_solver.get_links_pos(self.feet_link_indices_world_frame)
-        self.foot_quaternions[:] = self.rigid_solver.get_links_quat(self.feet_link_indices_world_frame)
-        self.foot_velocities[:] = self.rigid_solver.get_links_vel(self.feet_link_indices_world_frame)
-
-        if self.env_cfg['use_terrain']:
-            clipped_base_pos = self.base_pos[:, :2].clamp(min=torch.zeros(2, device=self.device), max=self.terrain_margin)
-            height_field_ids = (clipped_base_pos / self.terrain_cfg['horizontal_scale'] - 0.5).floor().int()
-            height_field_ids.clamp(min=0)
-            # print(self.height_field[height_field_ids[:, 0], height_field_ids[:, 1]])
-            self.terrain_heights = self.height_field[height_field_ids[:, 0], height_field_ids[:, 1]]
 
     def check_termination(self):
-
-        self.terminate_buf = torch.any(
-            torch.norm(
-                self.link_contact_forces[:, self.termination_contact_link_indices, :],
-                dim=-1,
-            )
-            > 1.0,
-            dim=1,
-        )
-        self.terminate_buf |= torch.logical_or(
-            torch.abs(self.base_euler[:, 1])
-            > self.env_cfg['termination_if_pitch_greater_than'],
-            torch.abs(self.base_euler[:, 0])
-            > self.env_cfg['termination_if_roll_greater_than'],
-        )
-        if self.env_cfg['use_terrain']:
-            self.terminate_buf |= torch.logical_or(
-                self.base_pos[:, 0] > self.terrain_margin[0],
-                self.base_pos[:, 1] > self.terrain_margin[1],
-            )
-            self.terminate_buf |= torch.logical_or(
-                self.base_pos[:, 0] < 1,
-                self.base_pos[:, 1] < 1,
-            )
-        self.terminate_buf |= self.base_pos[:, 2] < self.env_cfg['termination_if_height_lower_than']
-        if self.env_cfg['use_timeout']:
-            self.time_out_buf = self.episode_length_buf > self.max_episode_length
+        self.terminate_buf = self.episode_length_buf > self.max_episode_length
         self.reset_buf = torch.logical_or(self.terminate_buf, self.time_out_buf)
 
     def compute_state(self):
         self.state_buf = torch.cat(
             [
-                self.base_pos[:, 2:],
-                self.projected_gravity,
-                self.base_lin_vel,
-                self.base_ang_vel,
                 self.dof_pos,
                 self.dof_vel,
             ],
@@ -644,8 +425,6 @@ class LocoEnv:
     def compute_observation(self):
         obs_buf = torch.cat(
             [
-                self.base_ang_vel * self.obs_scales['ang_vel'],                     # 3
-                self.projected_gravity,                                             # 3
                 self.commands * self.commands_scale,                                # 3
                 (self.dof_pos - self.default_dof_pos) * self.obs_scales['dof_pos'],
                 self.dof_vel * self.obs_scales['dof_vel'],
@@ -653,11 +432,6 @@ class LocoEnv:
             ],
             axis=-1,
         )
-        # add noise
-        if not self.eval:
-            obs_buf += gs_rand_float(
-                -1.0, 1.0, (self.num_obs,), self.device
-            )  * self.obs_noise
 
         clip_obs = 100.0
         self.obs_buf = torch.clip(obs_buf, -clip_obs, clip_obs)
@@ -665,14 +439,10 @@ class LocoEnv:
     def compute_critic_observation(self):
         privileged_obs_buf = torch.cat(
             [
-                self.base_lin_vel * self.obs_scales['lin_vel'],                     # 3
-                self.base_ang_vel * self.obs_scales['ang_vel'],                     # 3
-                self.projected_gravity,                                             # 3
                 self.commands * self.commands_scale,                                # 3
                 (self.dof_pos - self.default_dof_pos) * self.obs_scales['dof_pos'],
                 self.dof_vel * self.obs_scales['dof_vel'],
                 self.actions,
-                self.last_actions,
             ],
             axis=-1,
         )
@@ -720,12 +490,9 @@ class LocoEnv:
         self._set_state(states, envs_idx)
 
     def _set_state(self, states, envs_idx):
-        z = states[:, 0]
-        projected_gravity = states[:, 1:4]
-        lin_vel = states[:, 4:7]
-        ang_vel = states[:, 7:10]
-        dof_pos = states[:, 10:22]
-        dof_vel = states[:, 22:]
+        dof_pos = states[:, :9]
+        dof_vel = states[:, 9:18]
+        dof_pos = torch.clip(dof_pos, self.dof_pos_limits[:, 0], self.dof_pos_limits[:, 1])
 
         # reset dofs
         self.dof_pos[envs_idx] = dof_pos
@@ -742,75 +509,16 @@ class LocoEnv:
             envs_idx=envs_idx,
         )
 
-        # reset root states - position
-        self.base_pos[envs_idx] = self.base_init_pos
-        self.base_pos[envs_idx, :2] += gs_rand_float(
-            -1.0, 1.0, (len(envs_idx), 2), self.device
-        ) * self.pos_init_randomization_scale
-        self.base_pos[envs_idx, 2] = z
-        self.robot.set_pos(
-            self.base_pos[envs_idx],
-            zero_velocity=False,
-            envs_idx=envs_idx,
-        )
-
-        rotation = quaternion_from_projected_gravity(projected_gravity)
-        self.base_quat[envs_idx] = self.base_init_quat.reshape(1, -1)
-        self.base_quat[envs_idx] = gs_quat_mul(
-            rotation,
-            self.base_quat[envs_idx],
-        )
-        self.robot.set_quat(
-            self.base_quat[envs_idx],
-            zero_velocity=False,
-            envs_idx=envs_idx
-        )
-
-        self.base_lin_vel[envs_idx] = lin_vel
-        self.base_ang_vel[envs_idx] = gs_transform_by_quat(ang_vel, self.base_quat[envs_idx])
-        base_vel = torch.concat(
-            [self.base_lin_vel[envs_idx], self.base_ang_vel[envs_idx]], dim=1
-        )
-        self.robot.set_dofs_velocity(
-            velocity=base_vel,
-            dofs_idx_local=[0, 1, 2, 3, 4, 5],
-            envs_idx=envs_idx,
-        )
-
-        # update projected gravity
-        inv_base_quat = gs_inv_quat(self.base_quat)
-        self.projected_gravity = gs_transform_by_quat(
-            self.global_gravity, inv_base_quat
-        )
-
         # reset buffers
         self.actions[envs_idx] = 0.0
         self.last_actions[envs_idx] = 0.0
         self.last_last_actions[envs_idx] = 0.0
         self.last_dof_vel[envs_idx] = 0.0
-        self.feet_air_time[envs_idx] = 0.0
-        self.feet_max_height[envs_idx] = 0.0
         self.reset_buf[envs_idx] = 1
 
     def resample_commands(self, envs_idx):
         # resample commands
-
-        # lin_vel
-        self.commands[envs_idx, 0] = gs_rand_float(
-            *self.command_cfg['lin_vel_x_range'], (len(envs_idx),), self.device
-        )
-        self.commands[envs_idx, 1] = gs_rand_float(
-            *self.command_cfg['lin_vel_y_range'], (len(envs_idx),), self.device
-        )
-        self.commands[envs_idx, :2] *= (
-            torch.norm(self.commands[envs_idx, :2], dim=1) > 0.3
-        ).unsqueeze(1)
-
-        # ang_vel
-        self.commands[envs_idx, 2] = gs_rand_float(
-            *self.command_cfg['ang_vel_range'], (len(envs_idx),), self.device
-        )
-        self.commands[envs_idx, 2] *= torch.abs(self.commands[envs_idx, 2]) > 0.2
+        return
 
     # ------------ domain randomization ----------------
 
@@ -833,10 +541,6 @@ class LocoEnv:
 
         if self.env_cfg['randomize_friction']:
             self._randomize_link_friction(env_ids)
-        if self.env_cfg['randomize_base_mass']:
-            self._randomize_base_mass(env_ids)
-        if self.env_cfg['randomize_com_displacement']:
-            self._randomize_com_displacement(env_ids)
 
         self.robot.set_dofs_damping([self.env_cfg['dof_damping'],] * self.num_dof, dofs_idx_local=self.motor_dofs)
         self.robot.set_dofs_armature([self.env_cfg['armature'],] * self.num_dof, dofs_idx_local=self.motor_dofs)
@@ -924,19 +628,6 @@ class LocoEnv:
             Default behaviour: draws height measurement points
         '''
         self.scene.clear_debug_objects()
-
-        foot_poss = self.foot_positions[0].reshape(-1, 3)
-        # self.scene.draw_debug_spheres(poss=foot_poss, radius=0.03, color=(1, 0, 0, 0.7))
-
-        foot_poss = foot_poss.cpu()
-        self.scene.draw_debug_line(foot_poss[0], foot_poss[3], radius=0.002, color=(1, 0, 0, 0.7))
-        self.scene.draw_debug_line(foot_poss[1], foot_poss[2], radius=0.002, color=(1, 0, 0, 0.7))
-
-        com = self.com[0]
-        # self.scene.draw_debug_sphere(pos=com, radius=0.1, color=(0, 0, 1, 0.7))
-
-        com[2] = 0.02 + self.terrain_heights[0]
-        self.scene.draw_debug_sphere(pos=com, radius=0.02, color=(0, 0, 1, 0.7))
 
     def _set_camera(self):
         ''' Set camera position and direction

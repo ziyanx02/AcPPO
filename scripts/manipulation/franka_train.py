@@ -8,9 +8,7 @@ import yaml
 import numpy as np
 import torch
 import wandb
-from envs.locomotion_wrapper import Walk
-from envs.locomotion_wrapper import Jump
-from envs.locomotion_wrapper import Backflip
+from envs.manipulation_wrapper import PickCube
 from envs.time_wrapper import TimeWrapper
 from rsl_rl.runners import TDORunner
 
@@ -18,9 +16,7 @@ import genesis as gs
 
 
 ENV_DICT = {
-    'walk': Walk,
-    'jump': Jump,
-    'backflip': Backflip,
+    'pickcube': PickCube,
 }
 
 
@@ -42,7 +38,7 @@ def main(args):
     device = 'cpu' if args.cpu else 'cuda'
 
     log_dir = f'logs/{args.exp_name}'
-    with open(f'./cfgs/go2_{args.task}.yaml', 'r') as file:
+    with open(f'./cfgs/franka_{args.task}.yaml', 'r') as file:
         cfg = yaml.safe_load(file)
     train_cfg = cfg['learning']
     env_cfg = cfg['environment']

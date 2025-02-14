@@ -5,9 +5,9 @@ import pickle
 
 import numpy as np
 import torch
-from envs.reward_wrapper import Walk
-from envs.reward_wrapper import Jump
-from envs.reward_wrapper import Backflip
+from envs.locomotion_wrapper import Walk
+from envs.locomotion_wrapper import Jump
+from envs.locomotion_wrapper import Backflip
 from envs.locomotion_env import LocoEnv
 from envs.time_wrapper import TimeWrapper
 from rsl_rl.runners import TDORunner
@@ -44,7 +44,7 @@ def main(args):
         num_envs=1,
         env_cfg=env_cfg,
         show_viewer=not args.headless,
-        eval=False,
+        eval=True,
         debug=False,
     )
     env = TimeWrapper(env, int(env_cfg['period_length_s'] * env_cfg['control_freq']), reset_each_period=False, observe_time=False)
@@ -71,15 +71,15 @@ def main(args):
         if args.record:
             env.start_recording(record_internal=False)
         while not stop:
+            if args.td:
+                state = temporal_distribution(env.time_buf)
+                env.set_state(state)
+                env.compute_observation()
+                obs, _ = env.get_observations()
             actions = policy(obs)
             env.step(actions)
             env.compute_observation()
             obs, _ = env.get_observations()
-            n_frames += 1
-            if args.record:
-                if n_frames == 100:
-                    env.stop_recording("backflip.mp4")
-                    exit()
 
 if __name__ == '__main__':
     main()

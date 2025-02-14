@@ -15,7 +15,7 @@ learning:
     value_loss_coef: 1.0
     td_entropy_coef: 0.0
     return_boosting_coef: 0.0
-    action_noise_threshold: 0.0
+    action_noise_threshold: 0.5
   policy:
     activation: elu
     actor_hidden_dims:
@@ -29,12 +29,12 @@ learning:
     - 128
     init_noise_std: 1.0
   temporal_distribution:
-    learning_rate: 0.001
+    learning_rate: 0.0001
     class_name: TemporalDistribution
   PPO: false
   empirical_normalization: false
   exp_name: null
-  num_steps_per_env: 25
+  num_steps_per_env: 15
   reset_rate: 0.3
   print_infos: true
   record_interval: 50

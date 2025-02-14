@@ -7,6 +7,8 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
+import time
+
 from rsl_rl.modules import ActorCriticTDO, TemporalDistribution
 from rsl_rl.storage import TDORolloutStorage
 
@@ -122,12 +124,10 @@ class TDO:
         values_by_time = self.storage.values_by_time
         value_mean_by_time = values_by_time.mean(dim=(0, 2))
         value_std_by_time = values_by_time.std(dim=(0, 2)) + 1e-7
+        state_mean_before_update = self.temporal_distribution.mean_params.data.clone().detach()
         mean_value_loss = 0
         mean_surrogate_loss = 0
-        if self.is_PPO:
-            generator = self.storage.mini_batch_generator(self.num_mini_batches, self.num_learning_epochs)
-        else:
-            generator = self.storage.tdo_mini_batch_generator(self.num_mini_batches, self.num_learning_epochs)
+        generator = self.storage.tdo_mini_batch_generator(self.num_mini_batches, self.num_learning_epochs)
         for (
             obs_batch,
             critic_obs_batch,
@@ -199,30 +199,34 @@ class TDO:
             mean_value_loss += value_loss.item()
             mean_surrogate_loss += surrogate_loss.item()
 
-            # if self.is_PPO:
-            #     continue
+            if self.is_PPO or sigma_batch.mean().item() > self.action_noise_threshold:
+                continue
 
-            # states_log_prob_batch = self.temporal_distribution.get_states_log_prob(states_batch, phases_batch)
-            # states_entropy_batch = self.temporal_distribution.entropy
+            states_log_prob_batch = self.temporal_distribution.get_states_log_prob(states_batch, phases_batch)
+            states_entropy_batch = self.temporal_distribution.entropy
 
-            # # Transition loss
-            # transition_loss = -states_log_prob_batch.mean()
+            # Transition loss
+            transition_loss = -states_log_prob_batch.mean()
 
-            # # Return boosting loss
-            # ratio = (returns_batch - value_mean_by_time[phases_batch]) / value_std_by_time[phases_batch]
-            # return_boosting_loss = (ratio * states_log_prob_batch).mean()
+            # Return boosting loss
+            ratio = (returns_batch - value_mean_by_time[phases_batch]) / value_std_by_time[phases_batch]
+            return_boosting_loss = (ratio * states_log_prob_batch).mean()
 
-            # loss = transition_loss + self.return_boosting_coef * return_boosting_loss + self.td_entropy_coef * states_entropy_batch.mean()
+            loss = transition_loss + self.return_boosting_coef * return_boosting_loss + self.td_entropy_coef * states_entropy_batch.mean()
 
-            # self.td_optimizer.zero_grad()
-            # if sigma_batch.mean().item() < self.action_noise_threshold:
-            #     transition_loss.backward()
-            #     nn.utils.clip_grad_norm_(self.temporal_distribution.parameters(), self.max_grad_norm)
-            #     self.td_optimizer.step()
+            self.td_optimizer.zero_grad()
+            transition_loss.backward()
+            nn.utils.clip_grad_norm_(self.temporal_distribution.parameters(), self.max_grad_norm)
+            self.td_optimizer.step()
+
+        state_mean_after_update = self.temporal_distribution.mean_params.data.clone().detach()
+        state_mean_difference = torch.abs(state_mean_after_update - state_mean_before_update)
+        mean_state_update = state_mean_difference.mean().item()
+        max_state_update = state_mean_difference.max().item()
 
         num_updates = self.num_learning_epochs * self.num_mini_batches
         mean_value_loss /= num_updates
         mean_surrogate_loss /= num_updates
         self.storage.clear()
 
-        return mean_value_loss, mean_surrogate_loss
+        return mean_value_loss, mean_surrogate_loss, mean_state_update, max_state_update

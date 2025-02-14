@@ -193,7 +193,7 @@ class TDORunner:
                 start = stop
                 self.alg.compute_returns(critic_obs)
 
-            mean_value_loss, mean_surrogate_loss = self.alg.update()
+            mean_value_loss, mean_surrogate_loss, mean_state_update, max_state_update = self.alg.update()
             stop = time.time()
             learn_time = stop - start
             self.current_learning_iteration = it
@@ -253,17 +253,29 @@ class TDORunner:
                     self.writer.add_scalar(f"Log/{key}", value, step)
 
         mean_std = self.alg.actor_critic.std.mean()
+        max_std = self.alg.actor_critic.std.max()
         fps = int(self.num_steps_per_env * self.env.num_envs / (locs["collection_time"] + locs["learn_time"]))
 
-        self.writer.add_scalar("Loss/value_function", locs["mean_value_loss"], step)
-        self.writer.add_scalar("Loss/surrogate", locs["mean_surrogate_loss"], step)
-        self.writer.add_scalar("Loss/learning_rate", self.alg.learning_rate, step)
-        self.writer.add_scalar("Loss/log_learning_rate", math.log(self.alg.learning_rate), step)
-        self.writer.add_scalar("Loss/kl", self.alg.kl_mean, step)
-        self.writer.add_scalar("Loss/mean_noise_std", mean_std.item(), step)
+        self.writer.add_scalar("AC/value_function", locs["mean_value_loss"], step)
+        self.writer.add_scalar("AC/surrogate", locs["mean_surrogate_loss"], step)
+        self.writer.add_scalar("AC/learning_rate", self.alg.learning_rate, step)
+        # self.writer.add_scalar("AC/log_learning_rate", math.log(self.alg.learning_rate), step)
+        self.writer.add_scalar("AC/kl", self.alg.kl_mean, step)
+        self.writer.add_scalar("AC/mean_noise_std", mean_std.item(), step)
+        self.writer.add_scalar("AC/max_noise_std", max_std.item(), step)
+
+        mean_std = self.alg.temporal_distribution.std_params.mean()
+        max_std = self.alg.temporal_distribution.std_params.max()
+
+        self.writer.add_scalar("TD/mean_state_update", locs["mean_state_update"], step)
+        self.writer.add_scalar("TD/max_state_update", locs["max_state_update"], step)
+        self.writer.add_scalar("TD/mean_std", mean_std.item(), step)
+        self.writer.add_scalar("TD/max_std", max_std.item(), step)
+
         self.writer.add_scalar("Perf/total_fps", fps, step)
         self.writer.add_scalar("Perf/collection time", locs["collection_time"], step)
         self.writer.add_scalar("Perf/learning_time", locs["learn_time"], step)
+
         if len(locs["rewbuffer"]) > 0:
             self.writer.add_scalar("Train/mean_episode_reward", statistics.mean(locs["rewbuffer"]), step)
             self.writer.add_scalar("Train/mean_episode_length", statistics.mean(locs["lenbuffer"]), step)

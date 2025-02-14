@@ -1,11 +1,9 @@
 import argparse
 import datetime
 
-from scripts.locomotion.go2_train import main as go2
-from scripts.manipulation.franka_train import main as franka
+from scripts.manipulation.franka_sample import main as franka
 
 MAIN_FUNCS = {
-    'go2': go2,
     'franka': franka,
 }
 

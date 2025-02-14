@@ -15,6 +15,7 @@ if __name__ == '__main__':
     parser.add_argument('-r', '--record', action='store_true', default=False)
     parser.add_argument('-H', '--headless', action='store_true', default=False)
     parser.add_argument('-B', '--num_envs', type=int, default=1)
+    parser.add_argument('--td', action='store_true', default=False)
     parser.add_argument('--ckpt', type=int, default=1000)
     args = parser.parse_args()
 
