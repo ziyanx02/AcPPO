@@ -31,7 +31,7 @@ from tqdm.auto import tqdm
 import matplotlib.pyplot as plt
 import numpy as np
 
-from ddpm.ddpm import PositionalEmbedding, NoiseScheduler, MLP
+from ddpm.ddpm import NoiseScheduler, MLP
 
 
 def main(args):
@@ -72,26 +72,27 @@ def main(args):
     contact_forces_limit = env.link_contact_forces_limit
 
     model = MLP(
-        hidden_size=256,
-        hidden_layers=3,
-        emb_size=128,
-        time_emb="sinusoidal",
-        input_emb="sinusoidal"
+        hidden_size=args.hidden_size,
+        hidden_layers=args.hidden_layers,
+        emb_size=args.emb_size,
+        time_emb=args.time_emb,
+        input_emb=args.input_emb,
     ).to(device)
 
     noise_scheduler = NoiseScheduler(
-        num_timesteps=50,
-        beta_schedule="linear",
+        num_timesteps=args.num_timesteps,
+        beta_schedule=args.beta_schedule,
         device=device,
     )
 
     optimizer = torch.optim.AdamW(
         model.parameters(),
-        lr=1e-3,
+        lr=args.lr,
     )
 
-    batch_size = 4
-    num_epochs = 200
+    num_envs = args.num_envs
+    batch_size = args.batch_size
+    num_epochs = args.num_epochs
 
     for epoch in range(num_epochs):
         model.train()
@@ -100,8 +101,8 @@ def main(args):
         env.set_state(samples, 0)
         env.step(actions)
         contact_forces = torch.norm(env.link_contact_forces, dim=2)
-        mask = (contact_forces > contact_forces_limit).any(dim=1)
-        for i in range(int(args.num_envs // batch_size)):
+        mask = (contact_forces < contact_forces_limit).all(dim=1)
+        for i in range(int(num_envs // batch_size)):
             batch = samples[i * batch_size: (i + 1) * batch_size]
             batch_mask = mask[i * batch_size: (i + 1) * batch_size]
             noise = torch.randn(batch.shape, device=device)
@@ -113,24 +114,25 @@ def main(args):
             noise_pred = model(noisy, timesteps)
             loss = (noise_pred - noise) ** 2
             loss = loss.mean(dim=-1)
-            loss *= ~batch_mask
+            loss *= batch_mask
             loss = loss.mean()
+            print(loss.item())
             loss.backward()
 
             nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             optimizer.step()
             optimizer.zero_grad()
-        if epoch % 10 == 0 or epoch == num_epochs - 1:
-            # generate data with the model to later visualize the learning process
-            model.eval()
-            sample = torch.randn(1, env.num_states)
-            timesteps = list(range(len(noise_scheduler)))[::-1]
-            for t in timesteps:
-                t = torch.from_numpy(np.repeat(t, 1)).long()
-                with torch.no_grad():
-                    residual = model(sample, t)
-                sample = noise_scheduler.step(residual, t[0], sample)
-            print(sample)
+        # if epoch % 10 == 0 or epoch == num_epochs - 1:
+        #     # generate data with the model to later visualize the learning process
+        #     model.eval()
+        #     sample = torch.randn(1, env.num_states)
+        #     timesteps = list(range(len(noise_scheduler)))[::-1]
+        #     for t in timesteps:
+        #         t = torch.from_numpy(np.repeat(t, 1)).long()
+        #         with torch.no_grad():
+        #             residual = model(sample, t)
+        #         sample = noise_scheduler.step(residual, t[0], sample)
+        #     print(sample)
 
 
 if __name__ == '__main__':
