@@ -643,7 +643,7 @@ class ManiEnv:
         ''' Set camera position and direction
         '''
         self._floating_camera = self.scene.add_camera(
-            pos=np.array([0, -1, 1]),
+            pos=np.array([2, 0, 1]),
             lookat=np.array([0, 0, 0]),
             # res=(720, 480),
             fov=40,
@@ -653,10 +653,11 @@ class ManiEnv:
         self._recording = False
         self._recorded_frames = []
 
+    def render_headless(self):
+        return self._floating_camera.render()[0]
+
     def _render_headless(self):
         if self._recording and len(self._recorded_frames) < 150:
-            robot_pos = np.array(self.base_pos[0].cpu())
-            self._floating_camera.set_pose(pos=robot_pos + np.array([-1, -1, 0.5]), lookat=robot_pos + np.array([0, 0, -0.1]))
             # import time
             # start = time.time()
             frame = self._floating_camera.render()[0]
