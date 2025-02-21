@@ -264,13 +264,13 @@ class TDORunner:
         self.writer.add_scalar("AC/mean_noise_std", mean_std.item(), step)
         self.writer.add_scalar("AC/max_noise_std", max_std.item(), step)
 
-        mean_std = self.alg.temporal_distribution.std_params.mean()
-        max_std = self.alg.temporal_distribution.std_params.max()
+        td_mean_std = self.alg.temporal_distribution.std_params.mean()
+        td_max_std = self.alg.temporal_distribution.std_params.max()
 
         self.writer.add_scalar("TD/mean_state_update", locs["mean_state_update"], step)
         self.writer.add_scalar("TD/max_state_update", locs["max_state_update"], step)
-        self.writer.add_scalar("TD/mean_std", mean_std.item(), step)
-        self.writer.add_scalar("TD/max_std", max_std.item(), step)
+        self.writer.add_scalar("TD/mean_std", td_mean_std.item(), step)
+        self.writer.add_scalar("TD/max_std", td_max_std.item(), step)
 
         self.writer.add_scalar("Perf/total_fps", fps, step)
         self.writer.add_scalar("Perf/collection time", locs["collection_time"], step)

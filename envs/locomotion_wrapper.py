@@ -6,7 +6,7 @@ from envs.locomotion_env import *
 
 class Walk(LocoEnv):
     
-    def _reward_tracking_lin_vel(self):
+    def _reward_lin_vel(self):
         # Tracking of linear velocity commands (xy axes)
         lin_vel_error = torch.sum(
             torch.square(
@@ -16,7 +16,7 @@ class Walk(LocoEnv):
         )
         return torch.exp(-lin_vel_error / self.reward_cfg['tracking_sigma'])
 
-    def _reward_tracking_ang_vel(self):
+    def _reward_ang_vel(self):
         # Tracking of angular velocity commands (yaw)
         ang_vel_error = torch.square(
             self.commands[:, 2] - self.base_ang_vel[:, 2]

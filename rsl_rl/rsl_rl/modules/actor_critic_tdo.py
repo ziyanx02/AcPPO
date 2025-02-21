@@ -22,6 +22,7 @@ class ActorCriticTDO(nn.Module):
         critic_hidden_dims=[256, 256, 256],
         activation="elu",
         init_noise_std=1.0,
+        std_by_time=False,
         **kwargs,
     ):
         if kwargs:
@@ -31,6 +32,7 @@ class ActorCriticTDO(nn.Module):
             )
         super().__init__()
         activation = get_activation(activation)
+        self.std_by_time = std_by_time
 
         mlp_input_dim_a = num_actor_obs
         mlp_input_dim_c = num_critic_obs
@@ -62,7 +64,10 @@ class ActorCriticTDO(nn.Module):
         print(f"Critic MLP: {self.critic}")
 
         # Action noise
-        self.std = nn.Parameter(init_noise_std * torch.ones([period_length, num_actions]))
+        if self.std_by_time:
+            self.std = nn.Parameter(init_noise_std * torch.ones([period_length, num_actions]))
+        else:
+            self.std = nn.Parameter(init_noise_std * torch.ones(num_actions))
         self.distribution = None
         # disable args validation for speedup
         Normal.set_default_validate_args = False
@@ -99,7 +104,10 @@ class ActorCriticTDO(nn.Module):
 
     def update_distribution(self, observations, times):
         mean = self.actor(observations)
-        std = self.std[times]
+        if self.std_by_time:
+            std = self.std[times]
+        else:
+            std = self.std
         self.distribution = Normal(mean, mean * 0.0 + std)
 
     def act(self, observations, times, **kwargs):
