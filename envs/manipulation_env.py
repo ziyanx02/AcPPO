@@ -653,8 +653,30 @@ class ManiEnv:
         self._recording = False
         self._recorded_frames = []
 
+        self.camera_x = self.scene.add_camera(
+            pos=np.array([3, 0, 0.5]),
+            lookat=np.array([0, 0, 0.5]),
+            # res=(720, 480),
+            fov=40,
+            GUI=False,
+        )
+        self.camera_y = self.scene.add_camera(
+            pos=np.array([0, 3, 0.5]),
+            lookat=np.array([0, 0, 0.5]),
+            # res=(720, 480),
+            fov=40,
+            GUI=False,
+        )
+        self.camera_z = self.scene.add_camera(
+            pos=np.array([0, 0, 3]),
+            lookat=np.array([0, 0, 0]),
+            # res=(720, 480),
+            fov=40,
+            GUI=False,
+        )
+
     def render_headless(self):
-        return self._floating_camera.render()[0]
+        return self.camera_x.render()[0], self.camera_y.render()[0], self.camera_z.render()[0]
 
     def _render_headless(self):
         if self._recording and len(self._recorded_frames) < 150:

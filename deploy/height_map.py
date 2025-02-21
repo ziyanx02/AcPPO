@@ -75,7 +75,6 @@ if __name__ == '__main__':
             input("Press ENTER to plot full height map...")
             height_map = height_map_thread.height_map
             height_map[height_map > 1] = 1
-            print(height_map_thread.width, height_map_thread.height)
             plt.imshow(1 - height_map, cmap='gray', vmin=0, vmax=1)
             plt.axis('off')  # Hide axis for a cleaner look
             plt.show()

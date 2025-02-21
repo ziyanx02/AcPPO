@@ -10,8 +10,10 @@ from transforms3d import quaternions
 from unitree_sdk2py.core.channel import ChannelPublisher, ChannelFactoryInitialize
 from unitree_sdk2py.idl.default import unitree_go_msg_dds__LowCmd_
 from unitree_sdk2py.idl.default import unitree_hg_msg_dds__LowCmd_
+from unitree_sdk2py.idl.default import std_msgs_msg_dds__String_
 from unitree_sdk2py.idl.unitree_go.msg.dds_ import LowCmd_ as LowCmd_go
 from unitree_sdk2py.idl.unitree_hg.msg.dds_ import LowCmd_ as LowCmd_hg
+from unitree_sdk2py.idl.std_msgs.msg.dds_ import String_
 from unitree_sdk2py.utils.crc import CRC
 from unitree_sdk2py.utils.thread import RecurrentThread
 from unitree_sdk2py.comm.motion_switcher.motion_switcher_client import MotionSwitcherClient
@@ -69,6 +71,12 @@ class LowStateCmdHandler(LowStateMsgHandler):
     # Public methods
     def init(self):
         super().init()
+
+        self.lidar_switch_publisher = ChannelPublisher("rt/utlidar/switch", String_)
+        self.lidar_switch_publisher.Init()
+        self.lidar_switch = std_msgs_msg_dds__String_()
+        self.lidar_switch.data = "OFF"
+        self.lidar_switch_publisher.Write(self.lidar_switch)
 
         self.init_low_cmd()
 

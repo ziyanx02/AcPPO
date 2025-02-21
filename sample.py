@@ -1,23 +1,24 @@
 import argparse
 import datetime
 
+from scripts.locomotion.go2_sample import main as go2
 from scripts.manipulation.franka_sample import main as franka
 
 MAIN_FUNCS = {
+    'go2': go2,
     'franka': franka,
 }
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('-t', '--task', type=str, default='go2-jump')
+    parser.add_argument('-t', '--task', type=str, default='franka-pickcube')
     parser.add_argument('-e', '--exp_name', type=str, default=None)
     parser.add_argument('-v', '--vis', action='store_true', default=False)
     parser.add_argument('-c', '--cpu', action='store_true', default=False)
     parser.add_argument('-B', '--num_envs', type=int, default=10000)
-    parser.add_argument('--num_eval_envs', type=int, default=10)
-    parser.add_argument("--batch_size", type=int, default=32)
-    parser.add_argument("--num_epochs", type=int, default=200)
-    parser.add_argument("--lr", type=float, default=1e-3)
+    parser.add_argument("--batch_size", type=int, default=50)
+    parser.add_argument("--num_epochs", type=int, default=1000)
+    parser.add_argument("--lr", type=float, default=3e-4)
     parser.add_argument("--num_timesteps", type=int, default=50)
     parser.add_argument("--beta_schedule", type=str, default="linear", choices=["linear", "quadratic"])
     parser.add_argument("--emb_size", type=int, default=128)
@@ -38,8 +39,6 @@ if __name__ == '__main__':
 
     robot, task = args.task.split('-')
     args.task = task
-
-    args.num_eval_envs = min(args.num_eval_envs, args.num_envs)
 
     main = MAIN_FUNCS[robot]
     main(args)

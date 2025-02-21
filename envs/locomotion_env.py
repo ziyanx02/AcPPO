@@ -45,6 +45,7 @@ class LocoEnv:
         show_viewer,
         eval,
         debug,
+        n_rendered_envs=1,
         device='cuda',
     ) -> None:
         self.num_envs = num_envs
@@ -71,6 +72,7 @@ class LocoEnv:
         self.headless = not show_viewer
         self.eval = eval
         self.debug = debug
+        self.n_rendered_envs = n_rendered_envs
 
         if not torch.cuda.is_available():
             self.device = torch.device('cpu')
@@ -102,7 +104,7 @@ class LocoEnv:
                 camera_fov=40,
             ),
             vis_options=gs.options.VisOptions(
-                n_rendered_envs=1,
+                n_rendered_envs=self.n_rendered_envs,
             ),
             rigid_options=gs.options.RigidOptions(
                 dt=sim_dt,
@@ -463,6 +465,31 @@ class LocoEnv:
             init_state_std *= 0.0
         self.state_mean = init_state_mean.unsqueeze(0).repeat(self.period_length, 1)
         self.state_std = init_state_std.unsqueeze(0).repeat(self.period_length, 1)
+        self.init_state_min = torch.cat(
+            [
+                0.2 * torch.ones((1,), device=self.device, dtype=gs.tc_float),
+                -torch.ones((3,), device=self.device, dtype=gs.tc_float),
+                0.0 * torch.ones((3,), device=self.device, dtype=gs.tc_float),
+                0.0 * torch.ones((3,), device=self.device, dtype=gs.tc_float),
+                self.dof_pos_limits[:, 0],
+                0.0 * torch.ones((12,), device=self.device, dtype=gs.tc_float),
+            ],
+            axis=-1,
+        )
+        self.init_state_max = torch.cat(
+            [
+                0.5 * torch.ones((1,), device=self.device, dtype=gs.tc_float),
+                torch.ones((3,), device=self.device, dtype=gs.tc_float),
+                0.0 * torch.ones((3,), device=self.device, dtype=gs.tc_float),
+                0.0 * torch.ones((3,), device=self.device, dtype=gs.tc_float),
+                self.dof_pos_limits[:, 1],
+                0.0 * torch.ones((12,), device=self.device, dtype=gs.tc_float),
+            ],
+            axis=-1,
+        )
+        self.link_contact_forces_limit = torch.tensor(
+            [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0], device=self.device
+        )
 
     def reset(self):
         self.reset_buf[:] = True
@@ -951,6 +978,31 @@ class LocoEnv:
 
         self._recording = False
         self._recorded_frames = []
+
+        self.camera_x = self.scene.add_camera(
+            pos=np.array([3, 0, 0.5]),
+            lookat=np.array([0, 0, 0.5]),
+            # res=(720, 480),
+            fov=40,
+            GUI=False,
+        )
+        self.camera_y = self.scene.add_camera(
+            pos=np.array([0, 3, 0.5]),
+            lookat=np.array([0, 0, 0.5]),
+            # res=(720, 480),
+            fov=40,
+            GUI=False,
+        )
+        self.camera_z = self.scene.add_camera(
+            pos=np.array([0, 0, 3]),
+            lookat=np.array([0, 0, 0]),
+            # res=(720, 480),
+            fov=40,
+            GUI=False,
+        )
+
+    def render_headless(self):
+        return self.camera_x.render()[0], self.camera_y.render()[0], self.camera_z.render()[0]
 
     def _render_headless(self):
         if self._recording and len(self._recorded_frames) < 150:
