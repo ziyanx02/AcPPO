@@ -143,6 +143,9 @@ class ManiEnv:
         self.ee_pos = torch.zeros(
             (self.num_envs, 3), device=self.device, dtype=gs.tc_float
         )
+        self.ee_quat = torch.zeros(
+            (self.num_envs, 4), device=self.device, dtype=gs.tc_float
+        )
         self.state_buf = torch.zeros(
             (self.num_envs, self.num_states), device=self.device, dtype=gs.tc_float
         )
@@ -418,6 +421,8 @@ class ManiEnv:
         self.link_contact_forces[:] = self.robot.get_links_net_contact_force()
 
         self.ee_pos[:] = self.robot.get_links_pos(self.end_effector_link_indices).mean(dim=1)
+        self.ee_quat[:] = self.robot.get_links_quat(self.end_effector_link_indices[0:1]).mean(dim=1)
+
 
     def check_termination(self):
         self.terminate_buf = self.episode_length_buf > self.max_episode_length

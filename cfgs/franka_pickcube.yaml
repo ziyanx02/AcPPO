@@ -171,8 +171,8 @@ environment:
     - 0.1
     - 0.3
   observation:
-    num_obs: 36
-    num_priv_obs: 36
+    num_obs: 43
+    num_priv_obs: 43
     obs_scales:
       command: 1.0
       dof_pos: 1.0
@@ -180,4 +180,7 @@ environment:
   reward:
     reward_scales:
       action_rate: -0.01
+      ee_to_object_dist: -1.0
+      object_to_target_dis: -1.0
+      ee_dis: 1.0
     soft_dof_pos_limit: 0.9

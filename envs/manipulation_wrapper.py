@@ -33,6 +33,9 @@ class PickCube(ManiEnv):
         self.cube_contact_force = torch.zeros(
             (self.num_envs, self.robot.n_links, 3), device=self.device, dtype=gs.tc_float
         )
+        self.target_pos = torch.tensor(
+            [0.4, 0, 0.4], device=self.device, dtype=gs.tc_float
+        )
 
     def _update_buffers(self):
         super()._update_buffers()
@@ -61,6 +64,8 @@ class PickCube(ManiEnv):
                 (self.dof_pos - self.default_dof_pos) * self.obs_scales['dof_pos'],
                 self.dof_vel * self.obs_scales['dof_vel'],
                 self.actions,
+                self.ee_pos,
+                self.ee_quat,
                 self.cube_pos,
                 self.cube_quat,
             ],
@@ -77,6 +82,8 @@ class PickCube(ManiEnv):
                 (self.dof_pos - self.default_dof_pos) * self.obs_scales['dof_pos'],
                 self.dof_vel * self.obs_scales['dof_vel'],
                 self.actions,
+                self.ee_pos,
+                self.ee_quat,
                 self.cube_pos,
                 self.cube_quat,
             ],
@@ -209,3 +216,18 @@ class PickCube(ManiEnv):
     def _reward_action_rate(self):
         # Penalize changes in actions
         return torch.sum(torch.square(self.last_actions - self.actions), dim=1)
+
+    def _reward_ee_to_object_dis(self):
+        # Penalize distance from end effector to object
+        return torch.sum(torch.square(self.ee_pos - self.cube_pos), dim=1)
+
+    def _reward_object_to_target_dis(self):
+        # Penalize distance from object to target
+        return torch.sum(torch.square(self.cube_pos - self.target_pos), dim=1)
+
+    def _reward_ee_dis(self):
+        # Penalize distance from end effector to target
+        ee_pos = self.robot.get_links_pos(self.end_effector_link_indices)
+        ee_dis = torch.norm(ee_pos[:, 0, :] - ee_pos[:, 1, :], dim=1)
+        ee_to_object_dis = torch.norm(self.ee_pos - self.cube_pos, dim=1)
+        return ee_dis * (ee_to_object_dis > 0.02).float() - ee_dis * (ee_to_object_dis <= 0.02).float()
