@@ -2,19 +2,19 @@ import time
 import sys
 
 from unitree_sdk2py.core.channel import ChannelSubscriber, ChannelFactoryInitialize
-from unitree_sdk2py.go2.video.video_client import VideoClient
+from unitree_sdk2py.go2.video.video_client import VideoClient as Go2VideoClient
 
 import numpy as np
 import matplotlib.pyplot as plt
 
-class VideoHandler:
+class VideoClient:
     def __init__(self):
         try:
             ChannelFactoryInitialize(0)
         except:
             pass
 
-        self.video_client = VideoClient()
+        self.video_client = Go2VideoClient()
         self.video_client.SetTimeout(3.0)
         self.video_client.Init()
 
@@ -39,14 +39,14 @@ if __name__ == '__main__':
     else:
         ChannelFactoryInitialize(0)
 
-    video_handler = VideoHandler()
+    client = VideoClient()
 
     time.sleep(0.5)
 
     image_id = 0
     while True:
         input("Press Enter to save image...")
-        image_data = video_handler.get_image()
+        image_data = client.get_image()
         image = cv2.imdecode(image_data, cv2.IMREAD_COLOR)
 
         # Display image
@@ -56,3 +56,4 @@ if __name__ == '__main__':
             break
 
         cv2.imwrite(f"image_{image_id}.jpg", image)
+        image_id += 1

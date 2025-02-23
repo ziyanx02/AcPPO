@@ -28,8 +28,8 @@ control:
   - RL_hip_joint
   - RL_thigh_joint
   - RL_calf_joint
-  kd: 3
-  kp: 70.0
+  kd: 2
+  kp: 40.0
 robot:
   name: go2
   asset_path: urdf/go2/urdf/go2.urdf

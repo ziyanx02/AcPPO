@@ -180,7 +180,7 @@ environment:
   reward:
     reward_scales:
       action_rate: -0.01
-      ee_to_object_dist: -1.0
+      ee_to_object_dis: -1.0
       object_to_target_dis: -1.0
       ee_dis: 1.0
     soft_dof_pos_limit: 0.9

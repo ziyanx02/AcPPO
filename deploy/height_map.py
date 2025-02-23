@@ -70,14 +70,19 @@ if __name__ == '__main__':
     height_map_thread = HeightMapThread(handler)
     height_map_thread.start()
 
+    height_map_id = 0
     try:
         while True:
             input("Press ENTER to plot full height map...")
             height_map = height_map_thread.height_map
             height_map[height_map > 1] = 1
+            print((height_map_thread.origin[0] + handler.width, height_map_thread.origin[1] + handler.height))
             plt.imshow(1 - height_map, cmap='gray', vmin=0, vmax=1)
             plt.axis('off')  # Hide axis for a cleaner look
             plt.show()
+            # with open(f"height_map_{height_map_id}.pkl", "wb") as f:
+            #     pickle.dump(height_map, f)
+            # height_map_id += 1
     except KeyboardInterrupt:
         print("Stopping thread...")
         height_map_thread.stop()

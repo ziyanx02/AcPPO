@@ -1,9 +1,11 @@
 import time
 import sys
 
-from unitree_sdk2py.core.channel import ChannelSubscriber, ChannelFactoryInitialize
+from unitree_sdk2py.core.channel import ChannelPublisher, ChannelSubscriber, ChannelFactoryInitialize
 from unitree_sdk2py.idl.default import unitree_go_msg_dds__HeightMap_
+from unitree_sdk2py.idl.default import std_msgs_msg_dds__String_
 from unitree_sdk2py.idl.unitree_go.msg.dds_ import HeightMap_
+from unitree_sdk2py.idl.std_msgs.msg.dds_ import String_
 from unitree_sdk2py.utils.crc import CRC
 from unitree_sdk2py.utils.thread import RecurrentThread
 
@@ -29,6 +31,12 @@ class HeightMapHandler:
             ChannelFactoryInitialize(0)
         except:
             pass
+
+        self.lidar_switch_publisher = ChannelPublisher("rt/utlidar/switch", String_)
+        self.lidar_switch_publisher.Init()
+        self.lidar_switch = std_msgs_msg_dds__String_()
+        self.lidar_switch.data = "ON"
+        self.lidar_switch_publisher.Write(self.lidar_switch)
 
         # create subscriber # 
         self.heightmap_subscriber = ChannelSubscriber("rt/utlidar/height_map_array", HeightMap_)

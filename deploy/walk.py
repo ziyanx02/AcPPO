@@ -8,7 +8,7 @@ from transforms3d import quaternions
 
 if __name__ == '__main__':
 
-    cfg = yaml.safe_load(open(f"./ckpts/backflip.yaml"))
+    cfg = yaml.safe_load(open(f"./ckpts/walk.yaml"))
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -16,13 +16,13 @@ if __name__ == '__main__':
     handler.init()
     handler.start()
 
-    policy = torch.jit.load("./ckpts/single.pt")
+    policy = torch.jit.load("./ckpts/walk.pt")
     policy.to(device)
     policy.eval()
 
     default_dof_pos = np.array([0.0, 0.8, -1.5, 0.0, 0.8, -1.5, 0.0, 1.0, -1.5, 0.0, 1.0, -1.5])
+    commands = np.array([0., 0., 0., 0., 2., 0.5, 0., 0., 0., 0.3, 0.05, 0., 0., 0.3, 0.4])
     last_action = np.array([0.0] * 12)
-    last_last_action = np.array([0.0] * 12)
 
     try:
         while not handler.Start:
@@ -32,8 +32,7 @@ if __name__ == '__main__':
         last_update_time = time.time()
 
         step_id = 0
-        # while not handler.emergency_stop and step_id < 20:
-        while not handler.emergency_stop and step_id < 100:
+        while not handler.emergency_stop:
             if time.time() - last_update_time < 0.02:
                 time.sleep(0.001)
                 continue
@@ -42,29 +41,22 @@ if __name__ == '__main__':
                 v=np.array([0, 0, -1]),
                 q=quaternions.qinverse(handler.quat),
             )
-            phase = np.pi * step_id / 100
+            commands[0] = handler.Ly
+            commands[1] = -handler.Lx
+            commands[2] = -handler.Rx
             obs = np.concatenate(
                 [
                     np.array(handler.ang_vel) * 0.25,
                     projected_gravity,
+                    commands[:3] * 2.0 * 0.3,
                     np.array(handler.joint_pos) - default_dof_pos,
                     np.array(handler.joint_vel) * 0.05,
                     last_action,
-                    last_last_action,
-                    np.array([
-                        np.sin(phase),
-                        np.cos(phase),
-                        np.sin(phase / 2),
-                        np.cos(phase / 2),
-                        np.sin(phase / 4),
-                        np.cos(phase / 4),
-                    ])
                 ]
             )
             action = policy(torch.tensor(obs).to(device).float()).cpu().detach().numpy()
             last_action = action
-            last_last_action = last_action
-            handler.target_pos = default_dof_pos + action * 0.5
+            handler.target_pos = default_dof_pos + action * 0.25 * 1.0
             step_id += 1
     except:
         pass
