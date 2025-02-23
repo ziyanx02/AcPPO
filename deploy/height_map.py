@@ -80,9 +80,9 @@ if __name__ == '__main__':
             plt.imshow(1 - height_map, cmap='gray', vmin=0, vmax=1)
             plt.axis('off')  # Hide axis for a cleaner look
             plt.show()
-            # with open(f"height_map_{height_map_id}.pkl", "wb") as f:
-            #     pickle.dump(height_map, f)
-            # height_map_id += 1
+            with open(f"height_map_{height_map_id}.pkl", "wb") as f:
+                pickle.dump([height_map, (height_map_thread.origin[0] + handler.width, height_map_thread.origin[1] + handler.height)], f)
+            height_map_id += 1
     except KeyboardInterrupt:
         print("Stopping thread...")
         height_map_thread.stop()
