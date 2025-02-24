@@ -232,6 +232,9 @@ class ManiEnv:
         self.last_last_actions = torch.zeros(
             (self.num_envs, self.num_actions), device=self.device, dtype=gs.tc_float
         )
+        self.target_arm_dof_pos = torch.zeros(
+            (self.num_envs, 7), device=self.device, dtype=gs.tc_float
+        )
         self.dof_pos = torch.zeros(
             (self.num_envs, self.num_dof), device=self.device, dtype=gs.tc_float
         )
@@ -279,6 +282,7 @@ class ManiEnv:
             [default_joint_angles[name] for name in self.env_cfg['dof_names']],
             device=self.device,
         )
+        self.target_arm_dof_pos = self.default_dof_pos[None, :7].repeat(self.num_envs, 1)
 
         self.dof_pos_limits = torch.stack(self.robot.get_dofs_limit(self.motor_dofs), dim=1)
         self.torque_limits = self.robot.get_dofs_force_range(self.motor_dofs)[1]
@@ -375,7 +379,15 @@ class ManiEnv:
 
     def _compute_target_dof_pos(self, actions):
         actions_scaled = actions * self.action_scale
-        target_dof_pos = actions_scaled + self.default_dof_pos
+        self.target_arm_dof_pos += actions_scaled[:, :7] * self.dt
+        target_dof_pos = torch.cat(
+            [
+                self.target_arm_dof_pos,
+                actions_scaled[:, 7:] + self.default_dof_pos[7:],
+            ],
+            axis=-1,
+        )
+        target_dof_pos = torch.clip(target_dof_pos, self.dof_pos_limits[:, 0], self.dof_pos_limits[:, 1])
         return target_dof_pos
 
     def post_physics_step(self):
@@ -523,6 +535,7 @@ class ManiEnv:
             dofs_idx_local=self.motor_dofs,
             envs_idx=envs_idx,
         )
+        self.target_arm_dof_pos[envs_idx] = self.dof_pos[envs_idx, :7]
 
         # reset buffers
         self.actions[envs_idx] = 0.0
