@@ -8,7 +8,7 @@ from transforms3d import quaternions
 
 if __name__ == '__main__':
 
-    cfg = yaml.safe_load(open(f"./ckpts/walk.yaml"))
+    cfg = yaml.safe_load(open(f"./ckpts/g1.yaml"))
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -16,12 +16,13 @@ if __name__ == '__main__':
     handler.init()
     handler.start()
 
-    policy = torch.jit.load("./ckpts/walk.pt")
+    policy = torch.jit.load("./ckpts/g1.pt")
     policy.to(device)
     policy.eval()
 
-    default_dof_pos = np.array([0.0, 0.8, -1.5, 0.0, 0.8, -1.5, 0.0, 1.0, -1.5, 0.0, 1.0, -1.5])
+    default_dof_pos = np.array([-0.3, 0., 0., 0.6, -0.3, 0., -0.3, 0., 0., 0.6, -0.3, 0.])
     last_action = np.array([0.0] * 12)
+    commands = np.array([0.0] * 3)
 
     try:
         while not handler.Start:
@@ -59,5 +60,3 @@ if __name__ == '__main__':
             step_id += 1
     except:
         pass
-    
-    handler.recover()

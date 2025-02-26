@@ -55,7 +55,7 @@ environment:
   termination_contact_link_names:
   - pelvis
   penalized_contact_link_names:
-  - pelvis
+  - knee
   feet_link_names:
   - left_ankle_roll_link
   - left_ankle_roll_link
@@ -114,8 +114,8 @@ environment:
   use_timeout: true
   reset_after_termination: true
   termination_if_height_lower_than: 0.0
-  termination_if_pitch_greater_than: 0.3
-  termination_if_roll_greater_than: 0.3
+  termination_if_pitch_greater_than: 0.4
+  termination_if_roll_greater_than: 0.4
   # init pos
   base_init_pos:
   - 0.0
@@ -129,15 +129,15 @@ environment:
   default_joint_angles:
     left_hip_yaw_joint: 0.
     left_hip_roll_joint: 0.
-    left_hip_pitch_joint: -0.1
-    left_knee_joint: 0.3
-    left_ankle_pitch_joint: -0.2
+    left_hip_pitch_joint: -0.3
+    left_knee_joint: 0.6
+    left_ankle_pitch_joint: -0.3
     left_ankle_roll_joint: 0.
     right_hip_yaw_joint: 0.
     right_hip_roll_joint: 0.
-    right_hip_pitch_joint: -0.1
-    right_knee_joint: 0.3
-    right_ankle_pitch_joint: -0.2
+    right_hip_pitch_joint: -0.3
+    right_knee_joint: 0.6
+    right_ankle_pitch_joint: -0.3
     right_ankle_roll_joint: 0.
   # domain randomization
   resampling_time_s: 4.0
@@ -177,6 +177,20 @@ environment:
   max_push_vel_xy: 1.0
   push_interval_s: -1
   use_terrain: false
+  terrain_cfg:
+    n_subterrains:
+    - 2
+    - 2
+    horizontal_scale: 0.1
+    vertical_scale: 0.005
+    subterrain_size:
+    - 6.0
+    - 6.0
+    subterrain_types:
+    - - random_uniform_terrain
+      - discrete_obstacles_terrain
+    - - discrete_obstacles_terrain
+      - random_uniform_terrain
   command:
     lin_vel_x_range:
     - -1.0
@@ -212,10 +226,14 @@ environment:
       dof_acc: -2.5e-07
       dof_pos_diff: -0.3
       dof_vel: -0.0
-      feet_air_time: 1.0
+      feet_air_time: 5.0
+      feet_slippery: -1.0
+      max_feet_height: 5.0
+      feet_orientation: -1.0
       lin_vel_z: -2.0
       orientation: -1.0
-      torques: -0.0001
+      hip_action: -0.1
+      torques: -0.00001
       terminate: -30.0
     soft_dof_pos_limit: 0.9
     tracking_sigma: 0.25

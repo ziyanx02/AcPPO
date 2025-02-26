@@ -617,6 +617,10 @@ class LocoEnv:
         self.foot_positions[:] = self.rigid_solver.get_links_pos(self.feet_link_indices_world_frame)
         self.foot_quaternions[:] = self.rigid_solver.get_links_quat(self.feet_link_indices_world_frame)
         self.foot_velocities[:] = self.rigid_solver.get_links_vel(self.feet_link_indices_world_frame)
+        inv_foot_quat = gs_inv_quat(self.foot_quaternions)
+        self.foot_projected_gravity = gs_transform_by_quat(
+            self.global_gravity, inv_foot_quat
+        )
 
         if self.env_cfg['use_terrain']:
             clipped_base_pos = self.base_pos[:, :2].clamp(min=torch.zeros(2, device=self.device), max=self.terrain_margin)
@@ -687,7 +691,8 @@ class LocoEnv:
             )  * self.obs_noise
 
         clip_obs = 100.0
-        self.obs_buf = torch.clip(obs_buf, -clip_obs, clip_obs)
+        obs_buf = torch.clip(obs_buf, -clip_obs, clip_obs)
+        self.obs_buf = torch.nan_to_num(obs_buf, nan=0.0)
 
     def compute_critic_observation(self):
         privileged_obs_buf = torch.cat(
@@ -704,7 +709,8 @@ class LocoEnv:
             axis=-1,
         )
         clip_obs = 100.0
-        self.privileged_obs_buf = torch.clip(privileged_obs_buf, -clip_obs, clip_obs)
+        privileged_obs_buf = torch.clip(privileged_obs_buf, -clip_obs, clip_obs)
+        self.privileged_obs_buf = torch.nan_to_num(privileged_obs_buf, nan=0.0)
 
     def compute_reward(self):
         self.rew_buf[:] = 0.
@@ -712,6 +718,7 @@ class LocoEnv:
         for i in range(len(self.reward_functions)):
             name = self.reward_names[i]
             rew = self.reward_functions[i]() * self.reward_scales[name]
+            rew = torch.clip(rew, -100.0, 100.0)
             self.rew_buf += rew
             self.episode_sums[name] += rew
             self.extras['rewards'][name] = torch.mean(rew).item()

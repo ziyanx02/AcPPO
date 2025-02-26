@@ -95,6 +95,20 @@ class Walk(LocoEnv):
         self.feet_air_time *= ~contact_filt
         return rew_airTime
 
+    def _reward_max_feet_height(self):
+        max_feet_height = self.foot_positions[:, :, 2].max(dim=1).values.clip(max=0.15)
+        return max_feet_height
+
+    def _reward_feet_orientation(self):
+        return torch.norm(self.foot_projected_gravity[:, :, :2], dim=2).sum(dim=1)
+
+    def _reward_feet_slippery(self):
+        feet_slippery = (self.foot_positions[:, :, 2] < 0.15) * torch.square(self.foot_velocities[:, :, :2]).sum(dim=2)
+        return feet_slippery.sum(dim=1)
+
+    def _reward_hip_action(self):
+        return torch.square(self.actions[:, [1, 2, 7, 8]]).sum(dim=1)
+
     def _reward_alive(self):
         # Reward for staying alive
         return 1 - self.terminate_buf.float()
