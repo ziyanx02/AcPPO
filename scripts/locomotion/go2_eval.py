@@ -8,6 +8,7 @@ import torch
 from envs.locomotion_wrapper import Walk
 from envs.locomotion_wrapper import Jump
 from envs.locomotion_wrapper import Backflip
+from envs.locomotion_wrapper import Walk_Gaits
 from envs.locomotion_env import LocoEnv
 from envs.time_wrapper import TimeWrapper
 from rsl_rl.runners import TDORunner
@@ -19,6 +20,7 @@ ENV_DICT = {
     'walk': Walk,
     'jump': Jump,
     'backflip': Backflip,
+    'gait': Walk_Gaits,
 }
 
 
@@ -38,6 +40,7 @@ def main(args):
     )
     env_cfg['reward']['reward_scales'] = {}
     env_cfg['PPO'] = True
+    env_cfg['record_length'] = args.record_length
 
     env_class = ENV_DICT[args.task]
     env = env_class(
@@ -80,6 +83,12 @@ def main(args):
             env.step(actions)
             env.compute_observation()
             obs, _ = env.get_observations()
+
+            n_frames += 1 
+            if args.record and n_frames >= env.record_length: # 50 fps, 20 s
+                env.stop_recording(args.exp_name + '.mp4')
+                print('Finish recording!')
+                break 
 
 if __name__ == '__main__':
     main()

@@ -68,6 +68,7 @@ class LocoEnv:
         self.reward_scales = self.reward_cfg['reward_scales']
         self.max_episode_length = int(np.ceil(self.max_episode_length_s / self.dt))
         self.period_length = int(np.ceil(self.period_length_s / self.dt))
+        self.record_length = int(np.ceil(env_cfg.get('record_length', 3) / self.dt))
 
         self.headless = not show_viewer
         self.eval = eval
@@ -1003,7 +1004,7 @@ class LocoEnv:
         return self.camera_x.render()[0], self.camera_y.render()[0], self.camera_z.render()[0]
 
     def _render_headless(self):
-        if self._recording and len(self._recorded_frames) < 150:
+        if self._recording and len(self._recorded_frames) < self.record_length:
             robot_pos = np.array(self.base_pos[0].cpu())
             self._floating_camera.set_pose(pos=robot_pos + np.array([-1, -1, 0.5]), lookat=robot_pos + np.array([0, 0, -0.1]))
             # import time
@@ -1018,7 +1019,7 @@ class LocoEnv:
             # print('save')
 
     def get_recorded_frames(self):
-        if len(self._recorded_frames) == 150:
+        if len(self._recorded_frames) == self.record_length:
             frames = self._recorded_frames
             self._recorded_frames = []
             self._recording = False
