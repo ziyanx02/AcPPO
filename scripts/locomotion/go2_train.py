@@ -11,6 +11,7 @@ import wandb
 from envs.locomotion_wrapper import Walk
 from envs.locomotion_wrapper import Jump
 from envs.locomotion_wrapper import Backflip
+from envs.locomotion_wrapper import Walk_Gaits
 from envs.time_wrapper import TimeWrapper
 from rsl_rl.runners import TDORunner
 
@@ -21,6 +22,7 @@ ENV_DICT = {
     'walk': Walk,
     'jump': Jump,
     'backflip': Backflip,
+    'gait': Walk_Gaits,
 }
 
 

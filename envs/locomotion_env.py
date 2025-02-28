@@ -279,13 +279,12 @@ class LocoEnv:
 
         def find_link_indices(names):
             link_indices = list()
-            for link in self.robot.links:
-                flag = False
-                for name in names:
-                    if name in link.name:
-                        flag = True
-                if flag:
-                    link_indices.append(link.idx - self.robot.link_start)
+            availible = [True for i in range(len(self.robot.links))]
+            for name in names:
+                for i, link in enumerate(self.robot.links):
+                    if availible[i] and name in link.name:
+                        availible[i] = False
+                        link_indices.append(link.idx - self.robot.link_start)
             return link_indices
 
         self.termination_contact_link_indices = find_link_indices(
@@ -300,7 +299,6 @@ class LocoEnv:
         assert len(self.termination_contact_link_indices) > 0
         assert len(self.penalized_contact_link_indices) > 0
         assert len(self.feet_link_indices) > 0
-        self.feet_link_indices_world_frame = [i+1 for i in self.feet_link_indices]
 
         # actions
         self.actions = torch.zeros(
@@ -614,9 +612,9 @@ class LocoEnv:
         self.link_contact_forces[:] = self.robot.get_links_net_contact_force()
         self.com[:] = self.rigid_solver.get_links_COM([self.base_link_index,]).squeeze(dim=1)
 
-        self.foot_positions[:] = self.rigid_solver.get_links_pos(self.feet_link_indices_world_frame)
-        self.foot_quaternions[:] = self.rigid_solver.get_links_quat(self.feet_link_indices_world_frame)
-        self.foot_velocities[:] = self.rigid_solver.get_links_vel(self.feet_link_indices_world_frame)
+        self.foot_positions[:] = self.robot.get_links_pos()[:, self.feet_link_indices]
+        self.foot_quaternions[:] = self.robot.get_links_quat()[:, self.feet_link_indices]
+        self.foot_velocities[:] = self.robot.get_links_vel()[:, self.feet_link_indices]
 
         if self.env_cfg['use_terrain']:
             clipped_base_pos = self.base_pos[:, :2].clamp(min=torch.zeros(2, device=self.device), max=self.terrain_margin)
