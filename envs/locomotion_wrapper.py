@@ -239,6 +239,10 @@ class Walk_Gaits(Walk):
         super().__init__(num_envs, env_cfg, show_viewer, eval, debug, n_rendered_envs, device)
         self._load_gait(env_cfg['gait'])
 
+        if self.debug:
+            self.ref_base_pos = self.base_init_pos
+            self.ref_base_pos[2] = self.gait_cfg['base_height_target']
+
     def _init_buffers(self):
         super()._init_buffers()
 
@@ -437,9 +441,8 @@ class Walk_Gaits(Walk):
         super()._draw_debug_vis()
 
         ## Fix base
-        # init_pos = torch.zeros((self.num_envs, 3), device=self.device, dtype=gs.tc_float)
-        # init_pos[:, 2] = 0.35
-        # self.robot.set_pos(init_pos)
+        self.ref_base_pos[:2] += self.commands[0, :2] * self.dt
+        self.robot.set_pos(self.ref_base_pos.unsqueeze(0))
 
         num_feet = len(self.feet_link_indices)
         feet_pos_translated = self.foot_positions - self.com.unsqueeze(1)
@@ -458,6 +461,7 @@ class Walk_Gaits(Walk):
             desired_feet_pos[:, i, :] = gs_quat_apply_yaw(self.base_quat, desired_feet_pos[:, i, :])
         desired_feet_pos[:, :, :2] += self.com.unsqueeze(1)[:, :, :2]
 
+        self.scene.draw_debug_sphere(pos=self.ref_base_pos, radius=0.1, color=(0, 0, 1, 0.7))
         for i in range(num_feet):
             self.scene.draw_debug_sphere(pos=feet_pos[0, i, :], radius=0.05, color=(0, 1, 0, 0.7))
             self.scene.draw_debug_sphere(pos=desired_feet_pos[0, i, :], radius=0.05, color=(1, 1 - self.desired_contact_states[0, i], 0, 0.7))
