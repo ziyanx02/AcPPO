@@ -412,6 +412,27 @@ class Walk_Gaits(Walk):
 
         return reward
     
+    def _reward_action_smoothness_1(self):
+        # Penalize changes in actions
+        diff = torch.square(self.actions - self.last_actions)
+        diff = diff * (self.last_actions != 0)  # ignore first step
+        return torch.sum(diff, dim=1)
+
+    def _reward_action_smoothness_2(self):
+        # Penalize changes in actions
+        diff = torch.square(self.actions - 2 * self.last_actions + self.last_last_actions)
+        diff = diff * (self.last_actions != 0) * (self.last_last_actions != 0)  # ignore first&second step
+        return torch.sum(diff, dim=1)
+
+    def _reward_feet_slip(self):
+        # Penalize feet slip
+        contact = self.link_contact_forces[:, self.feet_link_indices, 2] > 1.
+        contact_filt = torch.logical_or(contact, self.last_contacts)
+        self.last_contacts = contact
+        foot_velocities = torch.square(torch.norm(self.foot_velocities[:, :, 0:2], dim=2).view(self.num_envs, -1))
+        rew_slip = torch.sum(contact_filt * foot_velocities, dim=1)
+        return rew_slip
+    
     def _draw_debug_vis(self):
         super()._draw_debug_vis()
 

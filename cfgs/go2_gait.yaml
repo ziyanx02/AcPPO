@@ -163,21 +163,21 @@ environment:
   use_terrain: false
   command:
     lin_vel_x_range:
-    - -1.0
-    - 1.0
+    - 0
+    - 0
     lin_vel_y_range:
-    - -1.0
-    - 1.0
+    - 0
+    - 0
     ang_vel_range:
-    - -2.0
-    - 2.0
+    - 0
+    - 0
   gait:
     # the order of feet is defined by feet_link_name
     base_height_target: 0.3 
     frequency: [2.0, 2.0, 2.0, 2.0,]
     duration: [0.5, 0.5, 0.5, 0.5,]
-    offset: [0.5, 0.5, 0, 0,] 
-    feet_height_target: [0.1, 0.1, 0.1, 0.1,]
+    offset: [0.5, 0, 0, 0.5] 
+    feet_height_target: [0.12, 0.12, 0.12, 0.12,]
     stationary_position:
       - [0.2, 0.15] 
       - [0.2, -0.15]
@@ -206,11 +206,10 @@ environment:
       base_height: -5.0
       collision: -1.0
       dof_acc: -2.5e-07
-      dof_pos_diff: -0.3
       dof_vel: -0.0
       feet_air_time: 1.0
       lin_vel_z: -2.0
-      orientation: -1.0
+      orientation: -5.0
       torques: -0.0001
       terminate: -30.0
       
@@ -219,6 +218,10 @@ environment:
       contact_vel: -4.
       feet_height: -100.
       feet_pos: -30.
+      # Additional auxiliary
+      action_smoothness_1: -0.01
+      action_smoothness_2: -0.01
+      feet_slip: -0.04
     
 
     soft_dof_pos_limit: 0.9

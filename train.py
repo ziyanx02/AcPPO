@@ -22,7 +22,7 @@ if __name__ == '__main__':
     parser.add_argument('--resume', type=str, default=None)
     parser.add_argument('-o', '--offline', action='store_true', default=False)
     parser.add_argument('--time', action='store_true', default=False)
-    parser.add_argument('-p', '--ppo', action='store_true', default=False)
+    parser.add_argument('-p', '--ppo', action='store_false', default=True)
 
     parser.add_argument('--eval', action='store_true', default=False)
     parser.add_argument('--debug', action='store_true', default=False)
