@@ -16,8 +16,10 @@ if __name__ == '__main__':
     parser.add_argument('-H', '--headless', action='store_true', default=False)
     parser.add_argument('-B', '--num_envs', type=int, default=1)
     parser.add_argument('--td', action='store_true', default=False)
-    parser.add_argument('--ckpt', type=int, default=1000)
-    parser.add_argument('--record_length', help='unit: seconds', type=int, default=3)
+    parser.add_argument('--ckpt', type=int, default=999)
+    parser.add_argument('--record_length', help='unit: second', type=int, default=3)
+    parser.add_argument('--debug', action='store_true', default=False)
+    parser.add_argument('--resample_time', help='unit: second', type=float, default=None)
     args = parser.parse_args()
 
     robot, task = args.task.split('-')

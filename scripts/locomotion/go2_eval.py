@@ -38,9 +38,11 @@ def main(args):
     env_cfg, train_cfg = pickle.load(
         open(f'logs/{args.exp_name}/cfgs.pkl', 'rb')
     )
+    # print(env_cfg)
     env_cfg['reward']['reward_scales'] = {}
     env_cfg['PPO'] = True
     env_cfg['record_length'] = args.record_length
+    if args.resample_time != None: env_cfg['resampling_time_s'] = args.resample_time
 
     env_class = ENV_DICT[args.task]
     env = env_class(
@@ -48,7 +50,7 @@ def main(args):
         env_cfg=env_cfg,
         show_viewer=not args.headless,
         eval=True,
-        debug=False,
+        debug=args.debug,
     )
     env = TimeWrapper(env, int(env_cfg['period_length_s'] * env_cfg['control_freq']), reset_each_period=False, observe_time=False)
 
@@ -84,6 +86,7 @@ def main(args):
             env.compute_observation()
             obs, _ = env.get_observations()
 
+            print(env.commands)
             n_frames += 1 
             if args.record and n_frames >= env.record_length: # 50 fps, 20 s
                 env.stop_recording(args.exp_name + '.mp4')

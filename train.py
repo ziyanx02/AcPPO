@@ -26,7 +26,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--eval', action='store_true', default=False)
     parser.add_argument('--debug', action='store_true', default=False)
-    parser.add_argument('--ckpt', type=int, default=1000)
+    parser.add_argument('--ckpt', type=int, default=999)
     args = parser.parse_args()
 
     if args.exp_name == None:

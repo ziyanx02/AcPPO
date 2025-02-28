@@ -164,7 +164,7 @@ environment:
   command:
     lin_vel_x_range:
     - 0
-    - 0
+    - 1.0
     lin_vel_y_range:
     - 0
     - 0
@@ -176,7 +176,7 @@ environment:
     base_height_target: 0.3 
     frequency: [2.0, 2.0, 2.0, 2.0,]
     duration: [0.5, 0.5, 0.5, 0.5,]
-    offset: [0.5, 0, 0, 0.5] 
+    offset: [0.5, 0.5, 0, 0] 
     feet_height_target: [0.12, 0.12, 0.12, 0.12,]
     stationary_position:
       - [0.2, 0.15] 
@@ -214,10 +214,10 @@ environment:
       terminate: -30.0
       
       # Additional in Gait
-      contact_force: -4.
-      contact_vel: -4.
+      contact_force: -1.
+      contact_vel: -1.
       feet_height: -100.
-      feet_pos: -30.
+      feet_pos: -7.0
       # Additional auxiliary
       action_smoothness_1: -0.01
       action_smoothness_2: -0.01
