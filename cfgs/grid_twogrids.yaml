@@ -1,0 +1,46 @@
+learning:
+  algorithm:
+    class_name: TDO
+    clip_param: 0.2
+    desired_kl: 0.01
+    entropy_coef: 0.01
+    gamma: 0.99
+    lam: 0.95
+    learning_rate: 0.001
+    max_grad_norm: 1.0
+    num_learning_epochs: 5
+    num_mini_batches: 4
+    schedule: adaptive
+    use_clipped_value_loss: true
+    value_loss_coef: 1.0
+    td_entropy_coef: 0.0
+    return_boosting_coef: 0.0
+    action_noise_threshold: 0.0
+  policy:
+    activation: elu
+    actor_hidden_dims:
+    - 8
+    - 8
+    class_name: ActorCriticTDO
+    critic_hidden_dims:
+    - 8
+    - 8
+    init_noise_std: 1.0
+  temporal_distribution:
+    learning_rate: 0.001
+    class_name: TemporalDistribution
+  PPO: false
+  empirical_normalization: false
+  exp_name: null
+  num_steps_per_env: 24
+  reset_rate: 0.0
+  print_infos: true
+  record_interval: 50
+  save_interval: 100
+  seed: 1
+  wandb_entity: ziyanx02
+  wandb_project: TDO
+environment:
+  reward:
+    reward_scales:
+      success: 1.0

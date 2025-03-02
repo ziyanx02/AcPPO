@@ -2,7 +2,6 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-import genesis as gs
 from rsl_rl.env import VecEnv
 
 class TimeWrapper:
@@ -20,7 +19,7 @@ class TimeWrapper:
             self.num_privileged_obs = env.num_privileged_obs + 6
 
         self.time_buf = torch.zeros(
-            (self.num_envs), device=self.device, dtype=gs.tc_int
+            (self.num_envs), device=self.device, dtype=torch.int
         )
 
     def __getattr__(self, name):

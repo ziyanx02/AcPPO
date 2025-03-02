@@ -4,11 +4,13 @@ import datetime
 from scripts.locomotion.g1_train import main as g1
 from scripts.locomotion.go2_train import main as go2
 from scripts.manipulation.franka_train import main as franka
+from scripts.grid.grid_train import main as grid
 
 MAIN_FUNCS = {
     'g1': g1,
     'go2': go2,
     'franka': franka,
+    'grid': grid,
 }
 
 if __name__ == '__main__':

@@ -8,40 +8,20 @@ import yaml
 import numpy as np
 import torch
 import wandb
-from envs.locomotion_wrapper import Walk
-from envs.locomotion_wrapper import Jump
-from envs.locomotion_wrapper import Backflip
+from envs.grid_wrapper import TwoGrids
 from envs.time_wrapper import TimeWrapper
 from rsl_rl.runners import TDORunner
 
-import genesis as gs
-
-
 ENV_DICT = {
-    'walk': Walk,
-    # 'jump': Jump,
+    'twogrids': TwoGrids,
 }
-
 
 def main(args):
 
-    if args.debug or args.eval:
-        args.vis = True
-        args.offline = True
-        args.num_envs = 1
-        args.cpu = True
-
-    if not torch.cuda.is_available():
-        args.cpu = True
-
-    gs.init(
-        backend=gs.cpu if args.cpu else gs.gpu,
-        logging_level='warning',
-    )
     device = 'cpu' if args.cpu else 'cuda'
 
     log_dir = f'logs/{args.exp_name}'
-    with open(f'./cfgs/g1_{args.task}.yaml', 'r') as file:
+    with open(f'./cfgs/grid_{args.task}.yaml', 'r') as file:
         cfg = yaml.safe_load(file)
     train_cfg = cfg['learning']
     env_cfg = cfg['environment']
@@ -54,7 +34,6 @@ def main(args):
         train_cfg['print_infos'] = False
     if args.ppo:
         train_cfg['PPO'] = True
-        env_cfg['PPO'] = True
 
     if args.eval:
         env_cfg['episode_length_s'] = 1 / env_cfg['control_freq']
@@ -72,13 +51,10 @@ def main(args):
     env = env_class(
         num_envs=args.num_envs,
         env_cfg=env_cfg,
-        show_viewer=args.vis,
-        eval=False,
-        debug=args.debug,
         device=device,
     )
 
-    env = TimeWrapper(env, int(env_cfg['period_length_s'] * env_cfg['control_freq']), reset_each_period=False, observe_time=args.time)
+    env = TimeWrapper(env, env.max_episode_length, reset_each_period=False, observe_time=args.time)
 
     runner = TDORunner(env, train_cfg, log_dir, device=device)
 

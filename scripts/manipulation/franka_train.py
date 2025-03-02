@@ -106,12 +106,3 @@ if __name__ == '__main__':
     parser.add_argument('--ckpt', type=int, default=1000)
     args = parser.parse_args()
     main(args)
-
-
-'''
-# training
-python train_backflip.py -e EXP_NAME
-
-# evaluation
-python eval_backflip.py -e EXP_NAME --ckpt NUM_CKPT
-'''

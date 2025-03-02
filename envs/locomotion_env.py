@@ -6,6 +6,8 @@ import genesis as gs
 from genesis.engine.solvers.rigid.rigid_solver_decomp import RigidSolver
 from utils import *
 
+from rsl_rl.env import VecEnv
+
 def quaternion_from_projected_gravity(gravity):
     """
     Compute the minimum quaternion to rotate v1 to v2 for batched tensors.
@@ -37,7 +39,7 @@ def quaternion_from_projected_gravity(gravity):
     
     return torch.cat([w, xyz], dim=-1)  # Shape (N, 4)
 
-class LocoEnv:
+class LocoEnv(VecEnv):
     def __init__(
         self,
         num_envs,

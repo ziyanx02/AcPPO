@@ -84,23 +84,8 @@ class VecEnv(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def set_time(self, time, envs_idx=None) -> None:
-        """Set time.
-        """
-        raise NotImplementedError
-
-    @abstractmethod
     def resample_commands(self, envs_idx) -> None:
         """Resample commands.
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def get_init_state_distribution(self, period_length) -> tuple[torch.Tensor, torch.Tensor]:
-        """Get initialization of state distributions.
-
-        Returns:
-            Tuple[torch.Tensor, torch.Tensor]: Tuple containing the mean values and standard deviations.
         """
         raise NotImplementedError
 

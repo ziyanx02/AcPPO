@@ -6,7 +6,9 @@ import genesis as gs
 from genesis.engine.solvers.rigid.rigid_solver_decomp import RigidSolver
 from utils import *
 
-class ManiEnv:
+from rsl_rl.env import VecEnv
+
+class ManiEnv(VecEnv):
     def __init__(
         self,
         num_envs,
