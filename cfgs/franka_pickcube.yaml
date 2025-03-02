@@ -3,7 +3,7 @@ learning:
     class_name: TDO
     clip_param: 0.2
     desired_kl: 0.01
-    entropy_coef: 0.01
+    entropy_coef: 0.001
     gamma: 0.99
     lam: 0.95
     learning_rate: 0.001
@@ -179,8 +179,8 @@ environment:
       dof_vel: 0.05
   reward:
     reward_scales:
-      action_rate: -0.01
+      # action_rate: -0.01
       ee_to_object_dis: -1.0
-      object_to_target_dis: -1.0
-      ee_dis: 1.0
+      # object_to_target_dis: -1.0
+      # ee_dis: 1.0
     soft_dof_pos_limit: 0.9

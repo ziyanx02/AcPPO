@@ -118,8 +118,8 @@ environment:
   termination_if_roll_greater_than: 0.4
   # init pos
   base_init_pos:
-  - 0.0
-  - 0.0
+  - 6.0
+  - 6.0
   - 0.85
   base_init_quat:
   - 1.0
@@ -220,17 +220,17 @@ environment:
       lin_vel: 1.0
       ang_vel: 0.5
       action_rate: -0.01
-      ang_vel_xy: -0.05
+      ang_vel_xy: -0.1
+      lin_vel_z: -2.0
       base_height: -5.0
       collision: -1.0
       dof_acc: -2.5e-07
       dof_pos_diff: -0.3
       dof_vel: -0.0
-      feet_air_time: 5.0
-      feet_slippery: -1.0
+      feet_air_time: 10.0
       max_feet_height: 5.0
       feet_orientation: -1.0
-      lin_vel_z: -2.0
+      feet_slippery: -0.03
       orientation: -1.0
       hip_action: -0.1
       torques: -0.00001
