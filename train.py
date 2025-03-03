@@ -13,7 +13,7 @@ MAIN_FUNCS = {
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('-t', '--task', type=str, default='go2-gait')
+    parser.add_argument('-t', '--task', type=str, default='g1-gait')
     parser.add_argument('-e', '--exp_name', type=str, default=None)
     parser.add_argument('-v', '--vis', action='store_true', default=False)
     parser.add_argument('-c', '--cpu', action='store_true', default=False)

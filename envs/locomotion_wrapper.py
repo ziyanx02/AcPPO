@@ -441,11 +441,15 @@ class Walk_Gaits(Walk):
         super()._draw_debug_vis()
 
         ## Fix base
-        self.ref_base_pos = self.com[0].clone()
-        self.ref_base_pos[:2] += self.commands[0, :2] 
-        self.ref_base_pos[2] += self.gait_base_height[0]
-        # self.ref_base_pos[:2] += self.commands[0, :2] * self.dt
-        # self.robot.set_pos(self.ref_base_pos.unsqueeze(0))
+        fix_base = False
+        if fix_base :
+            self.ref_base_pos[2] = self.gait_base_height[0]
+            self.ref_base_pos[:2] += self.commands[0, :2] * self.dt
+            self.robot.set_pos(self.ref_base_pos.unsqueeze(0))
+        else: 
+            self.ref_base_pos = self.com[0].clone()
+            self.ref_base_pos[:2] += self.commands[0, :2] 
+            self.ref_base_pos[2] += self.gait_base_height[0]
 
         num_feet = len(self.feet_link_indices)
         feet_pos_translated = self.foot_positions - self.com.unsqueeze(1)
