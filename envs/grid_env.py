@@ -33,6 +33,9 @@ class GridEnv(VecEnv):
         self.state_buf = torch.zeros(
             (num_envs, 2), device=device, dtype=torch.float
         )
+        self.actions = torch.zeros(
+            (num_envs, 2), device=device, dtype=torch.float
+        )
         self.in_grid = torch.zeros(
             (num_envs,), device=device, dtype=torch.int
         )
@@ -57,7 +60,7 @@ class GridEnv(VecEnv):
         self.gate_pos = torch.tensor([self.half_grid_size, 3], device=device, dtype=torch.float)
         self.gate_width = 0.2
         self.target_pos = torch.tensor([self.grid_size, 0], device=device, dtype=torch.float)
-        self.target_width = 0.1
+        self.target_width = 0.5
         self.extras = {}
 
         self._prepare_reward_function()
@@ -110,6 +113,7 @@ class GridEnv(VecEnv):
 
     def step(self, actions):
 
+        self.actions = actions
         new_state = self.state_buf + actions
         new_state = torch.max(new_state, self.state_min)
         new_state = torch.min(new_state, self.state_max)

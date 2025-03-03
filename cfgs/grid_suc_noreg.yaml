@@ -3,7 +3,7 @@ learning:
     class_name: TDO
     clip_param: 0.2
     desired_kl: 0.01
-    entropy_coef: 0.01
+    entropy_coef: 0.003
     gamma: 0.99
     lam: 0.95
     learning_rate: 0.001
@@ -15,7 +15,7 @@ learning:
     value_loss_coef: 1.0
     td_entropy_coef: 0.0
     return_boosting_coef: 0.0
-    action_noise_threshold: 0.0
+    action_noise_threshold: 1.0
   policy:
     activation: elu
     actor_hidden_dims:
@@ -32,11 +32,11 @@ learning:
   PPO: false
   empirical_normalization: false
   exp_name: null
-  num_steps_per_env: 24
+  num_steps_per_env: 20
   reset_rate: 0.0
   print_infos: true
-  record_interval: 50
-  save_interval: 100
+  record_interval: -1
+  save_interval: 10
   seed: 1
   wandb_entity: ziyanx02
   wandb_project: TDO

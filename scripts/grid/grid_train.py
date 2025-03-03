@@ -13,7 +13,7 @@ from envs.time_wrapper import TimeWrapper
 from rsl_rl.runners import TDORunner
 
 ENV_DICT = {
-    'twogrids': TwoGrids,
+    'suc_noreg': TwoGrids,
 }
 
 def main(args):
