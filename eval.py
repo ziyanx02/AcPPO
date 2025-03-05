@@ -2,9 +2,11 @@ import argparse
 import datetime
 
 from scripts.locomotion.go2_eval import main as go2
+from scripts.locomotion.g1_eval import main as g1
 
 MAIN_FUNCS = {
     'go2': go2,
+    'g1': g1,
 }
 
 if __name__ == '__main__':

@@ -968,10 +968,10 @@ class LocoEnv:
         ''' Set camera position and direction
         '''
         self._floating_camera = self.scene.add_camera(
-            pos=np.array([0, -1, 1]),
+            pos=np.array([0, -1.5, 1.5]),
             lookat=np.array([0, 0, 0]),
             # res=(720, 480),
-            fov=40,
+            fov=50,
             GUI=False,
         )
 
