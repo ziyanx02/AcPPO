@@ -3,10 +3,12 @@ import datetime
 
 from scripts.locomotion.go2_eval import main as g1
 from scripts.locomotion.go2_eval import main as go2
+from scripts.grid.grid_eval import main as grid
 
 MAIN_FUNCS = {
     'g1': g1,
     'go2': go2,
+    'grid': grid,
 }
 
 if __name__ == '__main__':

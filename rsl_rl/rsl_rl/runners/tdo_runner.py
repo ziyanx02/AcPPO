@@ -207,29 +207,6 @@ class TDORunner:
             if it % self.save_interval == 0:
                 self.save(os.path.join(self.log_dir, f"model_{it}.pt"))
             iter_infos.clear()
-            if it % 10 == 0:
-                resolution = 0.2
-                mean = self.alg.temporal_distribution.mean_params.data
-                std = self.alg.temporal_distribution.std_params.data
-                hist = torch.zeros((math.floor((2 * self.env.grid_size) / resolution) + 2, math.floor(self.env.grid_size / resolution) + 1), device=self.device)
-                with torch.no_grad():
-                    for _ in range(1000):
-                        states = mean + std * torch.randn_like(std)
-                        idx = torch.floor((states + self.env.half_grid_size) / resolution).to(torch.int64)
-                        for i in range(idx.shape[0]):
-                            hist[idx[i, 0], idx[i, 1]] += 1
-                hist_log = torch.log(hist + 1)
-                hist_log_np = hist_log.cpu().numpy()
-                plt.figure(figsize=(16, 8))
-                plt.imshow(hist_log_np.T, origin='lower', extent=[-self.env.half_grid_size, self.env.grid_size + self.env.half_grid_size, -self.env.half_grid_size, self.env.half_grid_size], cmap='viridis')
-                plt.colorbar(label='Log Count')
-                plt.xlabel('X Position')
-                plt.ylabel('Y Position')
-                plt.title('Log Number of States in Each Grid Cell')
-                plt.savefig(os.path.join(self.log_dir, f'it_{it}_td.png'), bbox_inches='tight', dpi=300)
-            print("td mean", self.alg.temporal_distribution.mean_params.data)
-            print("td std", self.alg.temporal_distribution.std_params.data)
-
             if it == start_iter:
                 # obtain all the diff files
                 git_file_paths = store_code_state(self.log_dir, self.git_status_repos)

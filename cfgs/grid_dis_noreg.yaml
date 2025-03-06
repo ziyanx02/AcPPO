@@ -19,12 +19,14 @@ learning:
   policy:
     activation: elu
     actor_hidden_dims:
-    - 8
-    - 8
+    - 16
+    - 16
+    - 16
     class_name: ActorCriticTDO
     critic_hidden_dims:
-    - 8
-    - 8
+    - 16
+    - 16
+    - 16
     init_noise_std: 1.0
   temporal_distribution:
     learning_rate: 0.001
@@ -43,4 +45,5 @@ learning:
 environment:
   reward:
     reward_scales:
-      success: 1.0
+      # distance: -0.01
+      decreased_distance: 1.0

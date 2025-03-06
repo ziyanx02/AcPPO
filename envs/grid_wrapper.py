@@ -9,6 +9,9 @@ class TwoGrids(GridEnv):
         return self.dis_to_target < self.target_width
 
     def _reward_distance(self):
+        return torch.square(self.dis_to_target)
+
+    def _reward_decreased_distance(self):
         return self.last_dis_to_target - self.dis_to_target
 
     def _reward_actions(self):

@@ -14,6 +14,8 @@ from rsl_rl.runners import TDORunner
 
 ENV_DICT = {
     'suc_noreg': TwoGrids,
+    'dis_noreg': TwoGrids,
+    'dis_reg': TwoGrids,
 }
 
 def main(args):

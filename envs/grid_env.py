@@ -211,19 +211,41 @@ class GridEnv(VecEnv):
 
         return hist
 
-    def show_heatmap(self, hist):
-
-        # Convert the histogram to a log scale for better visualization
-        hist_log = torch.log(hist + 1)  # Add 1 to avoid log(0)
+    def show_heatmap(self, hist, log=True):
 
         # Convert the histogram to a numpy array for plotting
-        hist_log_np = hist_log.cpu().numpy()
+        if isinstance(hist, torch.Tensor):
+            hist = hist.cpu().numpy()
+
+        # Convert the histogram to a log scale for better visualization
+        if log:
+            hist = np.log(hist + 1)  # Add 1 to avoid log(0)
 
         # Plot the heatmap
         plt.figure(figsize=(16, 8))
-        plt.imshow(hist_log_np.T, origin='lower', extent=[-self.half_grid_size, self.grid_size + self.half_grid_size, -self.half_grid_size, self.half_grid_size], cmap='viridis')
+        plt.imshow(hist.T, origin='lower', extent=[-self.half_grid_size, self.grid_size + self.half_grid_size, -self.half_grid_size, self.half_grid_size], cmap='viridis')
         plt.colorbar(label='Log Count')
         plt.xlabel('X Position')
         plt.ylabel('Y Position')
         plt.title('Log Number of States in Each Grid Cell')
         plt.show()
+
+    def save_heatmap(self, hist, filename, log=True):
+
+        # Convert the histogram to a numpy array for plotting
+        if isinstance(hist, torch.Tensor):
+            hist = hist.cpu().numpy()
+
+        # Convert the histogram to a log scale for better visualization
+        if log:
+            hist = np.log(hist + 1)  # Add 1 to avoid log(0)
+
+        # Plot the heatmap
+        plt.figure(figsize=(16, 8))
+        plt.imshow(hist.T, origin='lower', extent=[-self.half_grid_size, self.grid_size + self.half_grid_size, -self.half_grid_size, self.half_grid_size], cmap='viridis')
+        plt.colorbar(label='Log Count')
+        plt.xlabel('X Position')
+        plt.ylabel('Y Position')
+        plt.title('Log Number of States in Each Grid Cell')
+        plt.savefig(filename)
+        plt.close()
