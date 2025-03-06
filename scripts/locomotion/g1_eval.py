@@ -38,6 +38,13 @@ def main(args):
     env_cfg, train_cfg = pickle.load(
         open(f'logs/{args.exp_name}/cfgs.pkl', 'rb')
     )
+    with open(f'logs/{args.exp_name}/cfgs.yaml', 'w') as file:
+        import yaml
+        combine = {
+            'learning': train_cfg,
+            'environment': env_cfg,
+        }
+        yaml.dump(combine, file)
     # print(env_cfg)
     env_cfg['reward']['reward_scales'] = {}
     env_cfg['PPO'] = True

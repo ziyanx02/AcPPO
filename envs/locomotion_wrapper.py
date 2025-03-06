@@ -468,6 +468,7 @@ class Walk_Gaits(Walk):
             desired_feet_pos[:, i, :] = gs_quat_apply_yaw(self.base_quat, desired_feet_pos[:, i, :])
         desired_feet_pos[:, :, :2] += self.com.unsqueeze(1)[:, :, :2]
 
+        self.scene.draw_debug_sphere(pos=self.base_pos[0], radius=0.1, color=(0, 1, 0, 0.7))
         self.scene.draw_debug_sphere(pos=self.ref_base_pos, radius=0.1, color=(0, 0, 1, 0.7))
         for i in range(num_feet):
             self.scene.draw_debug_sphere(pos=feet_pos[0, i, :], radius=0.05, color=(0, 1, 0, 0.7))
