@@ -4,7 +4,7 @@ from robot_display.utils.gui import start_gui
 from robot_display.utils.robot import Robot
 
 class GUIDisplay:
-    def __init__(self, cfg: dict, body_pos=True, body_pose=True, dofs_pos=True, foot_pos=False, pd_control=False, save_callable=None):
+    def __init__(self, cfg: dict, body_pos=True, body_pose=True, dofs_pos=True, foot_pos=False, pd_control=False, save_callable=None, vis_options=False, **kwargs):
         assert body_pos or body_pose or dofs_pos or foot_pos, "At least one of the interaction modes should be enabled"
         assert not (dofs_pos and foot_pos), "Dofs pos and foot position cannot be enabled at the same time"
         self.cfg = cfg
@@ -14,6 +14,7 @@ class GUIDisplay:
         self.control_dofs_pos = dofs_pos
         self.control_foot_pos = foot_pos
         self.save_callable = save_callable
+        self.vis_options = vis_options
         self.setup_robot()
         self.setup_gui()
 
@@ -30,6 +31,7 @@ class GUIDisplay:
             links_to_keep=self.cfg["robot"]["links_to_keep"],
             scale=self.cfg["robot"]["scale"],
             fps=self.cfg["control"]["control_freq"],
+            vis_options=self.vis_options,
         )
         if "body_name" in self.cfg["robot"].keys():
             self.robot.set_body_link(self.robot.get_link(self.cfg["robot"]["body_name"]))
@@ -84,9 +86,12 @@ class GUIDisplay:
             for foot in self.robot.foot_links:
                 name = foot.name
                 self.labels.extend([f"{name} x", f"{name} y", f"{name} z"])
-                self.limits[f"{name} x"] = [-self.robot.diameter * 2, self.robot.diameter * 2]
-                self.limits[f"{name} y"] = [-self.robot.diameter * 2, self.robot.diameter * 2]
-                self.limits[f"{name} z"] = [-self.robot.diameter * 2, self.robot.diameter * 2]
+                self.limits[f"{name} x"] = [-self.robot.diameter, self.robot.diameter]
+                self.limits[f"{name} y"] = [-self.robot.diameter, self.robot.diameter]
+                self.limits[f"{name} z"] = [-self.robot.diameter, self.robot.diameter]
+                # self.limits[f"{name} x"] = [-self.robot.diameter * 2, self.robot.diameter * 2]
+                # self.limits[f"{name} y"] = [-self.robot.diameter * 2, self.robot.diameter * 2]
+                # self.limits[f"{name} z"] = [-self.robot.diameter * 2, self.robot.diameter * 2]
                 if "foot_pos" not in self.cfg["robot"].keys():
                     self.values.extend((foot.get_pos() - self.robot.base_pos).numpy().tolist())
                 else:

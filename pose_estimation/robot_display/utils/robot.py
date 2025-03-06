@@ -22,7 +22,7 @@ class Robot:
         self.vis_options = vis_options
         self.visualize_interval = 0.2
         self.last_visualize_time = time.time()
-        self.visualize_skeleton = True
+        self.visualize_skeleton = getattr(vis_options, "visualize_skeleton", False)
 
         # Create scene
         self.dt = 1 / fps
@@ -34,9 +34,9 @@ class Robot:
                 max_FPS=fps,
             ),
             vis_options=gs.options.VisOptions(
-                # show_world_frame=False,
-                # shadow=False,
-                # background_color=(1.0, 1.0, 1.0),
+                show_world_frame=getattr(vis_options, "show_world_frame", True),
+                shadow=getattr(vis_options, "shadow", True),
+                background_color=getattr(vis_options, "background_color", (0.0, 0.0, 0.0)),
             ),
             sim_options=gs.options.SimOptions(
                 gravity=(0, 0, 0),

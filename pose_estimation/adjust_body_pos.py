@@ -31,6 +31,13 @@ def save(display):
     yaml.safe_dump(cfg, open(f"./cfgs/{args.robot}/{args.name}_body_pos.yaml", "w"))
     print("Save to", f"./cfgs/{args.robot}/{args.name}_body_pos.yaml")
 
+class VisOptions:
+    def __init__(self):
+        self.visualize_skeleton = True
+        self.show_world_frame = False
+        self.shadow = False
+        self.background_color = (0.8, 0.8, 0.8)
+
 display = GUIDisplay(
     cfg=cfg,
     body_pos=True,
@@ -38,5 +45,6 @@ display = GUIDisplay(
     dofs_pos=False,
     foot_pos=True,
     save_callable=save,
+    vis_options=VisOptions(),
 )
 display.run()
