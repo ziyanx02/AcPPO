@@ -22,7 +22,7 @@ class Robot:
         self.vis_options = vis_options
         self.visualize_interval = 0.2
         self.last_visualize_time = time.time()
-        self.visualize_skeleton = False
+        self.visualize_skeleton = True
 
         # Create scene
         self.dt = 1 / fps
@@ -32,6 +32,11 @@ class Robot:
                 camera_lookat=(0.0, 0.0, 0.5),
                 camera_fov=40,
                 max_FPS=fps,
+            ),
+            vis_options=gs.options.VisOptions(
+                # show_world_frame=False,
+                # shadow=False,
+                # background_color=(1.0, 1.0, 1.0),
             ),
             sim_options=gs.options.SimOptions(
                 gravity=(0, 0, 0),
@@ -394,8 +399,9 @@ class Robot:
             quats=quats,
             return_error=True,
         )
-        self.set_body_pos(qpos[:3])
-        self.set_body_quat(qpos[3:7])
+        self.entity.set_qpos(qpos)
+        # self.set_body_pos(qpos[:3])
+        # self.set_body_quat(qpos[3:7])
         self.set_dofs_position(qpos[self.dof_idx_qpos])
 
     def set_dofs_armature(self, armature):

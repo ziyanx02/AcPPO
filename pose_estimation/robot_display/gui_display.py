@@ -128,12 +128,9 @@ class GUIDisplay:
                 pos = self.values[self.value_foot_pos_idx_start + 3 * i:self.value_foot_pos_idx_start + 3 * (i + 1)]
                 links.append(link)
                 poss.append(poss[0] + np.array(pos))
-                quats.append(None)
+                quats.append(link.get_quat())
+                # quats.append(None)
             self.robot.set_links_pos(links, poss, quats)
-        
-        self.robot.entity.set_pos([0, 0, 0,])
-        self.robot.entity.set_quat([1, 0, 0, 0,])
-
         if self.pd_control:
             self.robot.step()
         else:
