@@ -42,6 +42,9 @@ display = Display(
     vis_options=VisOptions(),
 )
 
+padding = 2
+width = 3
+
 if render:
     rgbs, _, segs = display.render(rgb=True, depth=False, segmentation=True)
 
@@ -62,10 +65,10 @@ if render:
                 min_y = link_seg[1].min()
                 max_y = link_seg[1].max()
 
-                rgb[min_x-1:min_x+2, min_y:max_y] = [255, 0, 0]
-                rgb[max_x-1:max_x+2, min_y:max_y] = [255, 0, 0]
-                rgb[min_x:max_x, min_y-1:min_y+2] = [255, 0, 0]
-                rgb[min_x:max_x, max_y-1:max_y+2] = [255, 0, 0]
+                rgb[min_x - padding - width:min_x - padding, min_y - padding - width:max_y + padding + width + 1] = [255, 0, 0]
+                rgb[max_x + padding + 1:max_x + padding + width + 1, min_y - padding - width:max_y + padding + width + 1] = [255, 0, 0]
+                rgb[min_x - padding - width:max_x + padding + width + 1, min_y - padding - width:min_y - padding] = [255, 0, 0]
+                rgb[min_x - padding - width:max_x + padding + width + 1, max_y + padding +1:max_y + padding + width + 1] = [255, 0, 0]
             else:
                 labels[link_name][axis] = False
 
