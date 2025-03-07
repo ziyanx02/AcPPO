@@ -404,7 +404,7 @@ class Walk_Gaits(Walk):
     def _reward_feet_pos(self):
         # Tracking desired feet position of x,y-axis
         num_feet = len(self.feet_link_indices)
-        feet_pos_translated = self.foot_positions - self.com.unsqueeze(1)
+        feet_pos_translated = self.foot_positions - self.base_pos.unsqueeze(1)
         feet_pos_local = torch.zeros(self.num_envs, num_feet, 3, device=self.device)
         for i in range(num_feet):
             feet_pos_local[:, i, :] = gs_quat_apply_yaw(gs_quat_conjugate(self.base_quat),
@@ -447,12 +447,12 @@ class Walk_Gaits(Walk):
             self.ref_base_pos[:2] += self.commands[0, :2] * self.dt
             self.robot.set_pos(self.ref_base_pos.unsqueeze(0))
         else: 
-            self.ref_base_pos = self.com[0].clone()
+            self.ref_base_pos = self.base_pos[0].clone()
             self.ref_base_pos[:2] += self.commands[0, :2] 
-            self.ref_base_pos[2] += self.gait_base_height[0]
+            self.ref_base_pos[2] = self.gait_base_height[0]
 
         num_feet = len(self.feet_link_indices)
-        feet_pos_translated = self.foot_positions - self.com.unsqueeze(1)
+        feet_pos_translated = self.foot_positions - self.base_pos.unsqueeze(1)
         feet_pos_local = torch.zeros(self.num_envs, num_feet, 3, device=self.device)
         for i in range(num_feet):
             feet_pos_local[:, i, :] = gs_quat_apply_yaw(gs_quat_conjugate(self.base_quat),
@@ -461,12 +461,12 @@ class Walk_Gaits(Walk):
         feet_pos = feet_pos_local
         for i in range(num_feet):
             feet_pos[:, i, :] = gs_quat_apply_yaw(self.base_quat, feet_pos_local[:, i, :])
-        feet_pos += self.com.unsqueeze(1)
+        feet_pos += self.base_pos.unsqueeze(1)
 
         desired_feet_pos = torch.cat([self.desired_feet_pos_local, self.desired_feet_height.unsqueeze(-1)], dim=-1)
         for i in range(num_feet):
             desired_feet_pos[:, i, :] = gs_quat_apply_yaw(self.base_quat, desired_feet_pos[:, i, :])
-        desired_feet_pos[:, :, :2] += self.com.unsqueeze(1)[:, :, :2]
+        desired_feet_pos[:, :, :2] += self.base_pos.unsqueeze(1)[:, :, :2]
 
         self.scene.draw_debug_sphere(pos=self.base_pos[0], radius=0.1, color=(0, 1, 0, 0.7))
         self.scene.draw_debug_sphere(pos=self.ref_base_pos, radius=0.1, color=(0, 0, 1, 0.7))

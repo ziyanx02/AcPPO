@@ -163,6 +163,7 @@ class LocoEnv:
                 links_to_keep=self.env_cfg['links_to_keep'],
                 pos=self.base_init_pos.cpu().numpy(),
                 quat=self.base_init_quat.cpu().numpy(),
+                scale=self.env_cfg.get('robot_scale', 1.0),
             ),
             visualize_contact=self.debug,
         )
@@ -445,7 +446,7 @@ class LocoEnv:
                 torch.zeros((3,), device=self.device, dtype=gs.tc_float),
                 torch.zeros((3,), device=self.device, dtype=gs.tc_float),
                 self.default_dof_pos,
-                torch.zeros((12,), device=self.device, dtype=gs.tc_float),
+                torch.zeros((self.num_dof,), device=self.device, dtype=gs.tc_float),
             ],
             axis=-1,
         )
@@ -455,8 +456,8 @@ class LocoEnv:
                 0.0 * torch.ones((3,), device=self.device, dtype=gs.tc_float),
                 0.0 * torch.ones((3,), device=self.device, dtype=gs.tc_float),
                 0.0 * torch.ones((3,), device=self.device, dtype=gs.tc_float),
-                0.0 * torch.ones((12,), device=self.device, dtype=gs.tc_float),
-                0.0 * torch.ones((12,), device=self.device, dtype=gs.tc_float),
+                0.0 * torch.ones((self.num_dof,), device=self.device, dtype=gs.tc_float),
+                0.0 * torch.ones((self.num_dof,), device=self.device, dtype=gs.tc_float),
             ],
             axis=-1,
         )
@@ -471,7 +472,7 @@ class LocoEnv:
                 0.0 * torch.ones((3,), device=self.device, dtype=gs.tc_float),
                 0.0 * torch.ones((3,), device=self.device, dtype=gs.tc_float),
                 self.dof_pos_limits[:, 0],
-                0.0 * torch.ones((12,), device=self.device, dtype=gs.tc_float),
+                0.0 * torch.ones((self.num_dof,), device=self.device, dtype=gs.tc_float),
             ],
             axis=-1,
         )
@@ -482,7 +483,7 @@ class LocoEnv:
                 0.0 * torch.ones((3,), device=self.device, dtype=gs.tc_float),
                 0.0 * torch.ones((3,), device=self.device, dtype=gs.tc_float),
                 self.dof_pos_limits[:, 1],
-                0.0 * torch.ones((12,), device=self.device, dtype=gs.tc_float),
+                0.0 * torch.ones((self.num_dof,), device=self.device, dtype=gs.tc_float),
             ],
             axis=-1,
         )
@@ -750,8 +751,8 @@ class LocoEnv:
         projected_gravity = states[:, 1:4]
         lin_vel = states[:, 4:7]
         ang_vel = states[:, 7:10]
-        dof_pos = states[:, 10:22]
-        dof_vel = states[:, 22:]
+        dof_pos = states[:, 10:10+self.num_dof]
+        dof_vel = states[:, 10+self.num_dof:10+2*self.num_dof]
 
         # reset dofs
         self.dof_pos[envs_idx] = dof_pos
