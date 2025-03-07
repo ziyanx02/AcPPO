@@ -144,3 +144,6 @@ class GUIDisplay:
         self.reset_callback()
         while True:
             self.update()
+
+    def render(self):
+        return self.robot.render()

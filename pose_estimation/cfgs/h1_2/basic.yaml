@@ -1,5 +1,5 @@
 robot:
-  asset_path: urdf/h1_2/h1_2_simplified.urdf
+  asset_path: urdf/h1_2/h1_2.urdf
   scale: 1.0
   body_name: torso_link
   foot_names:

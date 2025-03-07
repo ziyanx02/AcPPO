@@ -35,7 +35,8 @@ class VisOptions:
     def __init__(self):
         self.visualize_skeleton = False
         self.visualize_target_foot_pos = True
-        self.show_world_frame = True
+        self.merge_fixed_links = True
+        self.show_world_frame = False
         self.shadow = False
         self.background_color = (0.8, 0.8, 0.8)
 
@@ -48,4 +49,12 @@ display = GUIDisplay(
     save_callable=save,
     vis_options=VisOptions(),
 )
-display.run()
+
+def run():
+    display.run()
+display_thread = threading.Thread(target=run)
+display_thread.start()
+
+import time
+time.sleep(1)
+display.render()

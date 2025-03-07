@@ -24,6 +24,8 @@ class Robot:
         self.last_visualize_time = time.time()
         self.visualize_skeleton = getattr(vis_options, "visualize_skeleton", False)
         self.visualize_target_foot_pos = getattr(vis_options, "visualize_target_foot_pos", False)
+        self.merge_fixed_links = getattr(vis_options, "merge_fixed_links", True)
+        self.skeleton_prepared = False
 
         # Create scene
         self.dt = 1 / fps
@@ -47,7 +49,7 @@ class Robot:
 
         # Load entity
         if asset_file.endswith(".urdf"):
-            morph = gs.morphs.URDF(file=asset_file, collision=True, scale=scale, links_to_keep=links_to_keep)
+            morph = gs.morphs.URDF(file=asset_file, collision=True, scale=scale, links_to_keep=links_to_keep, merge_fixed_links=self.merge_fixed_links)
         elif asset_file.endswith(".xml"):
             morph = gs.morphs.MJCF(file=asset_file, collision=True, scale=scale)
         else:
@@ -74,15 +76,24 @@ class Robot:
                 self.foot_links.append(link)
                 self.foot_joints.append(link.joint)
 
+        self.camera = self.scene.add_camera(
+            pos=np.array([1, 0, 0]),
+            lookat=np.array([0, 0, 0]),
+            res=(480, 480),
+            fov=15,
+            GUI=False,
+        )
+
         # Build scene
         self.scene.build(compile_kernels=False)
         self.last_step_time = time.time()
 
         self._init_buffers()
 
+        center, diameter = self.get_center_diameter()
         self.scene.viewer.set_camera_pose(
-            pos=(self.diameter, self.diameter, self.diameter / 2),
-            lookat=(0., 0., 0.),
+            pos=center + diameter,
+            lookat=center,
         )
 
         self.step_target()
@@ -267,8 +278,10 @@ class Robot:
         self.last_step_time = time.time()
         self.step_target()
         self.scene.clear_debug_objects()
+        self.skeleton_prepared = False
         if self.visualize_skeleton:
             self._visualize_skeleton()
+            self.skeleton_prepared = True
         if self.visualize_target_foot_pos:
             self._visualize_target_foot_pos()
         self.scene.visualizer.update(force=True)
@@ -288,9 +301,9 @@ class Robot:
 
     def _visualize_target_foot_pos(self):
 
-        self.scene.draw_debug_spheres(poss=self.target_foot_pos, radius=self.diameter / 30, color=(1, 0, 0, 0.5))
+        self.scene.draw_debug_spheres(poss=self.target_foot_pos, radius=self.diameter / 20, color=(1, 0, 0, 0.5))
         for link in self.foot_links:
-            self.scene.draw_debug_sphere(pos=link.get_pos(), radius=self.diameter / 30, color=(0, 1, 0, 0.5))
+            self.scene.draw_debug_sphere(pos=link.get_pos(), radius=self.diameter / 20, color=(0, 1, 0, 0.5))
 
     def _visualize_skeleton(self):
 
@@ -304,7 +317,7 @@ class Robot:
         for joint in self.joints:
             joint_vis[joint.name] = False
             joint_pos[joint.name] = joint.get_pos()
-            joint_pos[joint.name][:2] -= self.diameter
+            joint_pos[joint.name] -= self.diameter
 
         body_color = (0, 0, 0.8, 1)
         leg_color = (0, 0.8, 0, 1)
@@ -459,6 +472,36 @@ class Robot:
             for name in self.dof_name:
                 dofs_kd.append(kd[name])
         self.entity.set_dofs_kv(dofs_kd, self.dof_idx)
+
+    def render(self, rgb=True, depth=False, segmentation=False):
+        center, diameter = self.get_center_diameter()
+
+        camera_pos = center.clone()
+        camera_pos[0] += 4 * diameter
+        self.camera.set_pose(pos=camera_pos, lookat=center)
+        rgb_x, depth_x, seg_x, _ = self.camera.render(rgb=rgb, depth=depth, segmentation=segmentation, colorize_seg=False)
+
+        camera_pos = center.clone()
+        camera_pos[1] += 4 * diameter
+        self.camera.set_pose(pos=camera_pos, lookat=center)
+        rgb_y, depth_y, seg_y, _ = self.camera.render(rgb=rgb, depth=depth, segmentation=segmentation, colorize_seg=False)
+
+        camera_pos = center.clone()
+        camera_pos[2] += 4 * diameter
+        self.camera.set_pose(pos=camera_pos, lookat=center)
+        rgb_z, depth_z, seg_z, _ = self.camera.render(rgb=rgb, depth=depth, segmentation=segmentation, colorize_seg=False)
+
+        return (rgb_x, rgb_y, rgb_z), (depth_x, depth_y, depth_z), (seg_x, seg_y, seg_z)
+
+    def wait_for_skeleton(self):
+        while not self.skeleton_prepared:
+            time.sleep(self.dt)
+
+    def get_center_diameter(self):
+        AABB = self.entity.get_AABB()
+        diameter = torch.norm(AABB[1] - AABB[0]).max().item()
+        center = (AABB[1] + AABB[0]) / 2
+        return center, diameter
 
     @property
     def links(self):

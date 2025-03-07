@@ -1,7 +1,7 @@
 from robot_display.utils.robot import Robot
 
 class Display(Robot):
-    def __init__(self, cfg: dict):
+    def __init__(self, cfg: dict, vis_options=None):
         self.cfg = cfg
         if "control" not in self.cfg.keys():
             self.cfg["control"] = {"control_freq": 50}
@@ -15,6 +15,7 @@ class Display(Robot):
             links_to_keep=self.cfg["robot"]["links_to_keep"],
             scale=self.cfg["robot"]["scale"],
             fps=self.cfg["control"]["control_freq"],
+            vis_options=vis_options,
         )
         if "body_name" in self.cfg["robot"].keys():
             self.set_body_link(self.get_link(self.cfg["robot"]["body_name"]))
