@@ -23,6 +23,7 @@ class Robot:
         self.visualize_interval = 0.2
         self.last_visualize_time = time.time()
         self.visualize_skeleton = getattr(vis_options, "visualize_skeleton", False)
+        self.visualize_target_foot_pos = getattr(vis_options, "visualize_target_foot_pos", False)
 
         # Create scene
         self.dt = 1 / fps
@@ -138,9 +139,8 @@ class Robot:
         self.target_body_quat = self.init_body_quat.clone()
         self.target_dof_pos = self.init_dof_pos.clone()
 
-        self.target_foot_pos = torch.zeros((len(self.foot_links), 3), dtype=torch.float32)
-        self.target_foot_quat = torch.zeros((len(self.foot_links), 4), dtype=torch.float32)
-        self.target_foot_quat[:, 0] = 1.0
+        self.target_foot_pos = []
+        self.target_foot_quat = []
 
     def update_skeleton(self):
 
@@ -153,6 +153,7 @@ class Robot:
         self.link_adjacency_map = [[False for _ in range(self.num_links)] for _ in range(self.num_links)]
         self.leg = []
         self.body = []
+        self.leg_joint_idx = []
 
         body_joint_name = []
         for idx in self.body_link.child_idxs_local:
@@ -203,6 +204,12 @@ class Robot:
         distilled_paths = []
         for path in paths:
             joint_path = []
+            leg_joint_idx = []
+            for i in range(len(path) - 1):
+                joint_name = self.link_adjacency_map[path[i]][path[i + 1]]
+                if joint_name in self.dof_name:
+                    leg_joint_idx.append(self.dof_name.index(joint_name))
+            self.leg_joint_idx.append(leg_joint_idx)
             for i in range(len(path) - 2):
                 if links_used_counter[path[i]] == 1:
                     joint_path.append(self.link_adjacency_map[path[i]][path[i + 1]])
@@ -259,8 +266,11 @@ class Robot:
             time.sleep(self.dt - (time.time() - self.last_step_time))
         self.last_step_time = time.time()
         self.step_target()
+        self.scene.clear_debug_objects()
         if self.visualize_skeleton:
-            self.visualize()
+            self._visualize_skeleton()
+        if self.visualize_target_foot_pos:
+            self._visualize_target_foot_pos()
         self.scene.visualizer.update(force=True)
 
     def step_target(self):
@@ -276,7 +286,13 @@ class Robot:
         delta_pos = self.target_body_pos - self.body_pos
         self.entity.set_pos(delta_pos + self.entity.get_pos())
 
-    def visualize(self):
+    def _visualize_target_foot_pos(self):
+
+        self.scene.draw_debug_spheres(poss=self.target_foot_pos, radius=self.diameter / 30, color=(1, 0, 0, 0.5))
+        for link in self.foot_links:
+            self.scene.draw_debug_sphere(pos=link.get_pos(), radius=self.diameter / 30, color=(0, 1, 0, 0.5))
+
+    def _visualize_skeleton(self):
 
         if time.time() - self.last_visualize_time < self.visualize_interval:
             return
@@ -311,8 +327,6 @@ class Robot:
                     continue
                 pos2 = joint_pos[name2]
                 lines.append((pos1, pos2, color))
-
-        self.scene.clear_debug_objects()
 
         for line in lines:
             pos1, pos2, color = line
@@ -388,21 +402,27 @@ class Robot:
         # Compute the rotation quaternion 
         self.target_body_quat = gs_quat_mul(R, self.init_body_quat)
 
-    def set_dofs_position(self, positions):
+    def set_dofs_position(self, positions, dof_idx_local=None):
         positions = torch.tensor(positions, dtype=torch.float32)
-        self.target_dof_pos = positions
+        if dof_idx_local is None:
+            self.target_dof_pos = positions
+        else:
+            self.target_dof_pos[dof_idx_local] = positions
 
-    def set_links_pos(self, links, poss, quats):
-        qpos, error = self.entity.inverse_kinematics_multilink(
-            links=links,
-            poss=poss,
-            quats=quats,
-            return_error=True,
-        )
-        self.entity.set_qpos(qpos)
-        # self.set_body_pos(qpos[:3])
-        # self.set_body_quat(qpos[3:7])
-        self.set_dofs_position(qpos[self.dof_idx_qpos])
+    def set_foot_links_pose(self, poss, quats):
+        self.target_foot_pos = poss
+        self.target_foot_quat = quats
+        for i in range(len(self.foot_links)):
+            links = [self.body_link, self.foot_links[i]]
+            poss = [self.target_body_pos, self.target_foot_pos[i]]
+            quats = [self.target_body_quat, self.target_foot_quat[i]]
+            qpos, error = self.entity.inverse_kinematics_multilink(
+                links=links,
+                poss=poss,
+                quats=quats,
+                return_error=True,
+            )
+            self.set_dofs_position(qpos[self.dof_idx_qpos][self.leg_joint_idx[i]], self.leg_joint_idx[i])
 
     def set_dofs_armature(self, armature):
         if not isinstance(armature, dict):

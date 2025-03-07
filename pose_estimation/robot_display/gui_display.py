@@ -1,4 +1,5 @@
 import numpy as np
+import torch
 
 from robot_display.utils.gui import start_gui
 from robot_display.utils.robot import Robot
@@ -35,9 +36,9 @@ class GUIDisplay:
         )
         if "body_name" in self.cfg["robot"].keys():
             self.robot.set_body_link(self.robot.get_link(self.cfg["robot"]["body_name"]))
-        if "dof_names" in self.cfg["control"].keys():
-            assert len(self.cfg["control"]["dof_names"]) == self.robot.num_dofs, "Number of dof names should match the number of dofs"
-            self.robot.set_dof_order(self.cfg["control"]["dof_names"])
+        # if "dof_names" in self.cfg["control"].keys():
+        #     assert len(self.cfg["control"]["dof_names"]) == self.robot.num_dofs, "Number of dof names should match the number of dofs"
+        #     self.robot.set_dof_order(self.cfg["control"]["dof_names"])
         if self.pd_control:
             self.robot.set_dofs_kp(self.cfg["control"]["kp"])
             self.robot.set_dofs_kd(self.cfg["control"]["kd"])
@@ -125,17 +126,15 @@ class GUIDisplay:
         if self.control_dofs_pos:
             self.robot.set_dofs_position(self.values[self.value_dofs_pos_idx_start:self.value_dofs_pos_idx_end])
         if self.control_foot_pos:
-            links = [self.robot.body_link,]
-            poss = [self.robot.target_body_pos,]
-            quats = [self.robot.target_body_quat,]
+            poss = []
+            quats = []
+            body_pos = self.robot.target_body_pos
             for i in range(len(self.robot.foot_links)):
-                link = self.robot.foot_links[i]
                 pos = self.values[self.value_foot_pos_idx_start + 3 * i:self.value_foot_pos_idx_start + 3 * (i + 1)]
-                links.append(link)
-                poss.append(poss[0] + np.array(pos))
-                quats.append(link.get_quat())
-                # quats.append(None)
-            self.robot.set_links_pos(links, poss, quats)
+                poss.append(body_pos + torch.tensor(pos))
+                # quats.append(link.get_quat())
+                quats.append(None)
+            self.robot.set_foot_links_pose(poss, quats)
         if self.pd_control:
             self.robot.step()
         else:
