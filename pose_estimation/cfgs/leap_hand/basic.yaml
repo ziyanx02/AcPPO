@@ -1,14 +1,13 @@
 robot:
   asset_path: urdf/leap_hand/leap_hand_right_glb.urdf
   scale: 1.0
-  body_name: palm_lower
+  body_name: base
   foot_names:
     - thumb_tip_head
     - index_tip_head
     - middle_tip_head
     - ring_tip_head
   links_to_keep:
-    - palm_lower
     - thumb_tip_head
     - index_tip_head
     - middle_tip_head

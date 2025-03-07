@@ -35,7 +35,7 @@ class VisOptions:
     def __init__(self):
         self.visualize_skeleton = False
         self.visualize_target_foot_pos = True
-        self.show_world_frame = False
+        self.show_world_frame = True
         self.shadow = False
         self.background_color = (0.8, 0.8, 0.8)
 
