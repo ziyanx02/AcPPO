@@ -110,7 +110,7 @@ if __name__ == '__main__':
     parser.add_argument('--resample_time', help='unit: second', type=float, default=None)
     args = parser.parse_args()
 
-    task_split = args.task.split('_')
+    task_split = args.task.split('-')
     args.robot, args.task = task_split[0], task_split[1]
 
     main(args)
@@ -118,8 +118,8 @@ if __name__ == '__main__':
 
 '''
 # training
-python train_locomotion.py -t go2_gait -e EXP_NAME
+python train_locomotion.py -t go2-gait -e EXP_NAME
 
 # evaluation
-python eval_locomotion.py -t go2_gait -e EXP_NAME 
+python eval_locomotion.py -t go2-gait -e EXP_NAME 
 '''

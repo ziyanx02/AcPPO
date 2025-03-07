@@ -112,7 +112,7 @@ if __name__ == '__main__':
         args.exp_name += f'_{now.month}-{now.day}-{now.hour}-{now.minute}'
 
     args.cfg = args.task + '.yaml'
-    task_split = args.task.split('_')
+    task_split = args.task.split('-')
     args.robot, args.task = task_split[0], task_split[1]
 
     if args.debug or args.eval:
@@ -129,8 +129,8 @@ if __name__ == '__main__':
 
 '''
 # training
-python train_locomotion.py -t go2_gait -e EXP_NAME
+python train_locomotion.py -t go2-gait -e EXP_NAME
 
 # evaluation
-python eval_locomotion.py -t go2_gait -e EXP_NAME 
+python eval_locomotion.py -t go2-gait -e EXP_NAME 
 '''
