@@ -46,7 +46,7 @@ environment:
   PPO: false
   # asset
   urdf_path: urdf/leap_hand/leap_hand_right_glb.urdf
-  robot_scale: 5.0
+  robot_scale: 3.0
   links_to_keep:
     - index_tip_head
     - middle_tip_head
@@ -71,9 +71,9 @@ environment:
   - base
   # control
   PD_stiffness:
-    '' : 30.0
+    '' : 20.0
   PD_damping:
-    '' : 2.0
+    '' : 0.5
   armature: 0.05
   dof_damping: 0.0
   action_scale: 0.25
@@ -110,29 +110,29 @@ environment:
   base_init_pos:
   - 0.0
   - 0.0
-  - 0.5
+  - 0.20
   base_init_quat:
   - 0.7071
   - 0.0
   - 0.7071
   - 0.0
   default_joint_angles:
-    '1':  0.00 
-    '5':  0.00
-    '9':  0.00
-    '12': 0.00 
-    '0':  0.00 
-    '4':  0.00
-    '8':  0.00
-    '13': 1.50
-    '2':  0.50
-    '6':  0.50
-    '10': 0.50
-    '14': 0.20
-    '3':  1.00
-    '7':  1.00
-    '11': 1.00
-    '15': 1.20
+    '1' : 0.393
+    '5' : 0.393
+    '9' : 0.449
+    '12' : 0.524
+    '0' : -0.524
+    '4' : 0
+    '8' : 0.524
+    '13' : 2.2
+    '2' : 0.449
+    '6' : 0.393
+    '10' : 0.449
+    '14' : 0.524
+    '3' : 0.449
+    '7' : 0.393
+    '11' : 0.449
+    '15' : 0.524
   # domain randomization
   resampling_time_s: 4.0
   randomize_base_mass: true
@@ -183,16 +183,16 @@ environment:
     - 0.3
   gait:
     # the order of feet is defined by feet_link_name
-    base_height_target: 0.5
+    base_height_target: 0.12
     frequency: [3.0, 3.0, 3.0, 3.0]
     duration: [0.5, 0.5, 0.5, 0.5]
     offset: [0.5, 0, 0.5, 0] 
-    feet_height_target: [0.02, 0.02, 0.02, 0.02]
+    feet_height_target: [0.05, 0.05, 0.05, 0.05]
     stationary_position:
-      - [0.9, 0.200]
-      - [0.9, 0.000] 
-      - [0.9, -0.200]
-      - [0.05, 0.60]
+      - [0.14, 0.09]
+      - [0.17, 0.00] 
+      - [0.14, -0.09]
+      - [-0.05, 0.09]
 
   observation:
     num_obs: 61 # 45 + 2(num_feet)

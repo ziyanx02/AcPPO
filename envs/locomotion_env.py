@@ -81,6 +81,18 @@ class LocoEnv:
             assert device in ['cpu', 'cuda']
             self.device = torch.device(device)
 
+        self.scale = env_cfg.get('robot_scale', 1.0)
+        if self.scale != 1.0:
+            self.env_cfg['base_init_pos'] = [x * self.scale for x in self.env_cfg['base_init_pos']]
+            for key in self.env_cfg['PD_stiffness'].keys():
+                self.env_cfg['PD_stiffness'][key] *= self.scale
+            for key in self.env_cfg['PD_damping'].keys():
+                self.env_cfg['PD_damping'][key] *= self.scale
+            self.env_cfg['termination_if_height_lower_than'] *= self.scale
+            self.env_cfg['gait']['base_height_target'] *= self.scale
+            self.env_cfg['gait']['feet_height_target'] = [x * self.scale for x in self.env_cfg['gait']['feet_height_target']]
+            self.env_cfg['gait']['stationary_position'] = [[x[0] * self.scale, x[1] * self.scale] for x in self.env_cfg['gait']['stationary_position']]
+
         self._create_scene()
         if gs.platform != 'macOS':
             self._set_camera()
@@ -163,7 +175,7 @@ class LocoEnv:
                 links_to_keep=self.env_cfg['links_to_keep'],
                 pos=self.base_init_pos.cpu().numpy(),
                 quat=self.base_init_quat.cpu().numpy(),
-                scale=self.env_cfg.get('robot_scale', 1.0),
+                scale=self.scale,
             ),
             visualize_contact=self.debug,
         )
