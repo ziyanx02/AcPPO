@@ -33,6 +33,8 @@ class GUIDisplay:
             scale=self.cfg["robot"]["scale"],
             fps=self.cfg["control"]["control_freq"],
             vis_options=self.vis_options,
+            init_pos=self.cfg["control"].get("base_init_pos", [0, 0, 0]),
+            init_quat=self.cfg["control"].get("base_init_quat", [1, 0, 0, 0]),
         )
         if "body_name" in self.cfg["robot"].keys():
             self.robot.set_body_link(self.robot.get_link(self.cfg["robot"]["body_name"]))
@@ -135,6 +137,9 @@ class GUIDisplay:
                 # quats.append(link.get_quat())
                 quats.append(None)
             self.robot.set_foot_links_pose(poss, quats)
+        # print(f'pos {self.robot.base_pos}; quat {self.robot.base_quat}')
+        # for link in self.robot.foot_links:
+        #     print(link.name, link.get_pos() - self.robot.base_pos)
         if self.pd_control:
             self.robot.step()
         else:
