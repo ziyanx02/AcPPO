@@ -83,6 +83,8 @@ class LocoEnv:
 
         self.scale = env_cfg.get('robot_scale', 1.0)
         if self.scale != 1.0:
+            self.env_cfg['command']['lin_vel_x_range'] = [x * self.scale for x in self.env_cfg['command']['lin_vel_x_range']]
+            self.env_cfg['command']['lin_vel_y_range'] = [x * self.scale for x in self.env_cfg['command']['lin_vel_y_range']]
             self.env_cfg['base_init_pos'] = [x * self.scale for x in self.env_cfg['base_init_pos']]
             for key in self.env_cfg['PD_stiffness'].keys():
                 self.env_cfg['PD_stiffness'][key] *= self.scale
@@ -291,12 +293,12 @@ class LocoEnv:
             for name in self.env_cfg['dof_names']
         ]
 
-        def find_link_indices(names):
+        def find_link_indices(names, accurate=False):
             link_indices = list()
             availible = [True for i in range(len(self.robot.links))]
             for name in names:
                 for i, link in enumerate(self.robot.links):
-                    if availible[i] and name in link.name:
+                    if availible[i] and (accurate==False and name in link.name or name == link.name):
                         availible[i] = False
                         link_indices.append(link.idx - self.robot.link_start)
             return link_indices
@@ -308,7 +310,8 @@ class LocoEnv:
             self.env_cfg['penalized_contact_link_names']
         )
         self.feet_link_indices = find_link_indices(
-            self.env_cfg['feet_link_names']
+            self.env_cfg['feet_link_names'],
+            accurate=True,
         )
         assert len(self.termination_contact_link_indices) > 0
         assert len(self.penalized_contact_link_indices) > 0
