@@ -8,21 +8,12 @@ import yaml
 import numpy as np
 import torch
 import wandb
-from envs.locomotion_wrapper import Walk
-from envs.locomotion_wrapper import Jump
-from envs.locomotion_wrapper import Backflip
-from envs.locomotion_wrapper import Walk_Gaits
+from envs.locomotion_wrapper import GaitEnv
+from envs.reward_wrapper import RewardFactory
 from envs.time_wrapper import TimeWrapper
 from rsl_rl.runners import TDORunner
 
 import genesis as gs
-
-ENV_DICT = {
-    'walk': Walk,
-    'jump': Jump,
-    'backflip': Backflip,
-    'gait': Walk_Gaits,
-}
 
 def main(args):
 
@@ -67,8 +58,7 @@ def main(args):
     
     # load env
 
-    env_class = ENV_DICT[args.task]
-    env = env_class(
+    env = RewardFactory(GaitEnv)(
         num_envs=args.num_envs,
         env_cfg=env_cfg,
         show_viewer=args.vis,
@@ -91,7 +81,7 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('-t', '--task', type=str, default='go2_gait')
+    parser.add_argument('-t', '--task', type=str, default='go2-gait')
     parser.add_argument('-e', '--exp_name', type=str, default=None)
     parser.add_argument('-v', '--vis', action='store_true', default=False)
     parser.add_argument('-c', '--cpu', action='store_true', default=False)
@@ -113,7 +103,7 @@ if __name__ == '__main__':
 
     args.cfg = args.task + '.yaml'
     task_split = args.task.split('-')
-    args.robot, args.task = task_split[0], task_split[1]
+    args.robot = task_split[0]
 
     if args.debug or args.eval:
         args.vis = True

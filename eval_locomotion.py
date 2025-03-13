@@ -6,23 +6,12 @@ import pickle
 
 import numpy as np
 import torch
-from envs.locomotion_wrapper import Walk
-from envs.locomotion_wrapper import Jump
-from envs.locomotion_wrapper import Backflip
-from envs.locomotion_wrapper import Walk_Gaits
-from envs.locomotion_env import LocoEnv
+from envs.locomotion_wrapper import GaitEnv
 from envs.time_wrapper import TimeWrapper
+from envs.reward_wrapper import RewardFactory
 from rsl_rl.runners import TDORunner
 
 import genesis as gs
-
-
-ENV_DICT = {
-    'walk': Walk,
-    'jump': Jump,
-    'backflip': Backflip,
-    'gait': Walk_Gaits,
-}
 
 def export_policy_as_jit(actor_critic, path, name):
     os.makedirs(path, exist_ok=True)
@@ -41,10 +30,9 @@ def main(args):
     env_cfg['reward']['reward_scales'] = {}
     env_cfg['PPO'] = True
     env_cfg['record_length'] = args.record_length
-    if args.resample_time != None: env_cfg['resampling_time_s'] = args.resample_time
+    env_cfg['resampling_time_s'] = args.resample_time
 
-    env_class = ENV_DICT[args.task]
-    env = env_class(
+    env = RewardFactory(GaitEnv)(
         num_envs=1,
         env_cfg=env_cfg,
         show_viewer=not args.headless,
@@ -96,7 +84,7 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('-t', '--task', type=str, default='go2_gait')
+    parser.add_argument('-t', '--task', type=str, default=None)
     parser.add_argument('-e', '--exp_name', type=str, default=None)
     parser.add_argument('-c', '--cpu', action='store_true', default=False)
     parser.add_argument('-r', '--record', action='store_true', default=False)
@@ -105,13 +93,16 @@ if __name__ == '__main__':
     parser.add_argument('--td', action='store_true', default=False)
     parser.add_argument('--ckpt', type=int, default=999)
 
-    parser.add_argument('--record_length', help='unit: second', type=int, default=3)
+    parser.add_argument('--record_length', help='unit: second', type=int, default=10)
     parser.add_argument('--debug', action='store_true', default=False)
-    parser.add_argument('--resample_time', help='unit: second', type=float, default=None)
+    parser.add_argument('--resample_time', help='unit: second', type=float, default=2)
     args = parser.parse_args()
 
+    if args.task == None and args.exp_name != None:
+        args.task = args.exp_name 
+
     task_split = args.task.split('-')
-    args.robot, args.task = task_split[0], task_split[1]
+    args.robot = task_split[0]
 
     main(args)
 

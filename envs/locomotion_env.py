@@ -195,8 +195,6 @@ class LocoEnv:
         self.reward_functions = []
         self.reward_names = []
         for name, scale in self.reward_scales.items():
-            if name == 'termination':
-                continue
             self.reward_names.append(name)
             name = '_reward_' + name
             self.reward_functions.append(getattr(self, name))
@@ -350,23 +348,6 @@ class LocoEnv:
         )
         self.link_contact_forces = torch.zeros(
             (self.num_envs, self.robot.n_links, 3), device=self.device, dtype=gs.tc_float
-        )
-
-        self.feet_air_time = torch.zeros(
-            (self.num_envs, len(self.feet_link_indices)),
-            device=self.device,
-            dtype=gs.tc_float,
-        )
-        self.feet_max_height = torch.zeros(
-            (self.num_envs, len(self.feet_link_indices)),
-            device=self.device,
-            dtype=gs.tc_float,
-        )
-
-        self.last_contacts = torch.zeros(
-            (self.num_envs, len(self.feet_link_indices)),
-            device=self.device,
-            dtype=gs.tc_int,
         )
 
         # extras
@@ -830,8 +811,6 @@ class LocoEnv:
         self.last_actions[envs_idx] = 0.0
         self.last_last_actions[envs_idx] = 0.0
         self.last_dof_vel[envs_idx] = 0.0
-        self.feet_air_time[envs_idx] = 0.0
-        self.feet_max_height[envs_idx] = 0.0
         self.reset_buf[envs_idx] = 1
 
     def resample_commands(self, envs_idx):
