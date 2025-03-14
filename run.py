@@ -12,6 +12,7 @@ import torch
 import wandb
 from envs.locomotion_wrapper import GaitEnv
 from envs.time_wrapper import TimeWrapper
+from envs.metric_wrapper import GaitEnvMetric
 from rsl_rl.runners import TDORunner
 
 import os
@@ -22,8 +23,7 @@ from reward_tuning.parse import parse_response, getRewardFactory
 import genesis as gs
 
 
-def train(return_queue, args, response, iter_id, sample_id, train_cfg, env_cfg, num_logpoints):
-
+def train(return_queue, args, response, iter_id, sample_id, train_cfg, env_cfg, tune_cfg):
     gs.init(
         backend=gs.cpu if args.cpu else gs.gpu,
         logging_level='warning',
@@ -53,6 +53,7 @@ def train(return_queue, args, response, iter_id, sample_id, train_cfg, env_cfg, 
 
 
     max_iterations = args.max_iterations
+    num_logpoints = tune_cfg['num_logpoints']
     log_dict = {}
     log_period = max_iterations // num_logpoints
     for i in range(num_logpoints):
@@ -95,12 +96,12 @@ def eval(return_queue, args, exp_name):
     env_cfg, train_cfg = pickle.load(
         open(f'logs/{exp_name}/cfgs.pkl', 'rb')
     )
-    reward_function = env_cfg['reward']['reward_function']
-    RewardFactory = getRewardFactory(reward_function)
     env_cfg['reward']['reward_scales'] = {}
     env_cfg['PPO'] = True
+    env_cfg['record_length'] = args.record_length
+    env_cfg['resampling_time_s'] = args.resample_time
 
-    env = RewardFactory(GaitEnv)(
+    env = GaitEnvMetric(
         num_envs=1,
         env_cfg=env_cfg,
         show_viewer=not args.headless,
@@ -122,12 +123,17 @@ def eval(return_queue, args, exp_name):
     env.compute_observation()
     obs, _ = env.get_observations()
 
+    metric = {}
+    max_n_frames = args.num_eval_step
+    if args.record:
+        max_n_frames = max(max_n_frames, env.record_length)
+
     with torch.no_grad():
         stop = False
         n_frames = 0
         if args.record:
             env.start_recording(record_internal=False)
-        while not stop:
+        while n_frames < max_n_frames:
             if args.td:
                 state = temporal_distribution(env.time_buf)
                 env.set_state(state)
@@ -136,21 +142,31 @@ def eval(return_queue, args, exp_name):
             actions = policy(obs)
             env.step(actions)
             env.compute_observation()
-            obs, _ = env.get_observations()
+            obs, extras = env.get_observations()
 
-            print(env.commands)
             n_frames += 1 
+
+            for key in extras['metric'].keys():
+                if key not in metric.keys():
+                    metric[key] = 0
+                metric[key] += extras['metric'][key]
+                
             if args.record and n_frames >= env.record_length: # 50 fps, 20 s
-                env.stop_recording(args.exp_name + '.mp4')
+                env.stop_recording(f'{log_dir}/{args.exp_name}.mp4')
                 print('Finish recording!')
-                break 
+            
+        for key in metric.keys():
+            if key != 'terminate':
+                metric[key] /= max_n_frames
+    
+    return_queue.put({'metric': metric})
 
 
-def train_eval(return_queue, args, *vargs):
+def train_eval(return_queue, args, response, iter_id, sample_id, train_cfg, env_cfg, tune_cfg):
     return_queue_local = mp.Queue()
     train_process = mp.Process(
         target=train,
-        args=(return_queue_local, args, *vargs),
+        args=(return_queue_local, args, response, iter_id, sample_id, train_cfg, env_cfg, tune_cfg),
     )
     train_process.start()
     train_process.join()
@@ -194,7 +210,7 @@ def main(args):
             response = client.response(base_message)
             sample_process = mp.Process(
                 target=train_eval,
-                args=(response, iter_id, sample_id, copy.deepcopy(train_cfg), copy.deepcopy(env_cfg), args, tune_cfg['num_logpoints'], return_queue)
+                args=(return_queue, args, response, iter_id, sample_id, train_cfg, env_cfg, tune_cfg)
             )
             sample_process.start()
             process.append(sample_process)
@@ -229,6 +245,7 @@ if __name__ == '__main__':
     parser.add_argument('--disable', action='store_true', default=False)
 
     # Eval
+    parser.add_argument('--num_eval_step', type=int, default=1000)
     parser.add_argument('-r', '--record', action='store_true', default=False)
     parser.add_argument('--record_length', help='unit: second', type=int, default=10)
     parser.add_argument('--resample_time', help='unit: second', type=float, default=2)
