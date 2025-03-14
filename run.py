@@ -6,6 +6,7 @@ import shutil
 import yaml
 import copy
 
+import torch.multiprocessing as mp
 import numpy as np
 import torch
 import wandb
@@ -22,6 +23,12 @@ import genesis as gs
 
 
 def train(response, iter_id, sample_id, train_cfg, env_cfg, args, num_logpoints):
+
+    gs.init(
+        backend=gs.cpu if args.cpu else gs.gpu,
+        logging_level='warning',
+    )
+
     RewardFactory, reward_function, reward_scale = parse_response(response)
     env_cfg['reward']['reward_scales'] = reward_scale
     env_cfg['reward']['reward_function'] = reward_function
@@ -66,16 +73,13 @@ def train(response, iter_id, sample_id, train_cfg, env_cfg, args, num_logpoints)
     return log_dict
 
 def main(args):    
+    mp.set_start_method("spawn")
 
     client = Client(disable=args.disable)
     base_message = [
         {"role": "system", "content": INITIAL_SYSTEM},
         {"role": "user", "content": INITIAL_USER}
     ]
-    gs.init(
-        backend=gs.cpu if args.cpu else gs.gpu,
-        logging_level='warning',
-    )
 
     with open(f'./cfgs/{args.cfg}', 'r') as file:
         cfg = yaml.safe_load(file)
@@ -88,7 +92,11 @@ def main(args):
         for sample_id in range(tune_cfg['num_samples']):
             # try:
             response = client.response(base_message)
-            train(response, iter_id, sample_id, copy.deepcopy(train_cfg), copy.deepcopy(env_cfg), args, tune_cfg['num_logpoints'])
+            training_process = mp.Process(
+                target=train,
+                args=(response, iter_id, sample_id, copy.deepcopy(train_cfg), copy.deepcopy(env_cfg), args, tune_cfg['num_logpoints'])
+            )
+            training_process.start()
 
             # except Exception as e:
             #     print(f"Iteration {iter_id}_{sample_id} Error: {str(e)}")
