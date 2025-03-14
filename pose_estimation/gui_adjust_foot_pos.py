@@ -22,18 +22,16 @@ def save(display):
         pos = display.values[display.value_foot_pos_idx_start + 3 * i:display.value_foot_pos_idx_start + 3 * (i + 1)]
         pos = [round(val, 2) for val in pos]
         cfg["robot"]["foot_pos"][link.name] = pos
-    cfg["robot"]["default_body_pos"] = [round(val, 2) for val in display.robot.target_body_pos.tolist()]
-    cfg["robot"]["default_body_quat"] = [round(val, 4) for val in display.robot.target_body_quat.tolist()]
     cfg["control"]["default_dof_pos"] = {}
     default_dof_pos = [round(val, 2) for val in display.robot.dof_pos.numpy().tolist()]
     for i in range(display.robot.num_dofs):
         cfg["control"]["default_dof_pos"][display.robot.dof_name[i]] = default_dof_pos[i]
-    yaml.safe_dump(cfg, open(f"./cfgs/{args.robot}/{args.name}_body_pos.yaml", "w"))
-    print("Save to", f"./cfgs/{args.robot}/{args.name}_body_pos.yaml")
+    yaml.safe_dump(cfg, open(f"./cfgs/{args.robot}/{args.name}_foot_pos.yaml", "w"))
+    print("Save to", f"./cfgs/{args.robot}/{args.name}_foot_pos.yaml")
 
 class VisOptions:
     def __init__(self):
-        self.visualize_skeleton = False
+        self.visualize_skeleton = True
         self.visualize_target_foot_pos = True
         self.merge_fixed_links = True
         self.show_world_frame = False
@@ -42,8 +40,8 @@ class VisOptions:
 
 display = GUIDisplay(
     cfg=cfg,
-    body_pos=True,
-    body_pose=True,
+    body_pos=False,
+    body_pose=False,
     dofs_pos=False,
     foot_pos=True,
     save_callable=save,
@@ -55,6 +53,6 @@ def run():
 display_thread = threading.Thread(target=run)
 display_thread.start()
 
-import time
-time.sleep(1)
-display.render()
+# import time
+# time.sleep(1)
+# display.render()
