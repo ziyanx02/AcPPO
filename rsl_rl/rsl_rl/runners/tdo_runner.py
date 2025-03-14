@@ -23,13 +23,14 @@ from rsl_rl.utils import store_code_state
 class TDORunner:
     """On-policy runner for training and evaluation."""
 
-    def __init__(self, env: VecEnv, train_cfg, log_dir=None, device="cpu"):
+    def __init__(self, env: VecEnv, train_cfg, log_dir=None, device="cpu", log_dict={}):
         self.cfg = train_cfg
         self.is_PPO = train_cfg["PPO"]
         self.alg_cfg = train_cfg["algorithm"]
         self.policy_cfg = train_cfg["policy"]
         self.temporal_distribution_cfg = train_cfg["temporal_distribution"]
         self.device = device
+        self.log_dict = log_dict
         self.env = env
         obs, extras = self.env.get_observations()
         num_obs = obs.shape[1]
@@ -236,6 +237,8 @@ class TDORunner:
                     value = 0.0 if torch.isnan(value) else value
                     self.writer.add_scalar(f"Episode/{key}", value, step)
                     ep_string += f"""{f'{key}:':>{pad}} {value:.4f}\n"""
+                    if step in self.log_dict.keys(): 
+                        self.log_dict[step][key] = value
             if "rewards" in iter_infos[0].keys():
                 for key in iter_infos[0]["rewards"].keys():
                     value_list = []
@@ -284,6 +287,9 @@ class TDORunner:
                 self.writer.add_scalar(
                     "Train/mean_episode_length/time", statistics.mean(locs["lenbuffer"]), self.tot_time
                 )
+            if step in self.log_dict.keys():
+                self.log_dict[step]["mean_episode_reward"] = statistics.mean(locs["rewbuffer"])
+                self.log_dict[step]["mean_episode_length"] = statistics.mean(locs["lenbuffer"])
 
         str = f" \033[1m Learning iteration {locs['it']}/{locs['tot_iter']} \033[0m "
 
