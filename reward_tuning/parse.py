@@ -17,6 +17,13 @@ class RewardFactory:
     def make(self, base_class):
         return type(f"{base_class.__name__}Reward", (base_class, self.RewardWrapper), {})
 
+def getRewardFactory(reward_function_code):
+    exec_scope = {}
+    exec(reward_function_code, exec_scope)
+    if 'RewardWrapper' not in exec_scope:
+        raise ValueError("RewardWrapper class was not defined in the provided code")
+    return RewardFactory(exec_scope['RewardWrapper'])
+
 def parse_response(response):
     match = re.search(r'```python\n(.*?)\n```', response, re.DOTALL)
     if match : 
@@ -24,27 +31,19 @@ def parse_response(response):
     else:
         raise ValueError("No reward function code found in response")
 
-    # Define a dictionary to act as the local scope for exec
-    exec_scope = {}
-
-    # Execute the reward function code in the custom scope
-    exec(reward_function_code, exec_scope)
-
-    if 'RewardWrapper' not in exec_scope:
-        raise ValueError("RewardWrapper class was not defined in the provided code")
-
     match = re.search(r'```yaml\n(.*?)\n```', response, re.DOTALL) 
     if match :
         reward_scale_code = match.group(1)
     else:
         raise ValueError("No reward scale code found in response")
     
-    reward_scale = yaml.safe_load(reward_scale_code)
+    reward_scales = yaml.safe_load(reward_scale_code)
 
-    return RewardFactory(exec_scope['RewardWrapper']), reward_function_code, reward_scale['reward_scales']
+    return reward_function_code, reward_scales['reward_scales']
 
 if __name__ == '__main__':
-    factory, _, _ = parse_response(RESPONSE_SAMPLE)
+    reward_function, reward_scales = parse_response(RESPONSE_SAMPLE)
+    factory = getRewardFactory(reward_function)
 
     gs.init(
         backend=gs.cpu,

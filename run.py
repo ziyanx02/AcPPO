@@ -17,20 +17,21 @@ from rsl_rl.runners import TDORunner
 import os
 from reward_tuning.prompt import INITIAL_USER, INITIAL_SYSTEM
 from reward_tuning.client import Client
-from reward_tuning.parse import parse_response
+from reward_tuning.parse import parse_response, getRewardFactory
 
 import genesis as gs
 
 
-def train(response, iter_id, sample_id, train_cfg, env_cfg, args, num_logpoints):
+def train(return_queue, args, response, iter_id, sample_id, train_cfg, env_cfg, num_logpoints):
 
     gs.init(
         backend=gs.cpu if args.cpu else gs.gpu,
         logging_level='warning',
     )
 
-    RewardFactory, reward_function, reward_scale = parse_response(response)
-    env_cfg['reward']['reward_scales'] = reward_scale
+    reward_function, reward_scales = parse_response(response)
+    RewardFactory = getRewardFactory(reward_function)
+    env_cfg['reward']['reward_scales'] = reward_scales
     env_cfg['reward']['reward_function'] = reward_function
     exp_name = f'{args.exp_name}_it{iter_id}_{sample_id}'
     device = 'cpu' if args.cpu else 'cuda'
@@ -70,7 +71,104 @@ def train(response, iter_id, sample_id, train_cfg, env_cfg, args, num_logpoints)
     runner = TDORunner(env, train_cfg, log_dir, device=device, log_dict=log_dict)
     runner.learn(num_learning_iterations=max_iterations, init_at_random_ep_len=True)
 
-    return log_dict
+    return_queue.put({
+        'iter_id': iter_id,
+        'sample_id': sample_id,
+        'exp_name': exp_name,
+        'response': {
+            'raw': response,
+            'reward_scales': reward_scales,
+            'reward_function': reward_function,
+        },
+        'train_log': log_dict,
+    })
+
+def eval(return_queue, args, exp_name):
+
+    gs.init(
+        backend=gs.cpu if args.cpu else gs.gpu,
+        logging_level='warning',
+    )
+
+    device = 'cpu' if args.cpu else 'cuda'
+    log_dir = f'logs/{exp_name}'
+    env_cfg, train_cfg = pickle.load(
+        open(f'logs/{exp_name}/cfgs.pkl', 'rb')
+    )
+    reward_function = env_cfg['reward']['reward_function']
+    RewardFactory = getRewardFactory(reward_function)
+    env_cfg['reward']['reward_scales'] = {}
+    env_cfg['PPO'] = True
+
+    env = RewardFactory(GaitEnv)(
+        num_envs=1,
+        env_cfg=env_cfg,
+        show_viewer=not args.headless,
+        eval=True,
+        debug=args.debug,
+    )
+    env = TimeWrapper(env, int(env_cfg['period_length_s'] * env_cfg['control_freq']), reset_each_period=False, observe_time=False)
+
+    log_dir = f'logs/{args.exp_name}'
+
+    runner = TDORunner(env, train_cfg, log_dir, device=device)
+
+    resume_path = os.path.join(log_dir, f'model_{args.max_iterations - 1}.pt')
+    runner.load(resume_path)
+    policy = runner.get_inference_policy(device=device)
+    temporal_distribution = runner.get_inference_temporal_distribution(device=device)
+
+    env.reset()
+    env.compute_observation()
+    obs, _ = env.get_observations()
+
+    with torch.no_grad():
+        stop = False
+        n_frames = 0
+        if args.record:
+            env.start_recording(record_internal=False)
+        while not stop:
+            if args.td:
+                state = temporal_distribution(env.time_buf)
+                env.set_state(state)
+                env.compute_observation()
+                obs, _ = env.get_observations()
+            actions = policy(obs)
+            env.step(actions)
+            env.compute_observation()
+            obs, _ = env.get_observations()
+
+            print(env.commands)
+            n_frames += 1 
+            if args.record and n_frames >= env.record_length: # 50 fps, 20 s
+                env.stop_recording(args.exp_name + '.mp4')
+                print('Finish recording!')
+                break 
+
+
+def train_eval(return_queue, args, *vargs):
+    return_queue_local = mp.Queue()
+    train_process = mp.Process(
+        target=train,
+        args=(return_queue_local, args, *vargs),
+    )
+    train_process.start()
+    train_process.join()
+    train_return = return_queue_local.get()
+
+    eval_process = mp.Process(
+        target=eval,
+        args=(return_queue_local, args, train_return['exp_name'])
+    )
+    eval_process.start()
+    eval_process.join()
+    eval_return = return_queue_local.get()
+
+    return_queue.put({
+        'train': train_return,
+        'eval': eval_return,
+    })
+
 
 def main(args):    
     mp.set_start_method("spawn")
@@ -88,21 +186,33 @@ def main(args):
     tune_cfg = cfg['reward_tuning']
 
     for iter_id in range(tune_cfg['num_iterations']):
+        return_queue = mp.Queue()
+        process = []
 
         for sample_id in range(tune_cfg['num_samples']):
             # try:
             response = client.response(base_message)
-            training_process = mp.Process(
-                target=train,
-                args=(response, iter_id, sample_id, copy.deepcopy(train_cfg), copy.deepcopy(env_cfg), args, tune_cfg['num_logpoints'])
+            sample_process = mp.Process(
+                target=train_eval,
+                args=(response, iter_id, sample_id, copy.deepcopy(train_cfg), copy.deepcopy(env_cfg), args, tune_cfg['num_logpoints'], return_queue)
             )
-            training_process.start()
+            sample_process.start()
+            process.append(sample_process)
 
             # except Exception as e:
             #     print(f"Iteration {iter_id}_{sample_id} Error: {str(e)}")
             #     print('Waiting for debugging...')
             #     import pdb; pdb.set_trace()
             #     continue
+        
+
+        error_process = []
+        for sample_id, p in enumerate(process): 
+            p.join()
+            if p.exitcode != 0:
+                error_process.append(sample_id)
+        print(f'Iteration {iter_id} finished. Process {error_process} failed.' )
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -117,6 +227,12 @@ if __name__ == '__main__':
     parser.add_argument('-p', '--ppo', action='store_false', default=True)
     parser.add_argument('--debug', action='store_true', default=False)
     parser.add_argument('--disable', action='store_true', default=False)
+
+    # Eval
+    parser.add_argument('-r', '--record', action='store_true', default=False)
+    parser.add_argument('--record_length', help='unit: second', type=int, default=10)
+    parser.add_argument('--resample_time', help='unit: second', type=float, default=2)
+
     args = parser.parse_args()
 
     if args.exp_name == None:
