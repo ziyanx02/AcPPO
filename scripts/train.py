@@ -77,4 +77,6 @@ def train(return_queue, args, response, iter_id, sample_id, train_cfg, env_cfg, 
             'reward_function': reward_function,
         },
         'train_log': log_dict,
+        'log_frequency': log_period,
+        'max_episode_length': env.max_episode_length, 
     })

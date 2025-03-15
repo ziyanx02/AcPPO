@@ -309,3 +309,35 @@ INITIAL_USER = f'''
 - The **desired gait** is computed automatically within the environment.  
 - The **robot description** is: {ROBOT_DESCRIPTION}  
 '''
+
+JUDGE_SYSTEM = f'''
+You are an evaluator assigned to select the optimal reward parameter set for a robot locomotion task using reinforcement learning. You will be provided with evaluation data containing the follwing metrics:
+1. Termination Rate: The count of failures observed during evaluation, where lower values indicate better performance.
+2. Other Metrics: Numerical values ranging from 0 to 1, where higher values represent better outcomes.
+
+Your task is to carefully analyze both metrics and determine the reward parameter set that demonstrates the best overall performance. Provide the identification number corresponding to the highest-performing set based on the evaluation data.
+'''
+
+JUDGE_USER = f'''
+The task is to train a robot to walk while following a desired command (comprising linear and angular velocities) and the desired gait (including the intended foot contact). 
+The robot description is {ROBOT_DESCRIPTION}.
+
+Below are the evaluation results for different reward parameters. Please identify and output the index of the best reward parameter set in the following format:
+```best
+best_index_here
+```
+'''
+
+POLICY_FEEDBACK = '''
+We trained a RL policy using the provided reward function code and tracked the values of the individual components in the reward function as well as global policy metrics such as episode reward and episode lengths after every {epoch_freq} epochs and the maximum, mean, minimum values encountered:
+'''
+CODE_FEEDBACK = '''
+Please carefully analyze the policy feedback and provide a new, improved reward function that can better solve the task. Some helpful tips for analyzing the policy feedback:
+    (1) If the episode length are always much lower than the max episode length {max_episode_length}, which shows the policy can't survive, then you must rewrite the entire reward function
+    (2) If the values for a certain reward component are near identical throughout, then this means RL is not able to optimize this component as it is written. You may consider
+        (a) Changing its scale or the value of its temperature parameter
+        (b) Re-writing the reward component 
+        (c) Discarding the reward component
+    (3) If some reward components' magnitude is significantly larger, then you must re-scale its value to a proper range
+Please analyze each existing reward component in the suggested manner above first, and then write the reward function code.
+'''

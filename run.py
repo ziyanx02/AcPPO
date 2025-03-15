@@ -1,10 +1,13 @@
 import argparse
 import datetime
 import yaml
+import re
+import statistics
 
 import torch.multiprocessing as mp
 import torch
-from reward_tuning.prompt import INITIAL_USER, INITIAL_SYSTEM
+from reward_tuning.prompt import INITIAL_USER, INITIAL_SYSTEM, JUDGE_SYSTEM, JUDGE_USER
+from reward_tuning.prompt import POLICY_FEEDBACK, CODE_FEEDBACK, CODE_OUTPUT_TIP
 from reward_tuning.client import Client
 
 from scripts.train import train
@@ -35,6 +38,44 @@ def train_eval(return_queue, args, response, iter_id, sample_id, train_cfg, env_
         'eval': eval_return,
     })
 
+def get_best(client, results):
+    # LLM-based judgement from evaluation result
+    eval_result = ''
+    for result in results:
+        idx = result['train']['sample_id']
+        metric = result['eval']['metric']
+        eval_result += f'Index: {idx}\n'
+        for key in metric.keys():
+            eval_result += f'   {key}: {metric[key]:.3f}\n'
+
+    message = [
+        {"role": "system", "content": JUDGE_SYSTEM},
+        {"role": "user", "content": JUDGE_USER + eval_result}
+    ]
+
+    response = client.response(message)
+    match = re.search(r'```best\n(.*?)\n```', response, re.DOTALL)
+    if match : 
+        idx = int(match.group(1))
+    else:
+        raise ValueError("No best index found in response")
+
+    for result in results:
+        if idx == result['train']['sample_id']:
+            return result
+    raise ValueError("Best index not match")
+
+def get_reward_reflection(client, result):
+    content = "" 
+    content += POLICY_FEEDBACK.format(epoch_freq=result['train']['log_frequency'])
+    log_dict = result['train']['log_dict']
+    for key in log_dict[log_dict.keys()[0]]:
+        values = [log_dict[i][key] for i in log_dict.keys()]
+        content += f"{key}: {values}, Max {max(values)}, Mean {statistics.mean(values)}, Min {min(values)}"
+    content += CODE_FEEDBACK.format(max_episode_length=result['train']['max_episode_length'])
+    content += CODE_OUTPUT_TIP
+
+    return content
 
 def main(args):    
     mp.set_start_method("spawn", force=True)
@@ -78,6 +119,19 @@ def main(args):
             if p.exitcode != 0:
                 error_process.append(sample_id)
         print(f'Iteration {iter_id} finished. Process {error_process} failed.' )
+
+        results = []
+        while not return_queue.empty():
+            results.append(return_queue.get())
+        best_result = get_best(client, results)
+
+        assist_message = {{"role": "assistant", "content": best_result['train']['response']['raw']}}
+        user_message = {"role": "user", "content": get_reward_reflection(client, best_result)}
+
+        if len(base_message) == 2:
+            base_message += [assist_message, user_message]
+        else :
+            base_message[-2:] = [assist_message, user_message]
 
 
 if __name__ == '__main__':
