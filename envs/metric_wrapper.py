@@ -24,8 +24,8 @@ class GaitEnvMetric(GaitEnv):
         metric['contact_force'] = torch.mean((1 - desired_contact) * (1 - torch.exp(-foot_forces ** 2 / 100.)), dim=-1)
 
         base_height_error = torch.square(self.base_pos[:, 2] - self.gait_base_height)
-        metric['base_height'] = torch.exp(-base_height_error * 50)
+        metric['base_height'] = torch.exp(-base_height_error / 0.25)
 
-        metric['terminate'] = self.terminate_buf.float() 
+        metric['terminate'] = self.terminate_buf.float()
 
         self.extras['metric'] = metric

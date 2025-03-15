@@ -1,184 +1,34 @@
 import argparse
 import datetime
-import os
-import pickle
-import shutil
 import yaml
-import copy
 
 import torch.multiprocessing as mp
-import numpy as np
 import torch
-import wandb
-from envs.locomotion_wrapper import GaitEnv
-from envs.time_wrapper import TimeWrapper
-from envs.metric_wrapper import GaitEnvMetric
-from rsl_rl.runners import TDORunner
-
-import os
 from reward_tuning.prompt import INITIAL_USER, INITIAL_SYSTEM
 from reward_tuning.client import Client
-from reward_tuning.parse import parse_response, getRewardFactory
 
-import genesis as gs
-
-
-def train(return_queue, args, response, iter_id, sample_id, train_cfg, env_cfg, tune_cfg):
-    gs.init(
-        backend=gs.cpu if args.cpu else gs.gpu,
-        logging_level='warning',
-    )
-
-    reward_function, reward_scales = parse_response(response)
-    RewardFactory = getRewardFactory(reward_function)
-    env_cfg['reward']['reward_scales'] = reward_scales
-    env_cfg['reward']['reward_function'] = reward_function
-    exp_name = f'{args.exp_name}_it{iter_id}_{sample_id}'
-    device = 'cpu' if args.cpu else 'cuda'
-    log_dir = f'logs/{exp_name}'
-    if not args.offline:
-        train_cfg['logger'] = 'wandb'
-        train_cfg['exp_name'] = exp_name
-        train_cfg['print_infos'] = False
-    if args.ppo:
-        train_cfg['PPO'] = True
-        env_cfg['PPO'] = True
-    if os.path.exists(log_dir):
-        shutil.rmtree(log_dir)
-    os.makedirs(log_dir, exist_ok=True)
-
-    pickle.dump([env_cfg, train_cfg], open(f'{log_dir}/cfgs.pkl', 'wb'),)
-    yaml.dump([env_cfg, train_cfg], open(f'{log_dir}/cfgs.yaml', 'w'),)
-    print(reward_function, file=open(f'{log_dir}/reward_wrapper.py', 'w'))
-
-
-    max_iterations = args.max_iterations
-    num_logpoints = tune_cfg['num_logpoints']
-    log_dict = {}
-    log_period = max_iterations // num_logpoints
-    for i in range(num_logpoints):
-        log_dict[max_iterations - log_period * (num_logpoints - i - 1) - 1] = {}
-
-    env = RewardFactory.make(GaitEnv)(
-        num_envs=args.num_envs,
-        env_cfg=env_cfg,
-        show_viewer=args.vis,
-        eval=False,
-        debug=args.debug,
-        device=device,
-    )
-
-    env = TimeWrapper(env, int(env_cfg['period_length_s'] * env_cfg['control_freq']), reset_each_period=False, observe_time=args.time)
-    runner = TDORunner(env, train_cfg, log_dir, device=device, log_dict=log_dict)
-    runner.learn(num_learning_iterations=max_iterations, init_at_random_ep_len=True)
-
-    return_queue.put({
-        'iter_id': iter_id,
-        'sample_id': sample_id,
-        'exp_name': exp_name,
-        'response': {
-            'raw': response,
-            'reward_scales': reward_scales,
-            'reward_function': reward_function,
-        },
-        'train_log': log_dict,
-    })
-
-def eval(return_queue, args, exp_name):
-
-    gs.init(
-        backend=gs.cpu if args.cpu else gs.gpu,
-        logging_level='warning',
-    )
-
-    device = 'cpu' if args.cpu else 'cuda'
-    log_dir = f'logs/{exp_name}'
-    env_cfg, train_cfg = pickle.load(
-        open(f'logs/{exp_name}/cfgs.pkl', 'rb')
-    )
-    env_cfg['reward']['reward_scales'] = {}
-    env_cfg['PPO'] = True
-    env_cfg['record_length'] = args.record_length
-    env_cfg['resampling_time_s'] = args.resample_time
-
-    env = GaitEnvMetric(
-        num_envs=1,
-        env_cfg=env_cfg,
-        show_viewer=not args.headless,
-        eval=True,
-        debug=args.debug,
-    )
-    env = TimeWrapper(env, int(env_cfg['period_length_s'] * env_cfg['control_freq']), reset_each_period=False, observe_time=False)
-
-    log_dir = f'logs/{args.exp_name}'
-
-    runner = TDORunner(env, train_cfg, log_dir, device=device)
-
-    resume_path = os.path.join(log_dir, f'model_{args.max_iterations - 1}.pt')
-    runner.load(resume_path)
-    policy = runner.get_inference_policy(device=device)
-    temporal_distribution = runner.get_inference_temporal_distribution(device=device)
-
-    env.reset()
-    env.compute_observation()
-    obs, _ = env.get_observations()
-
-    metric = {}
-    max_n_frames = args.num_eval_step
-    if args.record:
-        max_n_frames = max(max_n_frames, env.record_length)
-
-    with torch.no_grad():
-        stop = False
-        n_frames = 0
-        if args.record:
-            env.start_recording(record_internal=False)
-        while n_frames < max_n_frames:
-            if args.td:
-                state = temporal_distribution(env.time_buf)
-                env.set_state(state)
-                env.compute_observation()
-                obs, _ = env.get_observations()
-            actions = policy(obs)
-            env.step(actions)
-            env.compute_observation()
-            obs, extras = env.get_observations()
-
-            n_frames += 1 
-
-            for key in extras['metric'].keys():
-                if key not in metric.keys():
-                    metric[key] = 0
-                metric[key] += extras['metric'][key]
-                
-            if args.record and n_frames >= env.record_length: # 50 fps, 20 s
-                env.stop_recording(f'{log_dir}/{args.exp_name}.mp4')
-                print('Finish recording!')
-            
-        for key in metric.keys():
-            if key != 'terminate':
-                metric[key] /= max_n_frames
-    
-    return_queue.put({'metric': metric})
-
+from scripts.train import train
+from scripts.eval import eval
 
 def train_eval(return_queue, args, response, iter_id, sample_id, train_cfg, env_cfg, tune_cfg):
-    return_queue_local = mp.Queue()
+    train_queue = mp.Queue()
+    eval_queue = mp.Queue()
+
     train_process = mp.Process(
         target=train,
-        args=(return_queue_local, args, response, iter_id, sample_id, train_cfg, env_cfg, tune_cfg),
+        args=(train_queue, args, response, iter_id, sample_id, train_cfg, env_cfg, tune_cfg),
     )
     train_process.start()
     train_process.join()
-    train_return = return_queue_local.get()
+    train_return = train_queue.get()
 
     eval_process = mp.Process(
         target=eval,
-        args=(return_queue_local, args, train_return['exp_name'])
+        args=(eval_queue, args, train_return['exp_name'])
     )
     eval_process.start()
     eval_process.join()
-    eval_return = return_queue_local.get()
+    eval_return = eval_queue.get()
 
     return_queue.put({
         'train': train_return,
@@ -187,7 +37,7 @@ def train_eval(return_queue, args, response, iter_id, sample_id, train_cfg, env_
 
 
 def main(args):    
-    mp.set_start_method("spawn")
+    mp.set_start_method("spawn", force=True)
 
     client = Client(disable=args.disable)
     base_message = [
