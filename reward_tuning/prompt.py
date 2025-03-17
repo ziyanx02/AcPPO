@@ -225,14 +225,19 @@ class RewardWrapper:
 REWARD_CONFIG_TEMPLATE = '''
 reward_scales:
     lin_vel: 1.0
-    ang_vel: 1.0
+    ang_vel: 0.5
+    alive: 10.0
     ang_vel_xy: -0.05
     base_height: -5.0
-    lin_vel_z: -1.0
+    collision: -1.0
+    dof_acc: -2.5e-07
+    dof_vel: -0.0
+    dof_pos_diff: -0.1
+    feet_air_time: 1.0
+    lin_vel_z: -2.0
     orientation: -5.0
-    alive: 10.0
-
     contact_force: -5.
+    contact_vel: -5.
     feet_height: -100.
     feet_pos: -10.0
     action_smoothness_1: -0.1
@@ -305,9 +310,19 @@ A quadruped robot dog with 12 degrees of freedom.
 '''
 
 INITIAL_USER = f'''
-**Task:** Write a reward function that enables the quadruped robot to walk in a **desired gait**.  
-- The **desired gait** is computed automatically within the environment.  
-- The **robot description** is: {ROBOT_DESCRIPTION}  
+Task: Design a reward function that enables the robot to walk effectively. The function should ensure the robot achieves stable locomotion without falling while following the given commands—linear velocity (lin_vel), angular velocity (ang_vel), and the desired gait.
+
+Evaluation Criteria:
+
+    Survivability - The robot should remain upright and avoid falling.
+    Command Adherence - The robot should accurately follow the given lin_vel and ang_vel.
+    Stability - The robot should maintain a steady and controlled motion.
+
+Additional Notes:
+
+    If following the desired gait proves too difficult, prioritize training the robot to follow the velocity commands.
+    The desired gait is automatically computed within the environment.
+    Robot description: {ROBOT_DESCRIPTION}
 '''
 
 JUDGE_SYSTEM = f'''
