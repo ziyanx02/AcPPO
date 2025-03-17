@@ -324,8 +324,9 @@ The robot description is {ROBOT_DESCRIPTION}.
 
 Below are the evaluation results for different reward parameters. Please identify and output the index of the best reward parameter set in the following format:
 ```best
-best_index_here
+index
 ```
+Important: The index **must** be an integer which matches the index of reward parameters. 
 '''
 
 POLICY_FEEDBACK = '''

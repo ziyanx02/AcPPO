@@ -4,16 +4,22 @@ import yaml
 import re
 import statistics
 
+import logging
+import os
+
 import torch.multiprocessing as mp
 import torch
 from reward_tuning.prompt import INITIAL_USER, INITIAL_SYSTEM, JUDGE_SYSTEM, JUDGE_USER
 from reward_tuning.prompt import POLICY_FEEDBACK, CODE_FEEDBACK, CODE_OUTPUT_TIP
+from reward_tuning.example import RESPONSE_SAMPLE_REWARD
 from reward_tuning.client import Client
 
 from scripts.train import train
 from scripts.eval import eval
 
 def train_eval(return_queue, args, response, iter_id, sample_id, train_cfg, env_cfg, tune_cfg):
+    logging.info(f"Sample {sample_id} training start")
+
     train_queue = mp.Queue()
     eval_queue = mp.Queue()
 
@@ -24,6 +30,8 @@ def train_eval(return_queue, args, response, iter_id, sample_id, train_cfg, env_
     train_process.start()
     train_process.join()
     train_return = train_queue.get()
+
+    logging.info(f"Sample {sample_id} evaluation start")
 
     eval_process = mp.Process(
         target=eval,
@@ -37,6 +45,8 @@ def train_eval(return_queue, args, response, iter_id, sample_id, train_cfg, env_
         'train': train_return,
         'eval': eval_return,
     })
+
+    logging.info(f"Sample {sample_id} finish")
 
 def get_best(client, results):
     # LLM-based judgement from evaluation result
@@ -65,11 +75,11 @@ def get_best(client, results):
             return result
     raise ValueError("Best index not match")
 
-def get_reward_reflection(client, result):
+def get_reward_reflection(result):
     content = "" 
     content += POLICY_FEEDBACK.format(epoch_freq=result['train']['log_frequency'])
-    log_dict = result['train']['log_dict']
-    for key in log_dict[log_dict.keys()[0]]:
+    log_dict = result['train']['train_log']
+    for key in log_dict[list(log_dict.keys())[0]]:
         values = [log_dict[i][key] for i in log_dict.keys()]
         content += f"{key}: {values}, Max {max(values)}, Mean {statistics.mean(values)}, Min {min(values)}"
     content += CODE_FEEDBACK.format(max_episode_length=result['train']['max_episode_length'])
@@ -80,7 +90,18 @@ def get_reward_reflection(client, result):
 def main(args):    
     mp.set_start_method("spawn", force=True)
 
-    client = Client(disable=args.disable)
+    log_dir = 'run'
+    os.makedirs(log_dir, exist_ok=True)
+    logging.basicConfig(
+        filename=f'{log_dir}/{args.exp_name}.log',
+        level=logging.DEBUG,            
+        format='%(asctime)s - %(levelname)s : %(message)s',  
+        datefmt='%Y-%m-%d %H:%M:%S',
+    )
+
+    client_reward = Client(disable=args.disable, template=RESPONSE_SAMPLE_REWARD)
+    client_judge = Client()
+
     base_message = [
         {"role": "system", "content": INITIAL_SYSTEM},
         {"role": "user", "content": INITIAL_USER}
@@ -92,13 +113,16 @@ def main(args):
     env_cfg = cfg['environment']
     tune_cfg = cfg['reward_tuning']
 
+    best_result_list = []
+
     for iter_id in range(tune_cfg['num_iterations']):
+        logging.info(f"Iteration {iter_id} start")
         return_queue = mp.Queue()
         process = []
 
         for sample_id in range(tune_cfg['num_samples']):
             # try:
-            response = client.response(base_message)
+            response = client_reward.response(base_message)
             sample_process = mp.Process(
                 target=train_eval,
                 args=(return_queue, args, response, iter_id, sample_id, train_cfg, env_cfg, tune_cfg)
@@ -118,20 +142,30 @@ def main(args):
             p.join()
             if p.exitcode != 0:
                 error_process.append(sample_id)
-        print(f'Iteration {iter_id} finished. Process {error_process} failed.' )
+        
+        logging.info(f"Iteration {iter_id} finished. Process {error_process} failed.")
 
         results = []
         while not return_queue.empty():
             results.append(return_queue.get())
-        best_result = get_best(client, results)
+        best_result = get_best(client_judge, results)
+        best_result_list.append(best_result)
 
-        assist_message = {{"role": "assistant", "content": best_result['train']['response']['raw']}}
-        user_message = {"role": "user", "content": get_reward_reflection(client, best_result)}
+        logging.info(f"Evaluation finished. Sample {best_result['train']['sample_id']} wins. ")
+        logging.debug(f"Details of best reward:\n{best_result}")
+
+        import pdb; pdb.set_trace()
+        assist_message = {"role": "assistant", "content": best_result['train']['response']['raw']}
+        user_message = {"role": "user", "content": get_reward_reflection(best_result)}
 
         if len(base_message) == 2:
             base_message += [assist_message, user_message]
         else :
             base_message[-2:] = [assist_message, user_message]
+    
+    logging.info(f"Finish all iterations.")
+    best_of_all = get_best(client_judge, best_result_list)
+    logging.info(f"Best result of all reward parameters: {best_of_all['train']['exp_name']}")
 
 
 if __name__ == '__main__':

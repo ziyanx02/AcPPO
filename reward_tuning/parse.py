@@ -1,7 +1,7 @@
 import re
 import yaml
 
-from reward_tuning.example import RESPONSE_SAMPLE
+from reward_tuning.example import RESPONSE_SAMPLE_REWARD
 
 import numpy as np
 import torch
@@ -42,7 +42,7 @@ def parse_response(response):
     return reward_function_code, reward_scales['reward_scales']
 
 if __name__ == '__main__':
-    reward_function, reward_scales = parse_response(RESPONSE_SAMPLE)
+    reward_function, reward_scales = parse_response(RESPONSE_SAMPLE_REWARD)
     factory = getRewardFactory(reward_function)
 
     gs.init(

@@ -1,4 +1,4 @@
-RESPONSE_SAMPLE = '''\
+RESPONSE_SAMPLE_REWARD = '''\
 Here is the reward function class and the YAML configuration for enabling the quadruped robot to walk in a desired gait.
 
 ### Reward Function Class
