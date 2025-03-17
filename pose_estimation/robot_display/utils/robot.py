@@ -26,6 +26,7 @@ class Robot:
         self.visualize_target_foot_pos = getattr(vis_options, "visualize_target_foot_pos", False)
         self.visualize_robot_frame = getattr(vis_options, "visualize_robot_frame", False)
         self.merge_fixed_links = getattr(vis_options, "merge_fixed_links", True)
+        self.show_viewer = getattr(vis_options, "show_viewer", True)
 
         # Create scene
         self.dt = 1 / fps
@@ -45,6 +46,7 @@ class Robot:
                 gravity=(0, 0, 0),
                 substeps=substeps,
             ),
+            show_viewer=self.show_viewer,
         )
 
         # Load entity
@@ -92,10 +94,11 @@ class Robot:
         self._init_buffers()
 
         center, diameter = self.get_center_diameter()
-        self.scene.viewer.set_camera_pose(
-            pos=center + diameter,
-            lookat=center,
-        )
+        if self.show_viewer:
+            self.scene.viewer.set_camera_pose(
+                pos=center + diameter,
+                lookat=center,
+            )
 
         self.step_target()
 

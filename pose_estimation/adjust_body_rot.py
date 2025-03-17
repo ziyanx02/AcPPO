@@ -30,6 +30,7 @@ class VisOptions:
         self.show_world_frame = False
         self.shadow = False
         self.background_color = (0.8, 0.8, 0.8)
+        self.show_viewer = False
 
 display = Display(
     cfg=cfg,
