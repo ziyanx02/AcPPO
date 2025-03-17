@@ -18,7 +18,7 @@ from scripts.train import train
 from scripts.eval import eval
 
 def train_eval(return_queue, args, response, iter_id, sample_id, train_cfg, env_cfg, tune_cfg):
-    logging.info(f"Sample {sample_id} training start")
+    logging.info(f"Sample {sample_id} training start on device {args.device}")
 
     train_queue = mp.Queue()
     eval_queue = mp.Queue()
@@ -29,9 +29,11 @@ def train_eval(return_queue, args, response, iter_id, sample_id, train_cfg, env_
     )
     train_process.start()
     train_process.join()
-    train_return = train_queue.get()
-
-    logging.info(f"Sample {sample_id} evaluation start")
+    try:
+        train_return = train_queue.get_nowait()
+    except:
+        logging.error(f"Training process for sample {sample_id} did not return any data.")
+        raise RuntimeError(f"Training process for sample {sample_id} did not return any data.")
 
     eval_process = mp.Process(
         target=eval,
@@ -39,7 +41,12 @@ def train_eval(return_queue, args, response, iter_id, sample_id, train_cfg, env_
     )
     eval_process.start()
     eval_process.join()
-    eval_return = eval_queue.get()
+
+    try:
+        eval_return = eval_queue.get_nowait()
+    except:
+        logging.error(f"Evaluation process for sample {sample_id} did not return any data.")
+        raise RuntimeError(f"Evaluation process for sample {sample_id} did not return any data.")
 
     return_queue.put({
         'train': train_return,
@@ -87,7 +94,7 @@ def get_reward_reflection(result):
 
     return content
 
-def main(args):    
+def main(args):
     mp.set_start_method("spawn", force=True)
 
     log_dir = 'run'
@@ -123,6 +130,7 @@ def main(args):
         for sample_id in range(tune_cfg['num_samples']):
             # try:
             response = client_reward.response(base_message)
+            args.device = 'cpu' if args.cpu else f'cuda:{sample_id % torch.cuda.device_count()}'
             sample_process = mp.Process(
                 target=train_eval,
                 args=(return_queue, args, response, iter_id, sample_id, train_cfg, env_cfg, tune_cfg)
@@ -154,7 +162,6 @@ def main(args):
         logging.info(f"Evaluation finished. Sample {best_result['train']['sample_id']} wins. ")
         logging.debug(f"Details of best reward:\n{best_result}")
 
-        import pdb; pdb.set_trace()
         assist_message = {"role": "assistant", "content": best_result['train']['response']['raw']}
         user_message = {"role": "user", "content": get_reward_reflection(best_result)}
 
@@ -194,6 +201,8 @@ if __name__ == '__main__':
         args.exp_name = args.task
         now = datetime.datetime.now()
         args.exp_name += f'_{now.month}-{now.day}-{now.hour}-{now.minute}'
+
+    print(f'Exp_name : {args.exp_name}')
 
     args.cfg = args.task + '.yaml'
     args.robot = args.task.split('-')[0]

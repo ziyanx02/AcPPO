@@ -78,7 +78,7 @@ class LocoEnv:
         if not torch.cuda.is_available():
             self.device = torch.device('cpu')
         else:
-            assert device in ['cpu', 'cuda']
+            assert device == 'cpu' or device.startswith('cuda')
             self.device = torch.device(device)
 
         self.scale = env_cfg.get('robot_scale', 1.0)
@@ -393,8 +393,8 @@ class LocoEnv:
             device=self.device,
         )
 
-        self.dof_pos_limits = torch.stack(self.robot.get_dofs_limit(self.motor_dofs), dim=1)
-        self.torque_limits = self.robot.get_dofs_force_range(self.motor_dofs)[1]
+        self.dof_pos_limits = torch.stack(self.robot.get_dofs_limit(self.motor_dofs), dim=1).to(self.device)
+        self.torque_limits = self.robot.get_dofs_force_range(self.motor_dofs)[1].to(self.device)
         for i in range(self.dof_pos_limits.shape[0]):
             # soft limits
             m = (self.dof_pos_limits[i, 0] + self.dof_pos_limits[i, 1]) / 2
@@ -501,8 +501,8 @@ class LocoEnv:
             self.torques = self._compute_torques(exec_actions)
             self.robot.control_dofs_force(self.torques, self.motor_dofs)
             self.scene.step()
-            self.dof_pos[:] = self.robot.get_dofs_position(self.motor_dofs)
-            self.dof_vel[:] = self.robot.get_dofs_velocity(self.motor_dofs)
+            self.dof_pos[:] = self.robot.get_dofs_position(self.motor_dofs).to(self.device)
+            self.dof_vel[:] = self.robot.get_dofs_velocity(self.motor_dofs).to(self.device)
 
         self.post_physics_step()
 
@@ -563,7 +563,7 @@ class LocoEnv:
         push_interval_s = self.env_cfg['push_interval_s']
         if push_interval_s > 0 and not (self.debug or self.eval):
             max_push_vel_xy = self.env_cfg['max_push_vel_xy']
-            dofs_vel = self.robot.get_dofs_velocity() # (num_envs, num_dof) [0:3] ~ base_link_vel
+            dofs_vel = self.robot.get_dofs_velocity().to(self.device) # (num_envs, num_dof) [0:3] ~ base_link_vel
             push_vel = gs_rand_float(-max_push_vel_xy, max_push_vel_xy, (self.num_envs, 2), self.device)
             push_vel[((self.common_step_counter + self.env_identities) % int(push_interval_s / self.dt) != 0)] = 0
             dofs_vel[:, :2] += push_vel
@@ -584,14 +584,14 @@ class LocoEnv:
         self.last_actions[:] = self.actions[:]
         self.last_last_actions[:] = self.last_actions[:]
         self.last_dof_vel[:] = self.dof_vel[:]
-        self.last_root_vel[:] = self.robot.get_vel()
+        self.last_root_vel[:] = self.robot.get_vel().to(self.device)
 
     # ------------ update buffers ----------------
 
     def _update_buffers(self):
 
-        self.base_pos[:] = self.robot.get_pos()
-        self.base_quat[:] = self.robot.get_quat()
+        self.base_pos[:] = self.robot.get_pos().to(self.device)
+        self.base_quat[:] = self.robot.get_quat().to(self.device)
         base_quat_rel = gs_quat_mul(self.base_quat, gs_inv_quat(self.base_init_quat.reshape(1, -1).repeat(self.num_envs, 1)))
         self.base_euler = gs_quat2euler(base_quat_rel)
 
@@ -599,20 +599,20 @@ class LocoEnv:
                                                torch.tensor([0, 0, 1], device=self.device, dtype=torch.float))
 
         inv_base_quat = gs_inv_quat(self.base_quat)
-        self.base_lin_vel[:] = gs_transform_by_quat(self.robot.get_vel(), inv_quat_yaw)
-        self.base_ang_vel[:] = gs_transform_by_quat(self.robot.get_ang(), inv_base_quat)
+        self.base_lin_vel[:] = gs_transform_by_quat(self.robot.get_vel().to(self.device), inv_quat_yaw)
+        self.base_ang_vel[:] = gs_transform_by_quat(self.robot.get_ang().to(self.device), inv_base_quat)
         self.projected_gravity = gs_transform_by_quat(
             self.global_gravity, inv_base_quat
         )
 
-        self.dof_pos[:] = self.robot.get_dofs_position(self.motor_dofs)
-        self.dof_vel[:] = self.robot.get_dofs_velocity(self.motor_dofs)
-        self.link_contact_forces[:] = self.robot.get_links_net_contact_force()
+        self.dof_pos[:] = self.robot.get_dofs_position(self.motor_dofs).to(self.device)
+        self.dof_vel[:] = self.robot.get_dofs_velocity(self.motor_dofs).to(self.device)
+        self.link_contact_forces[:] = self.robot.get_links_net_contact_force().to(self.device)
         self.com[:] = self.rigid_solver.get_links_COM([self.base_link_index,]).squeeze(dim=1)
 
-        self.foot_positions[:] = self.robot.get_links_pos()[:, self.feet_link_indices]
-        self.foot_quaternions[:] = self.robot.get_links_quat()[:, self.feet_link_indices]
-        self.foot_velocities[:] = self.robot.get_links_vel()[:, self.feet_link_indices]
+        self.foot_positions[:] = self.robot.get_links_pos()[:, self.feet_link_indices].to(self.device)
+        self.foot_quaternions[:] = self.robot.get_links_quat()[:, self.feet_link_indices].to(self.device)
+        self.foot_velocities[:] = self.robot.get_links_vel()[:, self.feet_link_indices].to(self.device)
 
         if self.env_cfg['use_terrain']:
             clipped_base_pos = self.base_pos[:, :2].clamp(min=torch.zeros(2, device=self.device), max=self.terrain_margin)

@@ -204,11 +204,9 @@ environment:
       alive: 10.0
       ang_vel_xy: -0.05
       base_height: -5.0
-      collision: -1.0
       dof_acc: -2.5e-07
       dof_vel: -0.0
       dof_pos_diff: -0.1
-      feet_air_time: 1.0
       lin_vel_z: -2.0
       orientation: -5.0
       contact_force: -5.
@@ -224,5 +222,5 @@ environment:
 
 reward_tuning:
   num_iterations: 2
-  num_samples: 3
+  num_samples: 4
   num_logpoints: 10

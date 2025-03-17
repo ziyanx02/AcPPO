@@ -13,6 +13,12 @@ Message: {message}
 Response: {response}
 '''
 
+def messages_to_string(messages: list):
+    result = ''
+    for message in messages:
+        result += f"{message['role']} : {message['content']}\n"
+    return result
+
 class Client:
     def __init__(self, temperature=0.5, disable=False, template=None):
         self.client = AzureOpenAI(
@@ -39,7 +45,7 @@ class Client:
         logging.debug(CLIENT_LOG_TEMPLATE.format(
             model=self.deployment_name,
             temp=self.temperature,
-            message=messages,
+            message=messages_to_string(messages),
             response=response.choices[0].message.content
         ))
         self.history.append({

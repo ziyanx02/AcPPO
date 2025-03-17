@@ -22,7 +22,10 @@ def train(return_queue, args, response, iter_id, sample_id, train_cfg, env_cfg, 
     env_cfg['reward']['reward_scales'] = reward_scales
     env_cfg['reward']['reward_function'] = reward_function
     exp_name = f'{args.exp_name}_it{iter_id}_{sample_id}'
-    device = 'cpu' if args.cpu else 'cuda'
+    if hasattr(args, 'device'):
+        device = args.device
+    else:
+        device = 'cpu' if args.cpu else 'cuda'
     log_dir = f'logs/{exp_name}'
     if not args.offline:
         train_cfg['logger'] = 'wandb'
