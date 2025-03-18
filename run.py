@@ -17,8 +17,19 @@ from reward_tuning.client import Client
 from scripts.train import train
 from scripts.eval import eval
 
+def setup_logger(exp_name):
+    log_dir = 'logs_run'
+    logging.basicConfig(
+        filename=f'{log_dir}/{exp_name}.log',
+        level=logging.DEBUG,            
+        format='%(asctime)s - %(processName)s - %(levelname)s - %(message)s',  
+        datefmt='%Y-%m-%d %H:%M:%S',
+    )
+    return logging.getLogger()
+
 def train_eval(return_queue, args, response, iter_id, sample_id, train_cfg, env_cfg, tune_cfg, device_id):
-    logging.info(f"Sample {sample_id} training start on device {device_id}")
+    logger = setup_logger(args.exp_name)
+    logger.info(f"Sample {sample_id} training start on device {device_id}")
     os.environ["CUDA_VISIBLE_DEVICES"] = str(device_id)
 
     train_queue = mp.Queue()
@@ -33,7 +44,7 @@ def train_eval(return_queue, args, response, iter_id, sample_id, train_cfg, env_
     try:
         train_return = train_queue.get_nowait()
     except:
-        logging.error(f"Training process for sample {sample_id} did not return any data.")
+        logger.error(f"Training process for sample {sample_id} did not return any data.")
         raise RuntimeError(f"Training process for sample {sample_id} did not return any data.")
 
     eval_process = mp.Process(
@@ -46,7 +57,7 @@ def train_eval(return_queue, args, response, iter_id, sample_id, train_cfg, env_
     try:
         eval_return = eval_queue.get_nowait()
     except:
-        logging.error(f"Evaluation process for sample {sample_id} did not return any data.")
+        logger.error(f"Evaluation process for sample {sample_id} did not return any data.")
         raise RuntimeError(f"Evaluation process for sample {sample_id} did not return any data.")
 
     return_queue.put({
@@ -54,7 +65,7 @@ def train_eval(return_queue, args, response, iter_id, sample_id, train_cfg, env_
         'eval': eval_return,
     })
 
-    logging.info(f"Sample {sample_id} finish")
+    logger.info(f"Sample {sample_id} finish")
 
 def get_best(client, results):
     # LLM-based judgement from evaluation result
@@ -98,14 +109,7 @@ def get_reward_reflection(result):
 def main(args):
     mp.set_start_method("spawn", force=True)
 
-    log_dir = 'run'
-    os.makedirs(log_dir, exist_ok=True)
-    logging.basicConfig(
-        filename=f'{log_dir}/{args.exp_name}.log',
-        level=logging.DEBUG,            
-        format='%(asctime)s - %(levelname)s : %(message)s',  
-        datefmt='%Y-%m-%d %H:%M:%S',
-    )
+    logger = setup_logger(args.exp_name)
 
     client_reward = Client(disable=args.disable, template=RESPONSE_SAMPLE_REWARD)
     client_judge = Client()
@@ -124,7 +128,7 @@ def main(args):
     best_result_list = []
 
     for iter_id in range(tune_cfg['num_iterations']):
-        logging.info(f"Iteration {iter_id} start")
+        logger.info(f"Iteration {iter_id} start")
         return_queue = mp.Queue()
         process = []
 
@@ -151,7 +155,7 @@ def main(args):
             if p.exitcode != 0:
                 error_process.append(sample_id)
         
-        logging.info(f"Iteration {iter_id} finished. Process {error_process} failed.")
+        logger.info(f"Iteration {iter_id} finished. Process {error_process} failed.")
 
         results = []
         while not return_queue.empty():
@@ -159,8 +163,8 @@ def main(args):
         best_result = get_best(client_judge, results)
         best_result_list.append(best_result)
 
-        logging.info(f"Evaluation finished. Sample {best_result['train']['sample_id']} wins. ")
-        logging.debug(f"Details of best reward:\n{best_result}")
+        logger.info(f"Evaluation finished. Sample {best_result['train']['sample_id']} wins. ")
+        logger.debug(f"Details of best reward:\n{best_result}")
 
         assist_message = {"role": "assistant", "content": best_result['train']['response']['raw']}
         user_message = {"role": "user", "content": get_reward_reflection(best_result)}
@@ -170,9 +174,9 @@ def main(args):
         else :
             base_message[-2:] = [assist_message, user_message]
     
-    logging.info(f"Finish all iterations.")
+    logger.info(f"Finish all iterations.")
     best_of_all = get_best(client_judge, best_result_list)
-    logging.info(f"Best result of all reward parameters: {best_of_all['train']['exp_name']}")
+    logger.info(f"Best result of all reward parameters: {best_of_all['train']['exp_name']}")
 
 
 if __name__ == '__main__':
