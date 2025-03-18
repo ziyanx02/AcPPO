@@ -72,7 +72,7 @@ class RewardWrapper:
 
     def _reward_dof_acc(self):
         # Penalize dof accelerations
-        return torch.mean(torch.square((self.last_dof_vel - self.dof_vel) / self.dt), dim=-1)
+        return torch.mean(torch.square(self.last_dof_vel - self.dof_vel), dim=-1)
 
     def _reward_dof_pos_diff(self):
         # Penalize dof positions deviate from default pose

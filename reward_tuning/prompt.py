@@ -197,7 +197,7 @@ class RewardWrapper:
 
     def _reward_dof_acc(self):
         # Penalize dof accelerations
-        return torch.mean(torch.square((self.last_dof_vel - self.dof_vel) / self.dt), dim=-1)
+        return torch.mean(torch.square((self.last_dof_vel - self.dof_vel)), dim=-1)
 
     def _reward_dof_pos_diff(self):
         # Penalize dof positions deviate from default pose
@@ -353,7 +353,7 @@ class RewardWrapper:
         - Computes the squared accelerations of the degrees of freedom (dof_vel changes over time).
         - Encourages smooth transitions in joint movements.
         """
-        return torch.mean(torch.square((self.last_dof_vel - self.dof_vel) / self.dt), dim=-1)
+        return torch.mean(torch.square((self.last_dof_vel - self.dof_vel)), dim=-1)
 
     def _reward_dof_pos_diff(self):
         """
@@ -401,11 +401,9 @@ reward_scales:
     alive: 10.0
     ang_vel_xy: -0.05
     base_height: -5.0
-    collision: -1.0
-    dof_acc: -2.5e-07
+    dof_acc: -0.05
     dof_vel: -0.0
     dof_pos_diff: -0.1
-    feet_air_time: 1.0
     lin_vel_z: -2.0
     orientation: -5.0
     contact_force: -5.
