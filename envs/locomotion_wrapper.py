@@ -144,7 +144,7 @@ class GaitEnv(LocoEnv):
         self.desired_feet_pos_local[:, :, 1] = desired_ys_norm + (desired_ys_offset + desired_yaw_to_ys_offset)
 
         # Feet positions in local frame
-        center = self.base_pos.unsqueeze(1) # self.com.unsqueeze(1)
+        center = self.base_pos.clone().unsqueeze(1) # self.com.unsqueeze(1)
         center[:, :, 2] = 0.0
         feet_pos_translated = self.foot_positions - center
         for i in range(len(self.feet_link_indices)):
