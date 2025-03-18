@@ -222,6 +222,178 @@ class RewardWrapper:
         return torch.mean(diff, dim=-1)
 '''
 
+REWARD_CLASS_TEMPLATE_DETAIL = '''
+class RewardWrapper:
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+    
+    # Command tracking terms
+    # These rewards encourage the robot to follow desired commands (linear and angular velocity) and maintain desired gait behavior.
+
+    def _reward_lin_vel(self):
+        """
+        Reward for tracking linear velocity commands (x, y axes).
+        - Computes the squared error between the desired linear velocity (commands[:, :2]) and the actual base linear velocity (base_lin_vel[:, :2]).
+        - Applies an exponential decay to the error to encourage smooth tracking.
+        - Higher reward for smaller errors.
+        """
+        lin_vel_error = torch.sum(torch.square(self.commands[:, :2] - self.base_lin_vel[:, :2]), dim=1)
+        return torch.exp(-lin_vel_error / 0.25)
+
+    def _reward_ang_vel(self):
+        """
+        Reward for tracking angular velocity commands (yaw axis).
+        - Computes the squared error between the desired angular velocity (commands[:, 2]) and the actual base angular velocity (base_ang_vel[:, 2]).
+        - Applies an exponential decay to the error to encourage smooth tracking.
+        - Higher reward for smaller errors.
+        """
+        ang_vel_error = torch.square(self.commands[:, 2] - self.base_ang_vel[:, 2])
+        return torch.exp(-ang_vel_error / 0.25)
+
+    def _reward_base_height(self):
+        """
+        Reward for maintaining the desired base height.
+        - Computes the squared error between the current base height (base_pos[:, 2]) and the desired gait base height (gait_base_height).
+        - Encourages the robot to maintain a stable base height during locomotion.
+        """
+        return torch.square(self.base_pos[:, 2] - self.gait_base_height)
+
+    def _reward_contact_force(self):
+        """
+        Reward for tracking desired contact forces on the feet.
+        - Computes the norm of contact forces on the feet (link_contact_forces) and compares them to the desired contact states (desired_contact_states).
+        - Encourages feet to exert force when in contact and minimize force when not in contact.
+        - Uses an exponential decay to penalize large forces when contact is not desired.
+        """
+        foot_forces = torch.norm(self.link_contact_forces[:, self.feet_link_indices, :], dim=-1)
+        desired_contact = self.desired_contact_states
+        return torch.mean((1 - desired_contact) * (1 - torch.exp(-foot_forces ** 2 / 100.)), dim=-1)
+    
+    def _reward_feet_height(self):
+        """
+        Reward for tracking desired feet height.
+        - Computes the squared error between the current feet height (feet_pos_local[..., 2]) and the desired feet height (desired_feet_pos_local[..., 2]).
+        - Only applies the reward when the feet are not in contact (1 - desired_contact_states).
+        - Encourages the robot to lift its feet to the correct height during swing phases.
+        """
+        rew_foot_height = torch.square(self.feet_pos_local[..., 2] - self.desired_feet_pos_local[..., 2]) * (1 - self.desired_contact_states)
+        return torch.mean(rew_foot_height, dim=-1)
+    
+    def _reward_feet_pos(self):
+        """
+        Reward for tracking desired feet position (x, y axes).
+        - Computes the squared error between the current feet position (feet_pos_local[..., 0:2]) and the desired feet position (desired_feet_pos_local[..., 0:2]).
+        - Encourages the robot to place its feet accurately in the x-y plane.
+        """
+        rew_foot_pos = torch.sum(torch.square(self.feet_pos_local[..., 0:2] - self.desired_feet_pos_local[..., 0:2]), dim=-1)
+        return torch.mean(rew_foot_pos, dim=-1)
+
+    def _reward_alive(self):
+        """
+        Reward for staying alive (not terminating).
+        - Returns 1 if the robot is alive (terminate_buf is False), otherwise 0.
+        - Encourages the robot to avoid conditions that lead to termination (e.g., falling).
+        """
+        return 1 - self.terminate_buf.float()
+
+    def _reward_terminate(self):
+        """
+        Penalty for termination.
+        - Returns 1 if the robot has terminated (terminate_buf is True), otherwise 0.
+        - Discourages behaviors that lead to termination.
+        """
+        return self.terminate_buf.float()
+
+    # Regularization terms
+    # These rewards penalize undesirable behaviors to encourage smooth, stable, and efficient locomotion.
+
+    def _reward_lin_vel_z(self):
+        """
+        Penalty for base linear velocity in the z-axis.
+        - Computes the squared z-axis linear velocity (base_lin_vel[:, 2]).
+        - Discourages unnecessary vertical motion of the base.
+        """
+        return torch.square(self.base_lin_vel[:, 2])
+    
+    def _reward_ang_vel_xy(self):
+        """
+        Penalty for base angular velocity in the x and y axes.
+        - Computes the squared angular velocity in the x and y axes (base_ang_vel[:, :2]).
+        - Discourages unnecessary tilting or rolling of the base.
+        """
+        return torch.sum(torch.square(self.base_ang_vel[:, :2]), dim=-1)
+
+    def _reward_orientation(self):
+        """
+        Penalty for non-flat base orientation.
+        - Computes the squared deviation of the projected gravity vector from the vertical axis (projected_gravity[:, :2]).
+        - Encourages the robot to maintain a flat base orientation.
+        """
+        return torch.sum(torch.square(self.projected_gravity[:, :2]), dim=-1)
+
+    def _reward_torques(self):
+        """
+        Penalty for high joint torques.
+        - Computes the squared torques applied to the joints (torques).
+        - Encourages energy-efficient locomotion by minimizing joint torques.
+        """
+        return torch.mean(torch.square(self.torques), dim=-1)
+
+    def _reward_dof_vel(self):
+        """
+        Penalty for high joint velocities.
+        - Computes the squared velocities of the degrees of freedom (dof_vel).
+        - Encourages smooth and controlled joint movements.
+        """
+        return torch.mean(torch.square(self.dof_vel), dim=-1)
+
+    def _reward_dof_acc(self):
+        """
+        Penalty for high joint accelerations.
+        - Computes the squared accelerations of the degrees of freedom (dof_vel changes over time).
+        - Encourages smooth transitions in joint movements.
+        """
+        return torch.mean(torch.square((self.last_dof_vel - self.dof_vel) / self.dt), dim=-1)
+
+    def _reward_dof_pos_diff(self):
+        """
+        Penalty for deviations from the default joint positions.
+        - Computes the squared difference between current joint positions (dof_pos) and default joint positions (default_dof_pos).
+        - Encourages the robot to maintain a natural pose.
+        """
+        return torch.mean(torch.square(self.dof_pos - self.default_dof_pos), dim=-1)
+
+    def _reward_contact_vel(self):
+        """
+        Penalty for high vertical velocities during contact.
+        - Computes the norm of foot velocities (foot_velocities) and penalizes large vertical velocities when feet are in contact (desired_contact_states).
+        - Encourages stable foot placement during contact phases.
+        """
+        foot_velocities = torch.norm(self.foot_velocities, dim=2).view(self.num_envs, -1)
+        desired_contact = self.desired_contact_states
+        return torch.mean(desired_contact * (1 - torch.exp(-foot_velocities ** 2 / 10.)), dim=-1)
+
+    def _reward_action_smoothness_1(self):
+        """
+        Penalty for 1st-order action deviations.
+        - Computes the squared difference between current actions (actions) and previous actions (last_actions).
+        - Encourages smooth transitions between actions.
+        """
+        diff = torch.square(self.actions - self.last_actions)
+        diff = diff * (self.last_actions != 0)  # ignore first step
+        return torch.mean(diff, dim=-1)
+
+    def _reward_action_smoothness_2(self):
+        """
+        Penalty for 2nd-order action deviations.
+        - Computes the squared difference between current actions (actions), previous actions (last_actions), and actions before that (last_last_actions).
+        - Encourages even smoother transitions between actions.
+        """
+        diff = torch.square(self.actions - 2 * self.last_actions + self.last_last_actions)
+        diff = diff * (self.last_actions != 0) * (self.last_last_actions != 0)  # ignore first & second steps
+        return torch.mean(diff, dim=-1)
+'''
+
 REWARD_CONFIG_TEMPLATE = '''
 reward_scales:
     lin_vel: 1.0
@@ -265,21 +437,19 @@ The output should include two components:
 - Refer to the given `reward_function` and `reward_scale` templates for guidance.  
 - The reward function consists of two types of terms:  
   1. **Command Tracking Terms:** Crucial terms directly evaluated by the user to ensure task success.  
-  2. **Regularization Terms:** Penalization terms to suppress undesired behaviors, ensuring stable learning.  
-- The provided reward scale configuration has been tested in locomotion tasks and can serve as a reference.  
+  2. **Regularization Terms:** Penalization terms to suppress undesired behaviors, ensuring stable learning. 
+  All rewards except regularization terms is critically related to the final performance.  
+- The provided reward scale configuration has been tested in locomotion tasks and can serve as a reference. 
+- If you don't want one term of reward, just set the scale to 0.
 
-**Best Practices for Writing the Reward Function:**  
-1. **Normalization:** Apply transformations (e.g., `torch.exp`) to keep reward values within a fixed range.  
-2. **Temperature Parameters:** If applying transformations, introduce a named temperature variable inside the function. Each transformed reward component should have its own temperature variable.  
-3. **Type Consistency:** Ensure input variables have correct types (e.g., `float` values should not be defined as `torch.Tensor`).  
-
-**Most Importantly: In no case you can create new variables for your reward function. You can only use the follwing variables of environment:**
-
-{ENVIRONMENT}
+**Most Important**: 
+You need to return the same reward function as template. Only reward scale is needed to tune. 
+To train a stable policy at least, it's highly recommended to explore from the given reward scales. 
 '''
 
 INITIAL_SYSTEM = f'''
-You are a **reward engineer** designing reward functions for **locomotion reinforcement learning tasks**. Your goal is to create a reward function that optimally guides the agent in learning the locomotion task.  
+You are a **reward engineer** designing reward functions for locomotion based on reinforcement learning. 
+Your goal is to create a reward function that optimally guides the agent in learning the locomotion task.  
 
 **Structure of the Reward Function:**  
 - **Python Class:** Defines the reward function.  
@@ -287,7 +457,7 @@ You are a **reward engineer** designing reward functions for **locomotion reinfo
 
 #### **Example: Reward Function Class**  
 ```python
-{REWARD_CLASS_TEMPLATE}
+{REWARD_CLASS_TEMPLATE_DETAIL}
 ```
 
 #### **Example: Reward Scale Configuration**  
