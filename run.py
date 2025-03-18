@@ -17,8 +17,9 @@ from reward_tuning.client import Client
 from scripts.train import train
 from scripts.eval import eval
 
-def train_eval(return_queue, args, response, iter_id, sample_id, train_cfg, env_cfg, tune_cfg):
-    logging.info(f"Sample {sample_id} training start on device {args.device}")
+def train_eval(return_queue, args, response, iter_id, sample_id, train_cfg, env_cfg, tune_cfg, device_id):
+    logging.info(f"Sample {sample_id} training start on device {device_id}")
+    os.environ["CUDA_VISIBLE_DEVICES"] = str(device_id)
 
     train_queue = mp.Queue()
     eval_queue = mp.Queue()
@@ -130,10 +131,9 @@ def main(args):
         for sample_id in range(tune_cfg['num_samples']):
             # try:
             response = client_reward.response(base_message)
-            args.device = 'cpu' if args.cpu else f'cuda:{sample_id % torch.cuda.device_count()}'
             sample_process = mp.Process(
                 target=train_eval,
-                args=(return_queue, args, response, iter_id, sample_id, train_cfg, env_cfg, tune_cfg)
+                args=(return_queue, args, response, iter_id, sample_id, train_cfg, env_cfg, tune_cfg, (sample_id + 1) % torch.cuda.device_count())
             )
             sample_process.start()
             process.append(sample_process)

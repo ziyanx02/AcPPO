@@ -18,10 +18,7 @@ def eval(return_queue, args, exp_name):
         logging_level='warning',
     )
 
-    if hasattr(args, 'device'):
-        device = args.device
-    else:
-        device = 'cpu' if args.cpu else 'cuda'
+    device = 'cpu' if args.cpu else 'cuda'
     log_dir = f'logs/{exp_name}'
     env_cfg, train_cfg = pickle.load(
         open(f'logs/{exp_name}/cfgs.pkl', 'rb')
