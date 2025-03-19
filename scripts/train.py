@@ -3,6 +3,7 @@ import pickle
 import yaml
 import shutil
 import torch
+import traceback
 
 import genesis as gs
 from envs.locomotion_wrapper import GaitEnv
@@ -80,3 +81,11 @@ def train(return_queue, args, response, iter_id, sample_id, train_cfg, env_cfg, 
         'log_frequency': log_period,
         'max_episode_length': env.max_episode_length, 
     })
+
+def train_try(return_queue, *args):
+    try:
+        train(return_queue, *args)
+    except Exception:
+        return_queue.put({
+            'error': traceback.format_exc()
+        })

@@ -14,11 +14,12 @@ from reward_tuning.prompt import POLICY_FEEDBACK, CODE_FEEDBACK, CODE_OUTPUT_TIP
 from reward_tuning.example import RESPONSE_SAMPLE_REWARD
 from reward_tuning.client import Client
 
-from scripts.train import train
-from scripts.eval import eval
+from scripts.train import train_try
+from scripts.eval import eval_try
 
 def setup_logger(exp_name):
     log_dir = 'logs_run'
+    os.makedirs(log_dir, exist_ok=True)
     logging.basicConfig(
         filename=f'{log_dir}/{exp_name}.log',
         level=logging.DEBUG,            
@@ -36,19 +37,22 @@ def train_eval(return_queue, args, response, iter_id, sample_id, train_cfg, env_
     eval_queue = mp.Queue()
 
     train_process = mp.Process(
-        target=train,
+        target=train_try,
         args=(train_queue, args, response, iter_id, sample_id, train_cfg, env_cfg, tune_cfg),
     )
     train_process.start()
     train_process.join()
     try:
         train_return = train_queue.get_nowait()
+        if 'error' in train_return.keys():
+            logger.error(f"RuntimeError: Training process for sample {sample_id}\n" + train_return['error'])
+            raise RuntimeError(f"Training process for sample {sample_id} error.")    
     except:
         logger.error(f"Training process for sample {sample_id} did not return any data.")
         raise RuntimeError(f"Training process for sample {sample_id} did not return any data.")
 
     eval_process = mp.Process(
-        target=eval,
+        target=eval_try,
         args=(eval_queue, args, train_return['exp_name'])
     )
     eval_process.start()
@@ -56,6 +60,9 @@ def train_eval(return_queue, args, response, iter_id, sample_id, train_cfg, env_
 
     try:
         eval_return = eval_queue.get_nowait()
+        if 'error' in eval_return.keys():
+            logger.error(f"RuntimeError: Evaluation process for sample {sample_id}\n" + eval_return['error'])
+            raise RuntimeError(f"Evaluation process for sample {sample_id} error.")    
     except:
         logger.error(f"Evaluation process for sample {sample_id} did not return any data.")
         raise RuntimeError(f"Evaluation process for sample {sample_id} did not return any data.")

@@ -2,6 +2,7 @@ import os
 import pickle
 import yaml
 import shutil
+import traceback
 
 import torch
 import genesis as gs
@@ -85,3 +86,11 @@ def eval(return_queue, args, exp_name):
             metric[key] = metric[key].item()
 
     return_queue.put({'metric': metric})
+
+def eval_try(return_queue, *args):
+    try:
+        eval(return_queue, *args)
+    except Exception:
+        return_queue.put({
+            'error': traceback.format_exc()
+        })
