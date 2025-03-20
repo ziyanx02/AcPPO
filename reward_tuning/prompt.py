@@ -513,16 +513,60 @@ index
 Important: The index **must** be an integer which matches the index of reward parameters. 
 '''
 
-POLICY_FEEDBACK = '''
-We trained a RL policy using the provided reward function code and tracked the values of the individual components in the reward function as well as global policy metrics such as episode reward and episode lengths after every {epoch_freq} epochs and the maximum, mean, minimum values encountered:
+TRAIN_FEEDBACK = '''
+We trained a reinforcement learning (RL) policy using the provided reward function code. 
+
+## Training result
+During training, we tracked the following every {epoch_freq} epochs as well as the maximum, mean, and minimum values:
+    (1) Individual reward components: The values of each term in the reward function.
+    (2) Global policy metrics: Episode rewards and episode lengths.
+
+The overall training result was:.
+'''
+
+EVAL_FEEDBACK = '''
+## Evaluation result
+
+In addition to the reward terms, we computed user-guidance evaluation metrics. These metrics are directly related to some of the reward terms and are used to judge the final performance of the trained policy. All metrics (except termination) range from 0 to 1. If one metric is significantly worse than others, focus on improving the corresponding reward term in your response.
+Metrics for Evaluation:
+``` python
+# Metrics for tracking robot locomotion performance
+
+# Measures how well the robot follows the commanded linear velocity (xy-plane)
+# Uses an exponential function to reward smaller velocity errors
+lin_vel_error = torch.sum(torch.square(self.commands[:, :2] - self.base_lin_vel[:, :2]), dim=1)
+metric['lin_vel'] = torch.exp(-lin_vel_error / 0.25)
+
+# Measures how well the robot follows the commanded angular velocity (yaw)
+# Encourages precise yaw control using an exponential decay function
+ang_vel_error = torch.square(self.commands[:, 2] - self.base_ang_vel[:, 2])
+metric['ang_vel'] = torch.exp(-ang_vel_error / 0.25)
+
+# Measures the deviation of foot contact forces from the desired contact states
+# Encourages proper foot placement and avoids unnecessary ground impact
+foot_forces = torch.norm(self.link_contact_forces[:, self.feet_link_indices, :], dim=-1)
+desired_contact = self.desired_contact_states
+metric['contact_force'] = torch.mean((1 - desired_contact) * (1 - torch.exp(-foot_forces ** 2 / 100.)), dim=-1)
+
+# Measures the deviation of the robot's base height from the desired gait-defined height
+# Encourages stable locomotion at the appropriate height
+base_height_error = torch.square(self.base_pos[:, 2] - self.gait_base_height)
+metric['base_height'] = torch.exp(-base_height_error / 0.25)
+
+# Indicates the number of failures during evaluation (e.g., falling, instability)
+metric['terminate'] = self.terminate_buf.float()
+```
+The evaluation result is:
 '''
 CODE_FEEDBACK = '''
-Please carefully analyze the policy feedback and provide a new, improved reward function that can better solve the task. Some helpful tips for analyzing the policy feedback:
-    (1) If the episode length are always much lower than the max episode length {max_episode_length}, which shows the policy can't survive, then you must rewrite the entire reward function
+## Task
+Please carefully analyze the policy feedback and provide an improved reward function to better solve the task. Use the following tips to guide your analysis:
+    (1) Short episode lengths: If the episode length is consistently much shorter than the maximum ({max_episode_length}), the policy is failing to survive. In this case, you must rewrite the entire reward function to prioritize stability and survival.
     (2) If the values for a certain reward component are near identical throughout, then this means RL is not able to optimize this component as it is written. You may consider
-        (a) Changing its scale or the value of its temperature parameter
-        (b) Re-writing the reward component 
-        (c) Discarding the reward component
+        (a) Adjusting its scale or temperature parameter.
+        (b) Rewriting the reward component.
+        (c) Removing the reward component if it is unnecessary.
     (3) If some reward components' magnitude is significantly larger, then you must re-scale its value to a proper range
+    (4) If some evaluation metric value is bad, then you must pay more attention to its corresponding reward term.
 Please analyze each existing reward component in the suggested manner above first, and then write the reward function code.
 '''

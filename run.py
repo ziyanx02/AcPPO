@@ -10,7 +10,7 @@ import os
 import torch.multiprocessing as mp
 import torch
 from reward_tuning.prompt import INITIAL_USER, INITIAL_SYSTEM, JUDGE_SYSTEM, JUDGE_USER
-from reward_tuning.prompt import POLICY_FEEDBACK, CODE_FEEDBACK, CODE_OUTPUT_TIP
+from reward_tuning.prompt import TRAIN_FEEDBACK, EVAL_FEEDBACK, CODE_FEEDBACK, CODE_OUTPUT_TIP
 from reward_tuning.example import RESPONSE_SAMPLE_REWARD
 from reward_tuning.client import Client
 
@@ -74,15 +74,20 @@ def train_eval(return_queue, args, response, iter_id, sample_id, train_cfg, env_
 
     logger.info(f"Sample {sample_id} finish")
 
+def get_eval_result(result):
+    eval_result = ''
+    idx = result['train']['sample_id']
+    metric = result['eval']['metric']
+    eval_result += f'Index: {idx}\n'
+    for key in metric.keys():
+        eval_result += f'   {key}: {metric[key]:.3f}\n'
+    return eval_result
+
 def get_best(client, results):
     # LLM-based judgement from evaluation result
     eval_result = ''
     for result in results:
-        idx = result['train']['sample_id']
-        metric = result['eval']['metric']
-        eval_result += f'Index: {idx}\n'
-        for key in metric.keys():
-            eval_result += f'   {key}: {metric[key]:.3f}\n'
+        eval_result += get_eval_result(result)
 
     message = [
         {"role": "system", "content": JUDGE_SYSTEM},
@@ -103,11 +108,15 @@ def get_best(client, results):
 
 def get_reward_reflection(result):
     content = "" 
-    content += POLICY_FEEDBACK.format(epoch_freq=result['train']['log_frequency'])
+    content += TRAIN_FEEDBACK.format(epoch_freq=result['train']['log_frequency'])
     log_dict = result['train']['train_log']
     for key in log_dict[list(log_dict.keys())[0]]:
         values = [log_dict[i][key] for i in log_dict.keys()]
         content += f"{key}: {values}, Max {max(values)}, Mean {statistics.mean(values)}, Min {min(values)}"
+
+    content += EVAL_FEEDBACK
+    content += get_eval_result(result)
+    
     content += CODE_FEEDBACK.format(max_episode_length=result['train']['max_episode_length'])
     content += CODE_OUTPUT_TIP
 
