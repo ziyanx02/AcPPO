@@ -443,6 +443,7 @@ The output should include two components:
 
 **Most Important**: 
 You need to return the same reward function as template. Only reward scale is needed to tune. 
+You must output the complete code of reward function, no omissions is allowed for reward function.
 To train a stable policy at least, it's highly recommended to explore from the given reward scales. 
 '''
 
