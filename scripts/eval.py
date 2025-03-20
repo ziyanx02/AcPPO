@@ -58,7 +58,8 @@ def eval(return_queue, args, exp_name):
     with torch.no_grad():
         stop = False
         n_frames = 0
-        if args.record:
+        record = args.record 
+        if record:
             env.start_recording(record_internal=False)
         while n_frames < max_n_frames:
             actions = policy(obs)
@@ -73,7 +74,8 @@ def eval(return_queue, args, exp_name):
                     metric[key] = 0
                 metric[key] += extras['metric'][key]
                 
-            if args.record and n_frames >= env.record_length: # 50 fps, 20 s
+            if record and n_frames >= env.record_length: # 50 fps, 20 s
+                record = False
                 env.stop_recording(f'{log_dir}/{args.exp_name}.mp4')
                 print('Finish recording!')
             
