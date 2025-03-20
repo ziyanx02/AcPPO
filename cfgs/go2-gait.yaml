@@ -203,18 +203,19 @@ environment:
       ang_vel: 0.5
       alive: 10.0
       ang_vel_xy: -0.05
-      base_height: -5.0
+      base_height: -30.0
       dof_acc: -0.05
-      dof_vel: -0.0
+      dof_vel: -0.01
       dof_pos_diff: -0.1
       lin_vel_z: -2.0
       orientation: -5.0
       contact_force: -5.
       contact_vel: -5.
-      feet_height: -100.
-      feet_pos: -10.0
+      feet_height: -400.
+      feet_pos: -30.0
       action_smoothness_1: -0.1
       action_smoothness_2: -0.1
+      torques: -0.0001
     
 
     soft_dof_pos_limit: 0.9
