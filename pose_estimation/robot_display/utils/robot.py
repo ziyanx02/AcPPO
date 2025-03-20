@@ -82,7 +82,7 @@ class Robot:
             pos=np.array([1, 0, 0]),
             lookat=np.array([0, 0, 0]),
             res=(1280, 1280),
-            fov=20,
+            fov=getattr(vis_options, "fov", 17),
             GUI=False,
         )
 
@@ -313,40 +313,46 @@ class Robot:
 
     def visualize_frame(self, center):
 
-        vector = torch.tensor([1.0, 0.0, 0.0]) * self.diameter * 0.3
-        self.scene.draw_debug_arrow(center, vector, radius=self.diameter / 100, color=(1.0, 0.0, 0.0, 1.0))
-        vector = torch.tensor([0.0, 1.0, 0.0]) * self.diameter * 0.3
-        self.scene.draw_debug_arrow(center, vector, radius=self.diameter / 100, color=(0.0, 1.0, 0.0, 1.0))
-        vector = torch.tensor([0.0, 0.0, 1.0]) * self.diameter * 0.3
-        self.scene.draw_debug_arrow(center, vector, radius=self.diameter / 100, color=(0.0, 0.0, 1.0, 1.0))
+        length_frac = 0.3
+        width_frac = 100
+
+        vector = torch.tensor([1.0, 0.0, 0.0]) * self.diameter * length_frac
+        self.scene.draw_debug_arrow(center, vector, radius=self.diameter / width_frac, color=(1.0, 0.0, 0.0, 1.0))
+        vector = torch.tensor([0.0, 1.0, 0.0]) * self.diameter * length_frac
+        self.scene.draw_debug_arrow(center, vector, radius=self.diameter / width_frac, color=(0.0, 1.0, 0.0, 1.0))
+        vector = torch.tensor([0.0, 0.0, 1.0]) * self.diameter * length_frac
+        self.scene.draw_debug_arrow(center, vector, radius=self.diameter / width_frac, color=(0.0, 0.0, 1.0, 1.0))
 
         if self.visualize_skeleton:
             center = center - 2 * self.diameter
-            vector = torch.tensor([1.0, 0.0, 0.0]) * self.diameter * 0.3
-            self.scene.draw_debug_arrow(center, vector, radius=self.diameter / 100, color=(1.0, 0.0, 0.0, 1.0))
-            vector = torch.tensor([0.0, 1.0, 0.0]) * self.diameter * 0.3
-            self.scene.draw_debug_arrow(center, vector, radius=self.diameter / 100, color=(0.0, 1.0, 0.0, 1.0))
-            vector = torch.tensor([0.0, 0.0, 1.0]) * self.diameter * 0.3
-            self.scene.draw_debug_arrow(center, vector, radius=self.diameter / 100, color=(0.0, 0.0, 1.0, 1.0))
+            vector = torch.tensor([1.0, 0.0, 0.0]) * self.diameter * length_frac
+            self.scene.draw_debug_arrow(center, vector, radius=self.diameter / width_frac, color=(1.0, 0.0, 0.0, 1.0))
+            vector = torch.tensor([0.0, 1.0, 0.0]) * self.diameter * length_frac
+            self.scene.draw_debug_arrow(center, vector, radius=self.diameter / width_frac, color=(0.0, 1.0, 0.0, 1.0))
+            vector = torch.tensor([0.0, 0.0, 1.0]) * self.diameter * length_frac
+            self.scene.draw_debug_arrow(center, vector, radius=self.diameter / width_frac, color=(0.0, 0.0, 1.0, 1.0))
 
     def _visualize_robot_frame(self):
 
+        length_frac = 0.6
+        width_frac = 70
+
         center = self.body_pos
-        vector = torch.tensor([1.0, 0.0, 0.0]) * self.diameter * 0.7
-        self.scene.draw_debug_arrow(center, vector, radius=self.diameter / 70, color=(1.0, 0.0, 0.0, 1.0))
-        vector = torch.tensor([0.0, 1.0, 0.0]) * self.diameter * 0.7
-        self.scene.draw_debug_arrow(center, vector, radius=self.diameter / 70, color=(0.0, 1.0, 0.0, 1.0))
-        vector = torch.tensor([0.0, 0.0, 1.0]) * self.diameter * 0.7
-        self.scene.draw_debug_arrow(center, vector, radius=self.diameter / 70, color=(0.0, 0.0, 1.0, 1.0))
+        vector = torch.tensor([1.0, 0.0, 0.0]) * self.diameter * length_frac
+        self.scene.draw_debug_arrow(center, vector, radius=self.diameter / width_frac, color=(1.0, 0.0, 0.0, 1.0))
+        vector = torch.tensor([0.0, 1.0, 0.0]) * self.diameter * length_frac
+        self.scene.draw_debug_arrow(center, vector, radius=self.diameter / width_frac, color=(0.0, 1.0, 0.0, 1.0))
+        vector = torch.tensor([0.0, 0.0, 1.0]) * self.diameter * length_frac
+        self.scene.draw_debug_arrow(center, vector, radius=self.diameter / width_frac, color=(0.0, 0.0, 1.0, 1.0))
 
         if self.visualize_skeleton:
             center = self.body_pos - 2 * self.diameter
-            vector = torch.tensor([1.0, 0.0, 0.0]) * self.diameter * 0.7
-            self.scene.draw_debug_arrow(center, vector, radius=self.diameter / 70, color=(1.0, 0.0, 0.0, 1.0))
-            vector = torch.tensor([0.0, 1.0, 0.0]) * self.diameter * 0.7
-            self.scene.draw_debug_arrow(center, vector, radius=self.diameter / 70, color=(0.0, 1.0, 0.0, 1.0))
-            vector = torch.tensor([0.0, 0.0, 1.0]) * self.diameter * 0.7
-            self.scene.draw_debug_arrow(center, vector, radius=self.diameter / 70, color=(0.0, 0.0, 1.0, 1.0))
+            vector = torch.tensor([1.0, 0.0, 0.0]) * self.diameter * length_frac
+            self.scene.draw_debug_arrow(center, vector, radius=self.diameter / width_frac, color=(1.0, 0.0, 0.0, 1.0))
+            vector = torch.tensor([0.0, 1.0, 0.0]) * self.diameter * length_frac
+            self.scene.draw_debug_arrow(center, vector, radius=self.diameter / width_frac, color=(0.0, 1.0, 0.0, 1.0))
+            vector = torch.tensor([0.0, 0.0, 1.0]) * self.diameter * length_frac
+            self.scene.draw_debug_arrow(center, vector, radius=self.diameter / width_frac, color=(0.0, 0.0, 1.0, 1.0))
 
     def _visualize_skeleton(self):
 
@@ -531,6 +537,7 @@ class Robot:
         rgb_y, depth_y, seg_y, _ = self.camera.render(rgb=rgb, depth=depth, segmentation=segmentation, colorize_seg=False)
 
         camera_pos = center.clone()
+        camera_pos[0] += -0.01
         camera_pos[2] += 4 * diameter
         self.camera.set_pose(pos=camera_pos, lookat=center)
         rgb_z, depth_z, seg_z, _ = self.camera.render(rgb=rgb, depth=depth, segmentation=segmentation, colorize_seg=False)
@@ -546,6 +553,7 @@ class Robot:
         rgb__y, depth__y, seg__y, _ = self.camera.render(rgb=rgb, depth=depth, segmentation=segmentation, colorize_seg=False)
 
         camera_pos = center.clone()
+        camera_pos[0] += 0.01
         camera_pos[2] += -4 * diameter
         self.camera.set_pose(pos=camera_pos, lookat=center)
         rgb__z, depth__z, seg__z, _ = self.camera.render(rgb=rgb, depth=depth, segmentation=segmentation, colorize_seg=False)
@@ -564,6 +572,7 @@ class Robot:
             skeleton_y, _, _, _ = self.camera.render()
 
             camera_pos = skeleton_center.clone()
+            camera_pos[0] += -0.01
             camera_pos[2] += 4 * diameter
             self.camera.set_pose(pos=camera_pos, lookat=skeleton_center)
             skeleton_z, _, _, _ = self.camera.render()
@@ -579,6 +588,7 @@ class Robot:
             skeleton__y, _, _, _ = self.camera.render()
 
             camera_pos = skeleton_center.clone()
+            camera_pos[0] += 0.01
             camera_pos[2] += -4 * diameter
             self.camera.set_pose(pos=camera_pos, lookat=skeleton_center)
             skeleton__z, _, _, _ = self.camera.render()

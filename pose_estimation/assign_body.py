@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import pickle
 
 from robot_display.display import Display
+from api.azure_openai import complete, local_image_to_data_url
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-r', '--robot', type=str, default='go2')
@@ -51,14 +52,24 @@ def darken_color(color, factor=0.5):
 colors = []
 for _ in range(display.entity.n_links):
     colors.append(np.random.randint(0, 256, 3).tolist())
+visible_links_id = np.array([-1])
 
 axes = ["x", "y", "z", "-x", "-y", "-z"]
+views = {
+    "x": "front",
+    "y": "left",
+    "z": "top",
+    "-x": "back",
+    "-y": "right",
+    "-z": "bottom",
+}
 for i in range(len(rgbs)):
     image = rgbs[i].copy()[:, :, ::-1]
     segmentation_label = segs[i].copy()
 
     # Create a color map for each segment ID
     unique_labels = np.unique(segmentation_label)
+    visible_links_id = np.unique(np.concatenate([visible_links_id, unique_labels]))
     color_map = {}
     for label_id in unique_labels:
         if label_id == -1:
@@ -125,49 +136,56 @@ for i in range(len(rgbs)):
 
     cv2.imwrite(os.path.join(log_dir, f"{axes[i]}.png"), highlighted_image)
 
-# padding = 2
-# width = 3
+visible_links_id = visible_links_id[visible_links_id != -1]
+links_name = []
+for i in range(len(display.links)):
+    links_name.append(display.links[i].name)
 
-# axes = ["x", "y", "z"]
-# labels = {}
-# for i in range(display.entity.n_links):
-#     link_name = display.entity.links[i].name
-#     labels[link_name] = {}
-#     for j in range(3):
-#         axis = axes[j]
-#         link_seg = segs[j] == i
-#         rgb = rgbs[j].copy()
-#         if link_seg.sum() > 0:
-#             labels[link_name][axis] = True
-#             link_seg = np.where(link_seg)
-#             min_x = link_seg[0].min()
-#             max_x = link_seg[0].max()
-#             min_y = link_seg[1].min()
-#             max_y = link_seg[1].max()
+requirement = "crawl like a dog."
 
-#             rgb[min_x - padding - width:min_x - padding, min_y - padding - width:max_y + padding + width + 1] = [255, 0, 0]
-#             rgb[max_x + padding + 1:max_x + padding + width + 1, min_y - padding - width:max_y + padding + width + 1] = [255, 0, 0]
-#             rgb[min_x - padding - width:max_x + padding + width + 1, min_y - padding - width:min_y - padding] = [255, 0, 0]
-#             rgb[min_x - padding - width:max_x + padding + width + 1, max_y + padding +1:max_y + padding + width + 1] = [255, 0, 0]
-#         else:
-#             labels[link_name][axis] = False
+prompt = f"""
+The robot's structure is segmented into multiple links, each labeled with a unique ID in the given images.
+The following link IDs are present in the segmentation data:
+{visible_links_id.tolist()}
 
-#         plt.imshow(rgb)
-#         plt.axis('off')
-#         plt.margins(0, 0)
-#         plt.savefig(os.path.join(log_dir, f"{link_name}_{axis}.png"), bbox_inches='tight', pad_inches=0)
-#         plt.close()
+These links are extremeties:
+[14, 15, 16, 17]
 
-#     labels[link_name]["any"] = False
-#     for axis in axes:
-#         if labels[link_name][axis]:
-#             labels[link_name]["any"] = True
+The description of the target way of walking is:
+{requirement}
 
-# with open(os.path.join(log_dir, f"labels.pkl"), "wb") as f:
-#     pickle.dump(labels, f)
+The robot's orientation is adjustable, so the position of each links in the picture and the view direction of each picture do not matter.
+Analyze the robot morphology (i.e. which links are extremities) and their utility when the robot is walking.
+Determine:
+- The **base** is the link that should remain stable while following velocity commands.
+- The **feet** are the links that make contact with the ground, typically at the robot's extremities.
+- The **legs** are the sequence of links from the base to each foot (base link excluded).
 
-# with open(os.path.join(log_dir, f"labels.pkl"), "rb") as f:
-#     labels = pickle.load(f)
+Here are images from multiple perspectives.
+"""
+
+messages = [
+    {"role": "system", "content": "You are an expert in robot kinematics and motion planning."},
+    {"role": "user", "content": prompt},
+]
+
+for axis in axes:
+    image_path = os.path.join(log_dir, f"{axis}.png")
+    messages.append(
+        {
+            "role": "user",
+            "content": [
+                        {"type": "text", "text": f"The picture is taken from {views[axis]} of the robot."},
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": local_image_to_data_url(image_path)},
+                        },
+                    ],
+        }
+    )
+
+response = complete(messages)
+print(response)
 
 # body_name = "base"
 # foot_names = ["FR_foot", "FL_foot", "RR_foot", "RL_foot"]
