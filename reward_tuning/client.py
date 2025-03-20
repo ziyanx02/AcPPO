@@ -32,7 +32,9 @@ class Client:
         self.disable = disable
         self.template = template
 
-    def response(self, messages):    
+    def response(self, messages, log=None):
+        if log != None:
+            logging.info(f'{log}    Request for response')
         if self.disable:
             logging.debug(f'Calling LLM. Cheat with fixed response:\n{self.template}')
             return self.template

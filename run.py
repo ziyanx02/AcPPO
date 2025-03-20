@@ -150,7 +150,7 @@ def main(args):
 
         for sample_id in range(tune_cfg['num_samples']):
             # try:
-            response = client_reward.response(base_message)
+            response = client_reward.response(base_message, log=f'Iter{iter_id}_{sample_id}')
             sample_process = mp.Process(
                 target=train_eval,
                 args=(return_queue, args, response, iter_id, sample_id, train_cfg, env_cfg, tune_cfg, (sample_id + 1) % torch.cuda.device_count())
