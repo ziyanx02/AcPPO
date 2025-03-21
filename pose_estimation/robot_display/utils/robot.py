@@ -24,8 +24,9 @@ class Robot:
         self.last_visualize_time = time.time()
         self.visualize_skeleton = getattr(vis_options, "visualize_skeleton", False)
         self.visualize_target_foot_pos = getattr(vis_options, "visualize_target_foot_pos", False)
+        self.visualize_robot_frame = getattr(vis_options, "visualize_robot_frame", False)
         self.merge_fixed_links = getattr(vis_options, "merge_fixed_links", True)
-        self.skeleton_prepared = False
+        self.show_viewer = getattr(vis_options, "show_viewer", True)
 
         self.cfg_init_body_pos = init_pos
         self.cfg_init_body_quat = init_quat
@@ -39,14 +40,15 @@ class Robot:
                 max_FPS=fps,
             ),
             vis_options=gs.options.VisOptions(
-                show_world_frame=getattr(vis_options, "show_world_frame", True),
+                show_world_frame=getattr(vis_options, "show_world_frame", False),
                 shadow=getattr(vis_options, "shadow", True),
-                background_color=getattr(vis_options, "background_color", (0.0, 0.0, 0.0)),
+                background_color=getattr(vis_options, "background_color", (0.8, 0.8, 0.8)),
             ),
             sim_options=gs.options.SimOptions(
                 gravity=(0, 0, 0),
                 substeps=substeps,
             ),
+            show_viewer=self.show_viewer,
         )
 
         # Load entity
@@ -81,22 +83,24 @@ class Robot:
         self.camera = self.scene.add_camera(
             pos=np.array([1, 0, 0]),
             lookat=np.array([0, 0, 0]),
-            res=(480, 480),
-            fov=15,
+            res=(1280, 1280),
+            fov=getattr(vis_options, "fov", 17),
             GUI=False,
         )
 
         # Build scene
         self.scene.build(compile_kernels=False)
         self.last_step_time = time.time()
+        self.last_debug_vis_time = time.time()
 
         self._init_buffers()
 
         center, diameter = self.get_center_diameter()
-        self.scene.viewer.set_camera_pose(
-            pos=center + diameter,
-            lookat=center,
-        )
+        if self.show_viewer:
+            self.scene.viewer.set_camera_pose(
+                pos=center + diameter,
+                lookat=center,
+            )
 
         self.step_target()
 
@@ -131,12 +135,8 @@ class Robot:
             for joint in self.joints:
                 joint_pos.append(joint.get_pos())
             # calculate longest distance between joints and store it as self.diameter
-            self.diameter = 0
-            for i in range(len(joint_pos)):
-                for j in range(i + 1, len(joint_pos)):
-                    dist = torch.norm(joint_pos[i] - joint_pos[j]).item()
-                    if dist > self.diameter:
-                        self.diameter = dist * 2
+
+        _, self.diameter = self.get_center_diameter()
 
         print("--------- Link Names ----------")
         print(self.link_name)
@@ -259,7 +259,7 @@ class Robot:
                     if (path[i + 1], path[i]) not in self.leg:
                         self.leg.append((path[i + 1], path[i]))
 
-        self.diameter = 2 * max_dist
+        _, self.diameter = self.get_center_diameter()
 
     def reset(self):
         self.target_body_pos = self.init_body_pos.clone()
@@ -279,14 +279,17 @@ class Robot:
             time.sleep(self.dt - (time.time() - self.last_step_time))
         self.last_step_time = time.time()
         self.step_target()
-        self.scene.clear_debug_objects()
-        self.skeleton_prepared = False
-        if self.visualize_skeleton:
-            self._visualize_skeleton()
-            self.skeleton_prepared = True
-        if self.visualize_target_foot_pos:
-            self._visualize_target_foot_pos()
         self.scene.visualizer.update(force=True)
+
+        if (time.time() - self.last_debug_vis_time) > 0.1:
+            self.last_debug_vis_time = time.time()
+            self.scene.clear_debug_objects()
+            if self.visualize_skeleton:
+                self._visualize_skeleton()
+            if self.visualize_target_foot_pos:
+                self._visualize_target_foot_pos()
+            if self.visualize_robot_frame:
+                self._visualize_robot_frame()
 
     def step_target(self):
         # Set the joint positions
@@ -301,11 +304,57 @@ class Robot:
         delta_pos = self.target_body_pos - self.body_pos
         self.entity.set_pos(delta_pos + self.entity.get_pos())
 
+    def clear_debug_objects(self):
+        self.scene.clear_debug_objects()
+
     def _visualize_target_foot_pos(self):
 
         self.scene.draw_debug_spheres(poss=self.target_foot_pos, radius=self.diameter / 20, color=(1, 0, 0, 0.5))
         for link in self.foot_links:
             self.scene.draw_debug_sphere(pos=link.get_pos(), radius=self.diameter / 20, color=(0, 1, 0, 0.5))
+
+    def visualize_frame(self, center):
+
+        length_frac = 0.3
+        width_frac = 100
+
+        vector = torch.tensor([1.0, 0.0, 0.0]) * self.diameter * length_frac
+        self.scene.draw_debug_arrow(center, vector, radius=self.diameter / width_frac, color=(1.0, 0.0, 0.0, 1.0))
+        vector = torch.tensor([0.0, 1.0, 0.0]) * self.diameter * length_frac
+        self.scene.draw_debug_arrow(center, vector, radius=self.diameter / width_frac, color=(0.0, 1.0, 0.0, 1.0))
+        vector = torch.tensor([0.0, 0.0, 1.0]) * self.diameter * length_frac
+        self.scene.draw_debug_arrow(center, vector, radius=self.diameter / width_frac, color=(0.0, 0.0, 1.0, 1.0))
+
+        if self.visualize_skeleton:
+            center = center - 2 * self.diameter
+            vector = torch.tensor([1.0, 0.0, 0.0]) * self.diameter * length_frac
+            self.scene.draw_debug_arrow(center, vector, radius=self.diameter / width_frac, color=(1.0, 0.0, 0.0, 1.0))
+            vector = torch.tensor([0.0, 1.0, 0.0]) * self.diameter * length_frac
+            self.scene.draw_debug_arrow(center, vector, radius=self.diameter / width_frac, color=(0.0, 1.0, 0.0, 1.0))
+            vector = torch.tensor([0.0, 0.0, 1.0]) * self.diameter * length_frac
+            self.scene.draw_debug_arrow(center, vector, radius=self.diameter / width_frac, color=(0.0, 0.0, 1.0, 1.0))
+
+    def _visualize_robot_frame(self):
+
+        length_frac = 0.6
+        width_frac = 70
+
+        center = self.body_pos
+        vector = torch.tensor([1.0, 0.0, 0.0]) * self.diameter * length_frac
+        self.scene.draw_debug_arrow(center, vector, radius=self.diameter / width_frac, color=(1.0, 0.0, 0.0, 1.0))
+        vector = torch.tensor([0.0, 1.0, 0.0]) * self.diameter * length_frac
+        self.scene.draw_debug_arrow(center, vector, radius=self.diameter / width_frac, color=(0.0, 1.0, 0.0, 1.0))
+        vector = torch.tensor([0.0, 0.0, 1.0]) * self.diameter * length_frac
+        self.scene.draw_debug_arrow(center, vector, radius=self.diameter / width_frac, color=(0.0, 0.0, 1.0, 1.0))
+
+        if self.visualize_skeleton:
+            center = self.body_pos - 2 * self.diameter
+            vector = torch.tensor([1.0, 0.0, 0.0]) * self.diameter * length_frac
+            self.scene.draw_debug_arrow(center, vector, radius=self.diameter / width_frac, color=(1.0, 0.0, 0.0, 1.0))
+            vector = torch.tensor([0.0, 1.0, 0.0]) * self.diameter * length_frac
+            self.scene.draw_debug_arrow(center, vector, radius=self.diameter / width_frac, color=(0.0, 1.0, 0.0, 1.0))
+            vector = torch.tensor([0.0, 0.0, 1.0]) * self.diameter * length_frac
+            self.scene.draw_debug_arrow(center, vector, radius=self.diameter / width_frac, color=(0.0, 0.0, 1.0, 1.0))
 
     def _visualize_skeleton(self):
 
@@ -319,12 +368,12 @@ class Robot:
         for joint in self.joints:
             joint_vis[joint.name] = False
             joint_pos[joint.name] = joint.get_pos()
-            joint_pos[joint.name] -= self.diameter
+            joint_pos[joint.name] -= 2 * self.diameter
 
-        body_color = (0, 0, 0.8, 1)
-        leg_color = (0, 0.8, 0, 1)
+        body_color = (1.0, 0.5, 0., 1)
+        leg_color = (0, 0.8, 0.8, 1)
 
-        thickness = self.diameter / 50
+        thickness = self.diameter / 50 
 
         lines = []
         for name1 in self.joint_name:
@@ -399,6 +448,7 @@ class Robot:
         self.dof_idx_qpos = dof_idx_qpos
         self.dof_name = dof_names
         self.init_dof_pos = torch.zeros(len(dof_idx), dtype=torch.float32)
+        self.target_dof_pos = self.init_dof_pos.clone()
 
     def set_body_pos(self, pos):
         self.target_body_pos = pos
@@ -489,20 +539,81 @@ class Robot:
         rgb_y, depth_y, seg_y, _ = self.camera.render(rgb=rgb, depth=depth, segmentation=segmentation, colorize_seg=False)
 
         camera_pos = center.clone()
+        camera_pos[0] += -0.01
         camera_pos[2] += 4 * diameter
         self.camera.set_pose(pos=camera_pos, lookat=center)
         rgb_z, depth_z, seg_z, _ = self.camera.render(rgb=rgb, depth=depth, segmentation=segmentation, colorize_seg=False)
 
-        return (rgb_x, rgb_y, rgb_z), (depth_x, depth_y, depth_z), (seg_x, seg_y, seg_z)
+        camera_pos = center.clone()
+        camera_pos[0] += -4 * diameter
+        self.camera.set_pose(pos=camera_pos, lookat=center)
+        rgb__x, depth__x, seg__x, _ = self.camera.render(rgb=rgb, depth=depth, segmentation=segmentation, colorize_seg=False)
 
-    def wait_for_skeleton(self):
-        while not self.skeleton_prepared:
-            time.sleep(self.dt)
+        camera_pos = center.clone()
+        camera_pos[1] += -4 * diameter
+        self.camera.set_pose(pos=camera_pos, lookat=center)
+        rgb__y, depth__y, seg__y, _ = self.camera.render(rgb=rgb, depth=depth, segmentation=segmentation, colorize_seg=False)
+
+        camera_pos = center.clone()
+        camera_pos[0] += 0.01
+        camera_pos[2] += -4 * diameter
+        self.camera.set_pose(pos=camera_pos, lookat=center)
+        rgb__z, depth__z, seg__z, _ = self.camera.render(rgb=rgb, depth=depth, segmentation=segmentation, colorize_seg=False)
+
+        if self.visualize_skeleton:
+            skeleton_center = center - 2 * self.diameter
+
+            camera_pos = skeleton_center.clone()
+            camera_pos[0] += 4 * diameter
+            self.camera.set_pose(pos=camera_pos, lookat=skeleton_center)
+            skeleton_x, _, _, _ = self.camera.render()
+
+            camera_pos = skeleton_center.clone()
+            camera_pos[1] += 4 * diameter
+            self.camera.set_pose(pos=camera_pos, lookat=skeleton_center)
+            skeleton_y, _, _, _ = self.camera.render()
+
+            camera_pos = skeleton_center.clone()
+            camera_pos[0] += -0.01
+            camera_pos[2] += 4 * diameter
+            self.camera.set_pose(pos=camera_pos, lookat=skeleton_center)
+            skeleton_z, _, _, _ = self.camera.render()
+
+            camera_pos = skeleton_center.clone()
+            camera_pos[0] += -4 * diameter
+            self.camera.set_pose(pos=camera_pos, lookat=skeleton_center)
+            skeleton__x, _, _, _ = self.camera.render()
+
+            camera_pos = skeleton_center.clone()
+            camera_pos[1] += -4 * diameter
+            self.camera.set_pose(pos=camera_pos, lookat=skeleton_center)
+            skeleton__y, _, _, _ = self.camera.render()
+
+            camera_pos = skeleton_center.clone()
+            camera_pos[0] += 0.01
+            camera_pos[2] += -4 * diameter
+            self.camera.set_pose(pos=camera_pos, lookat=skeleton_center)
+            skeleton__z, _, _, _ = self.camera.render()
+
+            return (
+                (rgb_x, rgb_y, rgb_z, rgb__x, rgb__y, rgb__z),
+                (depth_x, depth_y, depth_z, depth__x, depth__y, depth__z),
+                (seg_x, seg_y, seg_z, seg__x, seg__y, seg__z),
+                (skeleton_x, skeleton_y, skeleton_z, skeleton__x, skeleton__y, skeleton__z)
+            )
+        else:
+            return (
+                (rgb_x, rgb_y, rgb_z, rgb__x, rgb__y, rgb__z),
+                (depth_x, depth_y, depth_z, depth__x, depth__y, depth__z),
+                (seg_x, seg_y, seg_z, seg__x, seg__y, seg__z),
+                None
+            )
 
     def get_center_diameter(self):
         AABB = self.entity.get_AABB()
-        diameter = torch.norm(AABB[1] - AABB[0]).max().item()
-        center = (AABB[1] + AABB[0]) / 2
+        diameter = 2 * (AABB[1] - AABB[0]).max().item()
+        # center = (AABB[1] + AABB[0]) / 2
+        center = torch.zeros(3)
         return center, diameter
 
     @property
