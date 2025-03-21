@@ -108,7 +108,7 @@ def get_reward_reflection(result):
     log_dict = result['train']['train_log']
     for key in log_dict[list(log_dict.keys())[0]]:
         values = [log_dict[i][key] for i in log_dict.keys()]
-        content += f"{key}: {values}, Max {max(values)}, Mean {statistics.mean(values)}, Min {min(values)}"
+        content += f"{key}: {values}, Max {max(values)}, Mean {statistics.mean(values)}, Min {min(values)}\n"
 
     content += EVAL_FEEDBACK
     content += get_eval_result(result)
