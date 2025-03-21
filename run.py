@@ -42,31 +42,24 @@ def train_eval(return_queue, args, response, iter_id, sample_id, train_cfg, env_
         args=(train_queue, args, response, iter_id, sample_id, train_cfg, env_cfg, tune_cfg),
     )
     train_process.start()
+    train_return = train_queue.get()
     train_process.join()
-    try:
-        train_return = train_queue.get_nowait()
-        if 'error' in train_return.keys():
-            logger.error(f"RuntimeError: Training process for sample {sample_id}\n" + train_return['error'])
-            raise RuntimeError(f"Training process for sample {sample_id} error.")    
-    except:
-        logger.error(f"Training process for sample {sample_id} did not return any data.")
-        raise RuntimeError(f"Training process for sample {sample_id} did not return any data.")
+    if 'error' in train_return.keys():
+        logger.error(f"RuntimeError: Training process for sample {sample_id}\n" + train_return['error'])
+        return_queue.put({"error": train_return['error']})
+        raise RuntimeError(f"Training process for sample {sample_id} error.")
 
     eval_process = mp.Process(
         target=eval_try,
         args=(eval_queue, args, train_return['exp_name'])
     )
     eval_process.start()
+    eval_return = eval_queue.get()
     eval_process.join()
-
-    try:
-        eval_return = eval_queue.get_nowait()
-        if 'error' in eval_return.keys():
-            logger.error(f"RuntimeError: Evaluation process for sample {sample_id}\n" + eval_return['error'])
-            raise RuntimeError(f"Evaluation process for sample {sample_id} error.")    
-    except:
-        logger.error(f"Evaluation process for sample {sample_id} did not return any data.")
-        raise RuntimeError(f"Evaluation process for sample {sample_id} did not return any data.")
+    if 'error' in eval_return.keys():
+        logger.error(f"RuntimeError: Evaluation process for sample {sample_id}\n" + eval_return['error'])
+        return_queue.put({"error": eval_return['error']})
+        raise RuntimeError(f"Evaluation process for sample {sample_id} error.")
 
     return_queue.put({
         'train': train_return,
@@ -190,6 +183,12 @@ def main(args):
                 #     import pdb; pdb.set_trace()
                 #     continue
             
+            # Queue.get before p.join to prevent deadlock caused by waiting to queue.put into a full buffer
+            results = []
+            for _ in range(tune_cfg['num_samples']):
+                result = return_queue.get()
+                if 'error' not in result.keys():
+                    results.append(result)
 
             error_process = []
             for sample_id, p in enumerate(process):
@@ -198,12 +197,8 @@ def main(args):
                 if p.exitcode != 0:
                     error_process.append(sample_id)
             
-            logger.info(f"Iteration {iter_id} finished. Process {error_process} failed.")
-
-            results = []
-            while not return_queue.empty():
-                results.append(return_queue.get())
-                        
+            logger.info(f"Iteration {iter_id} finished. Process {error_process} failed.")             
+            
         logger.info(f'Get best result among {len(results)} results.')
         best_result = get_best(client_judge, results)
         best_result_list.append(best_result)
