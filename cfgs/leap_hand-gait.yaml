@@ -48,32 +48,35 @@ environment:
   urdf_path: urdf/leap_hand/leap_hand_right_glb.urdf
   robot_scale: 3.0
   links_to_keep:
-    - index_tip_head
-    - middle_tip_head
-    - ring_tip_head
-    - thumb_tip_head
+    - thumb_fingertip
+    - fingertip
+    - fingertip_2
+    - fingertip_3
   num_actions: 16
   num_dofs: 16
   num_states: 42
   termination_contact_link_names:
   - base
+  - mcp_joint
+  - pip
+  - dip
   penalized_contact_link_names:
   - base
   - mcp_joint
   - pip
   - dip
   feet_link_names:
-  - index_tip_head
-  - middle_tip_head
-  - ring_tip_head
-  - thumb_tip_head
+  - thumb_fingertip
+  - fingertip
+  - fingertip_2
+  - fingertip_3
   base_link_name:
   - base
   # control
   PD_stiffness:
-    '' : 20.0
+    '' : 40.0
   PD_damping:
-    '' : 0.5
+    '' : 1.0
   armature: 0.05
   dof_damping: 0.0
   action_scale: 0.25
@@ -211,27 +214,20 @@ environment:
     reward_scales:
       lin_vel: 1.0
       ang_vel: 0.5
-      action_rate: -0.01
       ang_vel_xy: -0.05
       base_height: -5.0
-      collision: -1.0
-      dof_acc: -2.5e-07
-      dof_vel: -0.0
       dof_pos_diff: -0.1
-      feet_air_time: 1.0
       lin_vel_z: -2.0
       orientation: -5.0
       alive: 10.0
       
       # Additional in Gait
       contact_force: -5.
-      contact_vel: -5.
       feet_height: -100.
-      feet_pos: -7.0
+      feet_pos: -0.1
       # Additional auxiliary
       action_smoothness_1: -0.01
       action_smoothness_2: -0.01
-      feet_slip: -0.04
     
 
     soft_dof_pos_limit: 0.9
