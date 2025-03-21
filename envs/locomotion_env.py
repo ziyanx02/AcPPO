@@ -578,7 +578,7 @@ class LocoEnv:
 
         if gs.platform != 'macOS':
             self._render_headless()
-        if not self.headless and self.debug:
+        if (self._recording or not self.headless) and self.debug:
             self._draw_debug_vis()
 
         self.last_actions[:] = self.actions[:]

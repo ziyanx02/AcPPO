@@ -107,7 +107,7 @@ def get_reward_reflection(result):
     content += TRAIN_FEEDBACK.format(epoch_freq=result['train']['log_frequency'])
     log_dict = result['train']['train_log']
     for key in log_dict[list(log_dict.keys())[0]]:
-        values = [log_dict[i][key] for i in log_dict.keys()]
+        values = [round(log_dict[i][key], 2) for i in log_dict.keys()]
         content += f"{key}: {values}, Max {max(values)}, Mean {statistics.mean(values)}, Min {min(values)}\n"
 
     content += EVAL_FEEDBACK
