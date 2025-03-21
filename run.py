@@ -232,6 +232,7 @@ if __name__ == '__main__':
     parser.add_argument('-p', '--ppo', action='store_false', default=True)
     parser.add_argument('--debug', action='store_true', default=False)
     parser.add_argument('--disable', action='store_true', default=False)
+    parser.add_argument('--eval', action='store_true', help='turn off domain randomization', default=False)
 
     # Eval
     parser.add_argument('--num_eval_step', type=int, default=1000)

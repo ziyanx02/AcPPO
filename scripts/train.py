@@ -52,7 +52,7 @@ def train(return_queue, args, response, iter_id, sample_id, train_cfg, env_cfg, 
         num_envs=args.num_envs,
         env_cfg=env_cfg,
         show_viewer=args.vis,
-        eval=False,
+        eval=args.eval,
         debug=args.debug,
         device=device,
     )

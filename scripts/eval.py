@@ -34,7 +34,7 @@ def eval(return_queue, args, exp_name):
         env_cfg=env_cfg,
         show_viewer=args.vis,
         eval=True,
-        debug=args.debug,
+        debug=True,
     )
     env = TimeWrapper(env, int(env_cfg['period_length_s'] * env_cfg['control_freq']), reset_each_period=False, observe_time=False)
 
