@@ -87,7 +87,9 @@ def eval(return_queue, args, exp_name):
         if type(metric[key]) == torch.Tensor:
             metric[key] = metric[key].item()
 
-    return_queue.put({'metric': metric})
+    result = {'metric': metric}
+    pickle.dump(result, open(f'{log_dir}/result_eval.pkl', 'wb'),)
+    return_queue.put(result)
 
 def eval_try(return_queue, *args):
     try:

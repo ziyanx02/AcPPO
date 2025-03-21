@@ -68,7 +68,7 @@ def train(return_queue, args, response, iter_id, sample_id, train_cfg, env_cfg, 
                 log_dict[i][key] = log_dict[i][key].item()
 
 
-    return_queue.put({
+    result = {
         'iter_id': iter_id,
         'sample_id': sample_id,
         'exp_name': exp_name,
@@ -80,7 +80,9 @@ def train(return_queue, args, response, iter_id, sample_id, train_cfg, env_cfg, 
         'train_log': log_dict,
         'log_frequency': log_period,
         'max_episode_length': env.max_episode_length, 
-    })
+    }
+    pickle.dump(result, open(f'{log_dir}/result_train.pkl', 'wb'),)
+    return_queue.put(result)
 
 def train_try(return_queue, *args):
     try:

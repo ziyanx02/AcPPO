@@ -6,6 +6,7 @@ import statistics
 
 import logging
 import os
+import pickle
 
 import torch.multiprocessing as mp
 import torch
@@ -85,6 +86,8 @@ def get_eval_result(result):
 
 def get_best(client, results):
     # LLM-based judgement from evaluation result
+    assert len(results) > 0
+    
     eval_result = ''
     for result in results:
         eval_result += get_eval_result(result)
@@ -143,39 +146,65 @@ def main(args):
 
     best_result_list = []
 
+    resume_iter = None
+    if args.resume_from_iter != None:
+        iter = args.resume_from_iter.rsplit('_', 1)[1]
+        assert iter.startswith('it')   
+        resume_iter = int(iter[2:])
+        assert resume_iter in range(tune_cfg['num_iterations']), f'{resume_iter} not in range'
+
     for iter_id in range(tune_cfg['num_iterations']):
         logger.info(f"Iteration {iter_id} start")
-        return_queue = mp.Queue()
-        process = []
 
-        for sample_id in range(tune_cfg['num_samples']):
-            # try:
-            response = client_reward.response(base_message, log=f'Iter{iter_id}_{sample_id}')
-            sample_process = mp.Process(
-                target=train_eval,
-                args=(return_queue, args, response, iter_id, sample_id, train_cfg, env_cfg, tune_cfg, (sample_id + 1) % torch.cuda.device_count())
-            )
-            sample_process.start()
-            process.append(sample_process)
+        if resume_iter != None and iter_id <= resume_iter:
+            if iter_id < resume_iter: continue
+            results = []
+            for sample_id in range(tune_cfg['num_samples']):
+                exp_name = args.resume_from_iter + f'_{sample_id}'
+                try:
+                    result_train = pickle.load(open(f'logs/{exp_name}/result_train.pkl', 'rb'))
+                    result_eval = pickle.load(open(f'logs/{exp_name}/result_eval.pkl', 'rb'))
+                    results.append({
+                        'train': result_train,
+                        'eval': result_eval,
+                    })
+                except:
+                    print(f'Resuming from {sample_id} failed.')
+        else :
+            return_queue = mp.Queue()
+            process = []
 
-            # except Exception as e:
-            #     print(f"Iteration {iter_id}_{sample_id} Error: {str(e)}")
-            #     print('Waiting for debugging...')
-            #     import pdb; pdb.set_trace()
-            #     continue
-        
+            for sample_id in range(tune_cfg['num_samples']):
+                # try:
+                response = client_reward.response(base_message, log=f'Iter{iter_id}_{sample_id}')
+                sample_process = mp.Process(
+                    target=train_eval,
+                    args=(return_queue, args, response, iter_id, sample_id, train_cfg, env_cfg, tune_cfg, (sample_id + 1) % torch.cuda.device_count())
+                )
+                sample_process.start()
+                process.append(sample_process)
 
-        error_process = []
-        for sample_id, p in enumerate(process): 
-            p.join()
-            if p.exitcode != 0:
-                error_process.append(sample_id)
-        
-        logger.info(f"Iteration {iter_id} finished. Process {error_process} failed.")
+                # except Exception as e:
+                #     print(f"Iteration {iter_id}_{sample_id} Error: {str(e)}")
+                #     print('Waiting for debugging...')
+                #     import pdb; pdb.set_trace()
+                #     continue
+            
 
-        results = []
-        while not return_queue.empty():
-            results.append(return_queue.get())
+            error_process = []
+            for sample_id, p in enumerate(process):
+                p.join()
+                logger.info(f'Collect process {sample_id} : {p}')
+                if p.exitcode != 0:
+                    error_process.append(sample_id)
+            
+            logger.info(f"Iteration {iter_id} finished. Process {error_process} failed.")
+
+            results = []
+            while not return_queue.empty():
+                results.append(return_queue.get())
+                        
+        logger.info(f'Get best result among {len(results)} results.')
         best_result = get_best(client_judge, results)
         best_result_list.append(best_result)
 
@@ -214,8 +243,12 @@ if __name__ == '__main__':
     parser.add_argument('-r', '--record', action='store_true', default=False)
     parser.add_argument('--record_length', help='unit: second', type=int, default=10)
     parser.add_argument('--resample_time', help='unit: second', type=float, default=2)
+    parser.add_argument('--resume_from_iter', help='resume from log prefix. (e.g. go2-gait_3-20-4-12_it0)', type=str, default=None)
 
     args = parser.parse_args()
+
+    if args.resume_from_iter != None:
+        args.exp_name = args.resume_from_iter.rsplit('_', 1)[0]
 
     if args.exp_name == None:
         args.exp_name = args.task
