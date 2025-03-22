@@ -35,6 +35,7 @@ class GUIDisplay:
             vis_options=self.vis_options,
             init_pos=self.cfg["control"].get("base_init_pos", [0, 0, 0]),
             init_quat=self.cfg["control"].get("base_init_quat", [1, 0, 0, 0]),
+            init_dof_pos=self.cfg["control"].get("default_joint_angles", None),
         )
         if "body_name" in self.cfg["robot"].keys():
             self.robot.set_body_link(self.robot.get_link(self.cfg["robot"]["body_name"]))
@@ -77,8 +78,8 @@ class GUIDisplay:
                     dof_limits[1][i].item() - 0.9 * (dof_limits[1][i].item() - dof_limits[0][i].item()),
                     dof_limits[0][i].item() + 0.9 * (dof_limits[1][i].item() - dof_limits[0][i].item()),
                 ]
-                if "default_dof_pos" in self.cfg["control"].keys():
-                    value = self.cfg["control"]["default_dof_pos"][self.robot.dof_name[i]]
+                if "default_joint_angles" in self.cfg["control"].keys():
+                    value = self.cfg["control"]["default_joint_angles"][self.robot.dof_name[i]]
                 else:
                     value = 0
                 self.values.append(max(soft_limits[0], min(value, soft_limits[1])))

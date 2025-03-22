@@ -15,7 +15,8 @@ def clean():
     print("Cleaned up all genesis and taichi cache files.")
 
 class Robot:
-    def __init__(self, asset_file, foot_names, links_to_keep=[], scale=1.0, fps=60, substeps=1, vis_options=None, init_pos = [0., 0., 0.], init_quat = [1., 0., 0., 0.]):
+    def __init__(self, asset_file, foot_names, links_to_keep=[], scale=1.0, fps=60, substeps=1, vis_options=None, 
+                 init_pos = [0., 0., 0.], init_quat = [1., 0., 0., 0.], init_dof_pos=None):
 
         gs.init(backend=gs.cpu)
 
@@ -30,6 +31,8 @@ class Robot:
 
         self.cfg_init_body_pos = init_pos
         self.cfg_init_body_quat = init_quat
+        self.cfg_init_dof_pos = init_dof_pos
+
         # Create scene
         self.dt = 1 / fps
         self.scene = gs.Scene(
@@ -144,9 +147,13 @@ class Robot:
         print(self.dof_name)
         print("-------------------------------")
 
-        self.init_body_pos = torch.tensor(self.cfg_init_body_pos)  
-        self.init_body_quat = torch.tensor(self.cfg_init_body_quat)
+        self.init_body_pos = torch.tensor(self.cfg_init_body_pos, dtype=torch.float32)  
+        self.init_body_quat = torch.tensor(self.cfg_init_body_quat, dtype=torch.float32)
         self.init_dof_pos = torch.zeros(self.num_dofs, dtype=torch.float32)
+        if self.cfg_init_dof_pos is not None:
+            for dof_name, pos in self.cfg_init_dof_pos.items():
+                idx = self.dof_name.index(dof_name)
+                self.init_dof_pos[idx] = pos
 
         self.target_body_pos = self.init_body_pos.clone()
         self.target_body_quat = self.init_body_quat.clone()
