@@ -215,6 +215,8 @@ def main(args):
             base_message[-2:] = [assist_message, user_message]
     
     logger.info(f"Finish all iterations.")
+    for id, result in enumerate(best_result_list):
+        result['train']['sample_id'] = id
     best_of_all = get_best(client_judge, best_result_list)
     logger.info(f"Best result of all reward parameters: {best_of_all['train']['exp_name']}")
 

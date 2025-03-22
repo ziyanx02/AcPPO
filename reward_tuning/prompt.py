@@ -554,6 +554,11 @@ metric['contact_force'] = torch.mean((1 - desired_contact) * (1 - torch.exp(-foo
 base_height_error = torch.square(self.base_pos[:, 2] - self.gait_base_height)
 metric['base_height'] = torch.exp(-base_height_error / 0.25)
 
+# Measures the difference between current dof position and the default dof pos
+# Encourage more natural motions
+dof_pos_diff = torch.mean(torch.square(self.dof_pos - self.default_dof_pos), dim=-1)
+metric['dof_pos_diff'] = torch.exp(-dof_pos_diff)
+
 # Indicates the number of failures during evaluation (e.g., falling, instability)
 metric['terminate'] = self.terminate_buf.float()
 ```
