@@ -46,7 +46,7 @@ environment:
   PPO: false
   # asset
   urdf_path: urdf/leap_hand/leap_hand_right_glb.urdf
-  robot_scale: 3.0
+  robot_scale: 1.8387
   links_to_keep:
     - thumb_fingertip
     - fingertip
@@ -113,29 +113,29 @@ environment:
   base_init_pos:
   - 0.0
   - 0.0
-  - 0.20
+  - 0.15
   base_init_quat:
-  - 0.7071
-  - 0.0
-  - 0.7071
-  - 0.0
+  - 0.72697
+  - 0.16041
+  - 0.6676
+  - -0.0118
   default_joint_angles:
-    '1' : 0.393
-    '5' : 0.393
-    '9' : 0.449
-    '12' : 0.524
-    '0' : -0.524
-    '4' : 0
-    '8' : 0.524
-    '13' : 2.2
-    '2' : 0.449
-    '6' : 0.393
-    '10' : 0.449
-    '14' : 0.524
-    '3' : 0.449
-    '7' : 0.393
-    '11' : 0.449
-    '15' : 0.524
+    '1': 0.0
+    '5': 0.0
+    '9': 0.0
+    '12': 0.0
+    '0': -0.5
+    '4': 0.2
+    '8': 0.8
+    '13': 1.6
+    '2': 0.5
+    '6': 0.5
+    '10': 0.5
+    '14': 0.0
+    '3': 1.0
+    '7': 1.0
+    '11': 1.0
+    '15': 1.5
   # domain randomization
   resampling_time_s: 4.0
   randomize_base_mass: true
@@ -176,26 +176,30 @@ environment:
   use_terrain: false
   command:
     lin_vel_x_range:
-    - 0.0
-    - 0.0
+    - 0
+    - 0.3
     lin_vel_y_range:
     - 0
     - 0
     ang_vel_range:
-    - -0.3
-    - 0.3
+    - 0
+    - 0
   gait:
     # the order of feet is defined by feet_link_name
     base_height_target: 0.12
     frequency: [3.0, 3.0, 3.0, 3.0]
     duration: [0.5, 0.5, 0.5, 0.5]
-    offset: [0.5, 0, 0.5, 0] 
+    offset: [0.5, 0, 0, 0] 
     feet_height_target: [0.05, 0.05, 0.05, 0.05]
     stationary_position:
-      - [0.14, 0.09]
-      - [0.17, 0.00] 
-      - [0.14, -0.09]
-      - [-0.05, 0.09]
+    - - 0.18067
+      - 0.04
+    - - 0.17696
+      - -0.03
+    - - 0.15422
+      - -0.1
+    - - 0.05831
+      - 0.11
 
   observation:
     num_obs: 61 # 45 + 2(num_feet)
@@ -212,22 +216,21 @@ environment:
       lin_vel: 1.0
   reward:
     reward_scales:
-      lin_vel: 1.0
+      lin_vel: 3.0
       ang_vel: 0.5
+      alive: 10.0
       ang_vel_xy: -0.05
-      base_height: -5.0
+      base_height: -30.0
+      dof_acc: -0.05
+      dof_vel: -0.01
       dof_pos_diff: -0.1
       lin_vel_z: -2.0
       orientation: -5.0
-      alive: 10.0
-      
-      # Additional in Gait
       contact_force: -5.
       feet_height: -100.
       feet_pos: -0.1
-      # Additional auxiliary
-      action_smoothness_1: -0.01
-      action_smoothness_2: -0.01
+      action_smoothness_1: -0.1
+      action_smoothness_2: -0.1
     
 
     soft_dof_pos_limit: 0.9

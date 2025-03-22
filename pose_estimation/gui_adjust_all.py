@@ -16,11 +16,19 @@ if args.cfg is not None:
     cfg = yaml.safe_load(open(f"./cfgs/{args.robot}/{args.cfg}.yaml"))
 
 def save(display):
-    cfg["control"]["base_init_pos"] = [round(val, 4) for val in display.robot.target_body_pos.tolist()]
-    cfg["control"]["base_init_quat"] = [round(val, 4) for val in display.robot.target_body_quat.tolist()]
+    cfg["control"]["base_init_pos"] = [round(val, 5) for val in display.robot.target_body_pos.tolist()]
+    cfg["control"]["base_init_quat"] = [round(val, 5) for val in display.robot.target_body_quat.tolist()]
     dof_pos = display.robot.target_dof_pos.tolist()
-    cfg["control"]["default_joint_angles"] = {display.robot.dof_name[i] : round(dof, 2) for i, dof in enumerate(dof_pos)}
-    yaml.safe_dump(cfg, open(f"./cfgs/{args.robot}/{args.save}.yaml", "w"))
+    cfg["control"]["default_joint_angles"] = {display.robot.dof_name[i] : round(dof, 5) for i, dof in enumerate(dof_pos)}
+    cfg["control"]["diameter"] = display.robot.diameter
+    cfg["control"]["robot_scale"] = round(1 / display.robot.diameter, 5)
+
+    foot_pos = display.robot.foot_pos
+    foot_pos_list = []
+    for i in range(foot_pos.shape[0]):
+        foot_pos_list.append([round(foot_pos[i][0].item(), 5), round(foot_pos[i][1].item(), 2)])
+    cfg["control"]["stationary_position"] = foot_pos_list
+    yaml.safe_dump(cfg, open(f"./cfgs/{args.robot}/{args.save}.yaml", "w"), sort_keys=False)
     print("Save to", f"./cfgs/{args.robot}/{args.save}.yaml")
 
 class VisOptions:
