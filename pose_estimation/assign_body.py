@@ -137,19 +137,25 @@ for i in range(len(rgbs)):
     cv2.imwrite(os.path.join(log_dir, f"{axes[i]}.png"), highlighted_image)
 
 visible_links_id = visible_links_id[visible_links_id != -1]
+leaf_links_id = []
 links_name = []
+links_id = {}
 for i in range(len(display.links)):
-    links_name.append(display.links[i].name)
+    link = display.links[i]
+    links_name.append(link.name)
+    links_id[link.name] = i
+    if link.is_leaf:
+        leaf_links_id.append(i)
 
-requirement = "crawl like a dog."
+requirement = "walk with index and middle fingers like a human."
 
 prompt = f"""
 The robot's structure is segmented into multiple links, each labeled with a unique ID in the given images.
 The following link IDs are present in the segmentation data:
 {visible_links_id.tolist()}
 
-These links are extremeties:
-[14, 15, 16, 17]
+The following links are extremeties:
+{leaf_links_id}
 
 The description of the target way of walking is:
 {requirement}
@@ -157,9 +163,13 @@ The description of the target way of walking is:
 The robot's orientation is adjustable, so the position of each links in the picture and the view direction of each picture do not matter.
 Analyze the robot morphology (i.e. which links are extremities) and their utility when the robot is walking.
 Determine:
-- The **base** is the link that should remain stable while following velocity commands.
-- The **feet** are the links that make contact with the ground, typically at the robot's extremities.
-- The **legs** are the sequence of links from the base to each foot (base link excluded).
+- The base is the link that should remain stable while following velocity commands.
+- The feet are the links that make contact with the ground, typically at the robot's extremities.
+- The legs are the sequences of links from base to the foot link.
+
+Your reply should only contain the answer in this format:
+base: 0
+feet: 1, 2, 3, 4
 
 Here are images from multiple perspectives.
 """
@@ -187,10 +197,25 @@ for axis in axes:
 response = complete(messages)
 print(response)
 
-# body_name = "base"
-# foot_names = ["FR_foot", "FL_foot", "RR_foot", "RL_foot"]
-# links_to_keep = foot_names + [body_name]
-# cfg["robot"]["body_name"] = body_name
-# cfg["robot"]["foot_names"] = foot_names
-# cfg["robot"]["links_to_keep"] = links_to_keep
-# yaml.safe_dump(cfg, open(f"./cfgs/{args.robot}/{args.name}_body_name.yaml", "w"))
+# Split the string into lines
+lines = response.strip().split('\n')
+
+for line in lines:
+    if "base" in line:
+        base_id = int(line.split(':')[1].strip())
+    if "feet" in line:
+        feet_ids = [int(id.strip()) for id in line.split(':')[1].split(',')]
+
+# Print the results
+print("Base ID:", base_id)
+print("Feet IDs:", feet_ids)
+
+body_name = links_name[base_id]
+foot_names = [links_name[idx] for idx in feet_ids]
+extremity_names = [links_name[idx] for idx in leaf_links_id]
+links_to_keep = foot_names + [body_name]
+cfg["robot"]["body_name"] = body_name
+cfg["robot"]["foot_names"] = foot_names
+cfg["robot"]["extremity_names"] = extremity_names
+cfg["robot"]["links_to_keep"] = links_to_keep
+yaml.safe_dump(cfg, open(f"./cfgs/{args.robot}/{args.name}_body_name.yaml", "w"))

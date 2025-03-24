@@ -3,9 +3,41 @@ import yaml
 import argparse
 import threading
 
+import torch
 import cv2
 from robot_display.display import Display
 from api.azure_openai import complete, local_image_to_data_url
+
+def normalize(x, eps: float = 1e-9):
+    return x / x.norm(p=2, dim=-1).clamp(min=eps, max=None).unsqueeze(-1)
+
+def quat_from_angle_axis(angle, axis):
+    theta = (angle / 2).unsqueeze(-1)
+    xyz = normalize(axis) * theta.sin()
+    w = theta.cos()
+    return normalize(torch.cat([w, xyz], dim=-1))
+
+def quat_mul(a, b):
+    assert a.shape == b.shape
+    shape = a.shape
+    a = a.reshape(-1, 4)
+    b = b.reshape(-1, 4)
+
+    w1, x1, y1, z1 = a[:, 0], a[:, 1], a[:, 2], a[:, 3]
+    w2, x2, y2, z2 = b[:, 0], b[:, 1], b[:, 2], b[:, 3]
+    ww = (z1 + x1) * (x2 + y2)
+    yy = (w1 - y1) * (w2 + z2)
+    zz = (w1 + y1) * (w2 - z2)
+    xx = ww + yy + zz
+    qq = 0.5 * (xx + (z1 - x1) * (x2 - y2))
+    w = qq - ww + (z1 - y1) * (y2 - z2)
+    x = qq - xx + (x1 + w1) * (x2 + w2)
+    y = qq - yy + (w1 - x1) * (y2 + z2)
+    z = qq - zz + (z1 + y1) * (w2 - x2)
+
+    quat = torch.stack([w, x, y, z], dim=-1).view(shape)
+
+    return quat
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-r', '--robot', type=str, default='go2')
@@ -41,82 +73,134 @@ display = Display(
 log_dir = f"./cfgs/{args.robot}/body_rot"
 os.makedirs(log_dir, exist_ok=True)
 
-display.step_target()
-display.step_vis()
-robot, _, _, skeleton = display.render(rgb=True, depth=False, segmentation=True)
-axes = ["x", "y", "z", "-x", "-y", "-z"]
-views = {
-    "x": "front",
-    "y": "left",
-    "z": "top",
-    "-x": "back",
-    "-y": "right",
-    "-z": "bottom",
+use_robot = True
+use_skeleton = True
+solved = False
+
+axis_to_index = {
+    "x": torch.tensor([1.0, 0.0, 0.0]),
+    "y": torch.tensor([0.0, 1.0, 0.0]),
+    "z": torch.tensor([0.0, 0.0, 1.0]),
 }
-for i in range(len(robot)):
-    image = robot[i].copy()[:, :, ::-1]
-    cv2.imwrite(os.path.join(log_dir, f"robot_{axes[i]}.png"), image)
-    image = skeleton[i].copy()[:, :, ::-1]
-    cv2.imwrite(os.path.join(log_dir, f"skeleton_{axes[i]}.png"), image)
 
-requirement = "walk with index and middle fingers like a human."
+while not solved:
 
-prompt = f"""
-The robot is displayed with world frame rendered.
-The red arrow is x-axis or forward.
-The green arrow is y-axis or leftward.
-The blue arrow is z-axis or upward.
+    display.step_target()
+    display.step_vis()
+    axes = ["x", "y", "z", "-x", "-y", "-z"]
+    views = {
+        "x": "front",
+        "y": "left",
+        "z": "top",
+        "-x": "back",
+        "-y": "right",
+        "-z": "bottom",
+    }
+    robot, _, _, skeleton = display.render(rgb=True, depth=False, segmentation=True)
+    for i in range(len(robot)):
+        image = robot[i].copy()[:, :, ::-1]
+        cv2.imwrite(os.path.join(log_dir, f"robot_{axes[i]}_prev.png"), image)
+        image = skeleton[i].copy()[:, :, ::-1]
+        cv2.imwrite(os.path.join(log_dir, f"skeleton_{axes[i]}_prev.png"), image)
 
-If images of skeleton are provided, cyan represents the legs and orange represents the base (which link should stay stable while walking) of the robot.
+    requirement = "walk with index and middle fingers like a human."
 
-The description of the target way of walking is:
-{requirement}
+    prompt = f"""
+    The robot is displayed with world frame rendered.
+    The red arrow is x-axis or forward.
+    The green arrow is y-axis or leftward.
+    The blue arrow is z-axis or upward.
 
-You are going to adjust robot's orientation to make the it suitable for a pose that could start walking after adjusting the joint positions.
+    If images of skeleton are provided, cyan represents the legs and orange represents the base (which link should stay stable while walking) of the robot.
 
-Determine:
-- Whether the current orientation is good enough.
-- If not, how to rotate the robot.
+    The description of the target way of walking is:
+    {requirement}
 
-Here are images from multiple perspectives.
-"""
+    You are going to adjust robot's orientation to make the it suitable for a pose that could start walking after adjusting the joint positions.
 
-messages = [
-    {"role": "system", "content": "You are an expert in robot kinematics and motion planning."},
-    {"role": "user", "content": prompt},
-]
+    Determine:
+    - Whether the current orientation is good enough.
+    - If not, how to rotate the robot.
 
-axes = ["x", "y", "z",]
+    In your reply, you should contain 1. whether the rotation is good enough and 2. if not, the first step of rotate the robot to a better pose.
+    The reply should be in the following format:
+    Example 1:
+    Yes
 
-# for axis in axes:
-#     image_path = os.path.join(log_dir, f"robot_{axis}.png")
-#     messages.append(
-#         {
-#             "role": "user",
-#             "content": [
-#                         {"type": "text", "text": f"The picture is taken from {views[axis]} of the robot."},
-#                         {
-#                             "type": "image_url",
-#                             "image_url": {"url": local_image_to_data_url(image_path)},
-#                         },
-#                     ],
-#         }
-#     )
+    Example 2:
+    No
+    y 90
 
-for axis in axes:
-    image_path = os.path.join(log_dir, f"skeleton_{axis}.png")
-    messages.append(
-        {
-            "role": "user",
-            "content": [
-                        {"type": "text", "text": f"The picture is taken from {views[axis]} of the skeleton."},
-                        {
-                            "type": "image_url",
-                            "image_url": {"url": local_image_to_data_url(image_path)},
-                        },
-                    ],
-        }
-    )
+    Example 3:
+    No
+    x -180
 
-response = complete(messages)
-print(response)
+    Here are images from multiple perspectives.
+    """
+
+    messages = [
+        {"role": "system", "content": "You are an expert in robot kinematics and motion planning."},
+        {"role": "user", "content": prompt},
+    ]
+
+    if use_robot:
+        for axis in axes:
+            image_path = os.path.join(log_dir, f"robot_{axis}_prev.png")
+            messages.append(
+                {
+                    "role": "user",
+                    "content": [
+                                {"type": "text", "text": f"The picture is taken from {views[axis]} of the robot."},
+                                {
+                                    "type": "image_url",
+                                    "image_url": {"url": local_image_to_data_url(image_path)},
+                                },
+                            ],
+                }
+            )
+
+    if use_skeleton:
+        for axis in axes:
+            image_path = os.path.join(log_dir, f"skeleton_{axis}_prev.png")
+            messages.append(
+                {
+                    "role": "user",
+                    "content": [
+                                {"type": "text", "text": f"The picture is taken from {views[axis]} of the skeleton."},
+                                {
+                                    "type": "image_url",
+                                    "image_url": {"url": local_image_to_data_url(image_path)},
+                                },
+                            ],
+                }
+            )
+
+    response = complete(messages)
+    print(response)
+
+    # Split the string into lines
+    lines = response.strip().split('\n')
+
+    if "yes" in lines[0]:
+        break
+
+    axis, degree = lines[1].strip().split(' ')
+    axis = axis_to_index[axis]
+    degree = torch.tensor([torch.pi * int(degree) / 180,])
+
+    curr_quat = display.target_body_quat
+    rot = quat_from_angle_axis(degree, axis).squeeze()
+
+    post_quat = quat_mul(rot, curr_quat)
+    display.set_body_quat(post_quat)
+
+    display.step_target()
+    display.step_vis()
+    robot, _, _, skeleton = display.render(rgb=True, depth=False, segmentation=True)
+    for i in range(len(robot)):
+        image = robot[i].copy()[:, :, ::-1]
+        cv2.imwrite(os.path.join(log_dir, f"robot_{axes[i]}_post.png"), image)
+        image = skeleton[i].copy()[:, :, ::-1]
+        cv2.imwrite(os.path.join(log_dir, f"skeleton_{axes[i]}_post.png"), image)
+
+    input()
