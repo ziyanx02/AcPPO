@@ -72,16 +72,14 @@ class Robot:
         self.foot_names = []
         self.foot_links = []
         self.foot_joints = []
-        for link in self.links:
-            is_foot = False
-            for name in foot_names:
-                if link.name == name:
-                    is_foot = True
-                    break
-            if is_foot:
-                self.foot_names.append(link.name)
-                self.foot_links.append(link)
-                self.foot_joints.append(link.joint)
+        is_availible = [True for link in self.links]
+        for name in foot_names:
+            for i, link in enumerate(self.links):
+                if is_availible[i] and link.name == name:
+                    is_availible[i] = False
+                    self.foot_names.append(link.name)
+                    self.foot_links.append(link)
+                    self.foot_joints.append(link.joint)
 
         self.camera = self.scene.add_camera(
             pos=np.array([1, 0, 0]),
