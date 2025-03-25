@@ -91,7 +91,7 @@ def get_best(client, results):
     ]
 
     response = client.response(message)
-    match = re.search(r'```best\n(.*?)\n```', response, re.DOTALL)
+    match = re.search(r'``` *best\s*\n(.*?)\n```', response, re.DOTALL)
     if match : 
         idx = int(match.group(1))
     else:
