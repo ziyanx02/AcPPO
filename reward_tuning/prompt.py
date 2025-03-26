@@ -137,17 +137,17 @@ class RewardWrapper:
 
     def _reward_lin_vel(self):
         # Tracking linear velocity commands (xy axes)
-        lin_vel_error = torch.sum(torch.square(self.commands[:, :2] - self.base_lin_vel[:, :2]), dim=1)
+        lin_vel_error = torch.sum(torch.square(self.commands[:, :2] - self.body_lin_vel[:, :2]), dim=1)
         return torch.exp(-lin_vel_error / 0.25)
 
     def _reward_ang_vel(self):
         # Tracking angular velocity commands (yaw)
-        ang_vel_error = torch.square(self.commands[:, 2] - self.base_ang_vel[:, 2])
+        ang_vel_error = torch.square(self.commands[:, 2] - self.body_ang_vel[:, 2])
         return torch.exp(-ang_vel_error / 0.25)
 
     def _reward_base_height(self):
         # Behavior: tracking base height
-        return torch.square(self.base_pos[:, 2] - self.gait_base_height)
+        return torch.square(self.body_pos[:, 2] - self.gait_body_height)
 
     def _reward_contact_force(self):
         # Behavior: tracking contact force of feet
@@ -177,15 +177,15 @@ class RewardWrapper:
 
     def _reward_lin_vel_z(self):
         # Penalize z axis base linear velocity
-        return torch.square(self.base_lin_vel[:, 2])
+        return torch.square(self.body_lin_vel[:, 2])
     
     def _reward_ang_vel_xy(self):
         # Penalize xy axes base angular velocity
-        return torch.sum(torch.square(self.base_ang_vel[:, :2]), dim=-1)
+        return torch.sum(torch.square(self.body_ang_vel[:, :2]), dim=-1)
 
     def _reward_orientation(self):
         # Penalize non flat base orientation
-        return torch.sum(torch.square(self.projected_gravity[:, :2]), dim=-1)
+        return torch.sum(torch.square(self.body_projected_gravity[:, :2]), dim=-1)
 
     def _reward_torques(self):
         # Penalize torques
@@ -197,7 +197,7 @@ class RewardWrapper:
 
     def _reward_dof_acc(self):
         # Penalize dof accelerations
-        return torch.mean(torch.square((self.last_dof_vel - self.dof_vel)), dim=-1)
+        return torch.mean(torch.square(self.last_dof_vel - self.dof_vel), dim=-1)
 
     def _reward_dof_pos_diff(self):
         # Penalize dof positions deviate from default pose
@@ -233,30 +233,30 @@ class RewardWrapper:
     def _reward_lin_vel(self):
         """
         Reward for tracking linear velocity commands (x, y axes).
-        - Computes the squared error between the desired linear velocity (commands[:, :2]) and the actual base linear velocity (base_lin_vel[:, :2]).
+        - Computes the squared error between the desired linear velocity (commands[:, :2]) and the actual body linear velocity (body_lin_vel[:, :2]).
         - Applies an exponential decay to the error to encourage smooth tracking.
         - Higher reward for smaller errors.
         """
-        lin_vel_error = torch.sum(torch.square(self.commands[:, :2] - self.base_lin_vel[:, :2]), dim=1)
+        lin_vel_error = torch.sum(torch.square(self.commands[:, :2] - self.body_lin_vel[:, :2]), dim=1)
         return torch.exp(-lin_vel_error / 0.25)
 
     def _reward_ang_vel(self):
         """
         Reward for tracking angular velocity commands (yaw axis).
-        - Computes the squared error between the desired angular velocity (commands[:, 2]) and the actual base angular velocity (base_ang_vel[:, 2]).
+        - Computes the squared error between the desired angular velocity (commands[:, 2]) and the actual body angular velocity (body_ang_vel[:, 2]).
         - Applies an exponential decay to the error to encourage smooth tracking.
         - Higher reward for smaller errors.
         """
-        ang_vel_error = torch.square(self.commands[:, 2] - self.base_ang_vel[:, 2])
+        ang_vel_error = torch.square(self.commands[:, 2] - self.body_ang_vel[:, 2])
         return torch.exp(-ang_vel_error / 0.25)
 
     def _reward_base_height(self):
         """
-        Reward for maintaining the desired base height.
-        - Computes the squared error between the current base height (base_pos[:, 2]) and the desired gait base height (gait_base_height).
-        - Encourages the robot to maintain a stable base height during locomotion.
+        Reward for maintaining the desired body height.
+        - Computes the squared error between the current body height (body_pos[:, 2]) and the desired gait body height (gait_body_height).
+        - Encourages the robot to maintain a stable body height during locomotion.
         """
-        return torch.square(self.base_pos[:, 2] - self.gait_base_height)
+        return torch.square(self.body_pos[:, 2] - self.gait_body_height)
 
     def _reward_contact_force(self):
         """
@@ -309,27 +309,27 @@ class RewardWrapper:
 
     def _reward_lin_vel_z(self):
         """
-        Penalty for base linear velocity in the z-axis.
-        - Computes the squared z-axis linear velocity (base_lin_vel[:, 2]).
-        - Discourages unnecessary vertical motion of the base.
+        Penalty for body linear velocity in the z-axis.
+        - Computes the squared z-axis linear velocity (body_lin_vel[:, 2]).
+        - Discourages unnecessary vertical motion of the body.
         """
-        return torch.square(self.base_lin_vel[:, 2])
+        return torch.square(self.body_lin_vel[:, 2])
     
     def _reward_ang_vel_xy(self):
         """
-        Penalty for base angular velocity in the x and y axes.
-        - Computes the squared angular velocity in the x and y axes (base_ang_vel[:, :2]).
-        - Discourages unnecessary tilting or rolling of the base.
+        Penalty for body angular velocity in the x and y axes.
+        - Computes the squared angular velocity in the x and y axes (body_ang_vel[:, :2]).
+        - Discourages unnecessary tilting or rolling of the body.
         """
-        return torch.sum(torch.square(self.base_ang_vel[:, :2]), dim=-1)
+        return torch.sum(torch.square(self.body_ang_vel[:, :2]), dim=-1)
 
     def _reward_orientation(self):
         """
-        Penalty for non-flat base orientation.
-        - Computes the squared deviation of the projected gravity vector from the vertical axis (projected_gravity[:, :2]).
-        - Encourages the robot to maintain a flat base orientation.
+        Penalty for non-flat body orientation.
+        - Computes the squared deviation of the projected gravity vector from the vertical axis (body_projected_gravity[:, :2]).
+        - Encourages the robot to maintain a flat body orientation.
         """
-        return torch.sum(torch.square(self.projected_gravity[:, :2]), dim=-1)
+        return torch.sum(torch.square(self.body_projected_gravity[:, :2]), dim=-1)
 
     def _reward_torques(self):
         """
