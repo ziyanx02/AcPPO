@@ -14,7 +14,7 @@ class GaitEnvMetric(GaitEnv):
         metric = {}
 
         lin_vel_error = torch.sum(torch.square(self.commands[:, :2] - self.body_lin_vel[:, :2]), dim=1)
-        metric['lin_vel'] = torch.exp(-lin_vel_error / 0.25)
+        metric['lin_vel'] = torch.exp(-lin_vel_error / 0.1)
 
         ang_vel_error = torch.square(self.commands[:, 2] - self.body_ang_vel[:, 2])
         metric['ang_vel'] = torch.exp(-ang_vel_error / 0.1)

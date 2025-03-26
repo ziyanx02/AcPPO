@@ -25,13 +25,13 @@ def getRewardFactory(reward_function_code):
     return RewardFactory(exec_scope['RewardWrapper'])
 
 def parse_response(response):
-    match = re.search(r'```python\n(.*?)\n```', response, re.DOTALL)
+    match = re.search(r'``` *python\s*\n(.*?)\n```', response, re.DOTALL)
     if match : 
         reward_function_code = 'import torch\n\n' + match.group(1)
     else:
         raise ValueError("No reward function code found in response")
 
-    match = re.search(r'```yaml\n(.*?)\n```', response, re.DOTALL) 
+    match = re.search(r'``` *yaml\s*\n(.*?)\n```', response, re.DOTALL) 
     if match :
         reward_scale_code = match.group(1)
     else:

@@ -512,6 +512,7 @@ Below are the evaluation results for different reward parameters. Please identif
 index
 ```
 Important: The index **must** be an integer which matches the index of reward parameters. 
+In locomotion task, you must much more focus on termination rate and linear velocity error, which show its stability and movability. 
 '''
 
 TRAIN_FEEDBACK = '''
