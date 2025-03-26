@@ -150,10 +150,10 @@ def main(args):
         logger.info(f"Iteration {iter_id} start")
 
         if resume_iter != None and iter_id <= resume_iter:
-            if iter_id < resume_iter: continue
+            # if iter_id < resume_iter: continue
             results = []
             for sample_id in range(tune_cfg['num_samples']):
-                exp_name = args.resume_from_iter + f'_{sample_id}'
+                exp_name = f'{args.exp_name}_it{iter_id}_{sample_id}'
                 try:
                     result_train = pickle.load(open(f'logs/{exp_name}/result_train.pkl', 'rb'))
                     result_eval = pickle.load(open(f'logs/{exp_name}/result_eval.pkl', 'rb'))

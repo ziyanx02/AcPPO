@@ -76,7 +76,7 @@ def eval(return_queue, args, exp_name):
                 
             if record and n_frames >= env.record_length: # 50 fps, 20 s
                 record = False
-                env.stop_recording(f'{log_dir}/{args.exp_name}.mp4')
+                env.stop_recording(f'{log_dir}/{exp_name}.mp4')
                 print('Finish recording!')
             
         for key in metric.keys():
