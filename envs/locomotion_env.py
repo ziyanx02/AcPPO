@@ -423,6 +423,37 @@ class LocoEnv:
 
         self.base_link_index = 1
 
+        # body
+        self.body_link_index = find_link_indices(self.env_cfg['base_link_name'], accurate=True)
+        if self.body_link_index != 0:
+            self.body_init_pos = torch.tensor(
+                self.env_cfg['body_init_pos'], device=self.device
+            )
+            self.body_init_quat = torch.tensor(
+                self.env_cfg['body_init_quat'], device=self.device
+            )   
+        else:
+            self.body_init_pos = self.base_init_pos
+            self.body_init_quat = self.base_init_quat
+
+        self.body_pos = torch.zeros(
+            (self.num_envs, 3), device=self.device, dtype=gs.tc_float
+        )
+        self.body_quat = torch.zeros(
+            (self.num_envs, 4), device=self.device, dtype=gs.tc_float
+        )
+        self.body_pos = torch.zeros(
+            (self.num_envs, 3), device=self.device, dtype=gs.tc_float
+        )
+        self.body_lin_vel = torch.zeros(
+            (self.num_envs, 3), device=self.device, dtype=gs.tc_float
+        )
+        self.body_ang_vel = torch.zeros(
+            (self.num_envs, 3), device=self.device, dtype=gs.tc_float
+        )
+        self.body_projected_gravity = torch.zeros(
+            (self.num_envs, 3), device=self.device, dtype=gs.tc_float
+        )
         self.com = torch.zeros(
             self.num_envs, 3, device=self.device, dtype=gs.tc_float,
         )
@@ -605,6 +636,22 @@ class LocoEnv:
             self.global_gravity, inv_base_quat
         )
 
+        # Same as base
+        self.body_pos[:] = self.robot.get_links_pos()[:, self.body_link_index]
+        self.body_quat[:] = self.robot.get_links_quat()[:, self.body_link_index]
+        body_quat_rel = gs_quat_mul(self.body_quat, gs_inv_quat(self.body_init_quat.reshape(1, -1).repeat(self.num_envs, 1)))
+        self.body_euler = gs_quat2euler(body_quat_rel)
+
+        inv_quat_yaw = gs_quat_from_angle_axis(-self.body_euler[:, 2],
+                                               torch.tensor([0, 0, 1], device=self.device, dtype=torch.float))
+
+        inv_body_quat = gs_inv_quat(self.body_quat)
+        self.body_lin_vel[:] = gs_transform_by_quat(self.robot.get_links_vel()[:, self.body_link_index], inv_quat_yaw)
+        self.body_ang_vel[:] = gs_transform_by_quat(self.robot.get_links_ang()[:, self.body_link_index], inv_body_quat)
+        self.body_projected_gravity = gs_transform_by_quat(
+            self.global_gravity, inv_body_quat
+        )
+        
         self.dof_pos[:] = self.robot.get_dofs_position(self.motor_dofs)
         self.dof_vel[:] = self.robot.get_dofs_velocity(self.motor_dofs)
         self.link_contact_forces[:] = self.robot.get_links_net_contact_force()

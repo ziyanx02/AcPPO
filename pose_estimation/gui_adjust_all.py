@@ -16,8 +16,10 @@ if args.cfg is not None:
     cfg = yaml.safe_load(open(f"./cfgs/{args.robot}/{args.cfg}.yaml"))
 
 def save(display):
-    cfg["control"]["base_init_pos"] = [round(val, 5) for val in display.robot.target_body_pos.tolist()]
-    cfg["control"]["base_init_quat"] = [round(val, 5) for val in display.robot.target_body_quat.tolist()]
+    cfg["control"]["base_init_pos"] = [round(val, 5) for val in display.robot.base_pos.tolist()]
+    cfg["control"]["base_init_quat"] = [round(val, 5) for val in display.robot.base_quat.tolist()]
+    cfg["control"]["body_init_pos"] = [round(val, 5) for val in display.robot.body_pos.tolist()]
+    cfg["control"]["body_init_quat"] = [round(val, 5) for val in display.robot.body_quat.tolist()]
     dof_pos = display.robot.target_dof_pos.tolist()
     cfg["control"]["default_joint_angles"] = {display.robot.dof_name[i] : round(dof, 5) for i, dof in enumerate(dof_pos)}
     cfg["control"]["diameter"] = display.robot.diameter

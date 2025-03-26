@@ -33,8 +33,8 @@ class GUIDisplay:
             scale=self.cfg["robot"]["scale"],
             fps=self.cfg["control"]["control_freq"],
             vis_options=self.vis_options,
-            init_pos=self.cfg["control"].get("base_init_pos", [0, 0, 0]),
-            init_quat=self.cfg["control"].get("base_init_quat", [1, 0, 0, 0]),
+            init_pos=self.cfg["control"].get("body_init_pos", [0, 0, 0]),
+            init_quat=self.cfg["control"].get("body_init_quat", [1, 0, 0, 0]),
             init_dof_pos=self.cfg["control"].get("default_joint_angles", None),
         )
         if "body_name" in self.cfg["robot"].keys():

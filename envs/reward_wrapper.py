@@ -12,17 +12,17 @@ class RewardWrapper:
 
     def _reward_lin_vel(self):
         # Tracking linear velocity commands (xy axes)
-        lin_vel_error = torch.sum(torch.square(self.commands[:, :2] - self.base_lin_vel[:, :2]), dim=1)
+        lin_vel_error = torch.sum(torch.square(self.commands[:, :2] - self.body_lin_vel[:, :2]), dim=1)
         return torch.exp(-lin_vel_error / 0.25)
 
     def _reward_ang_vel(self):
         # Tracking angular velocity commands (yaw)
-        ang_vel_error = torch.square(self.commands[:, 2] - self.base_ang_vel[:, 2])
+        ang_vel_error = torch.square(self.commands[:, 2] - self.body_ang_vel[:, 2])
         return torch.exp(-ang_vel_error / 0.25)
 
     def _reward_base_height(self):
         # Behavior: tracking base height
-        return torch.square(self.base_pos[:, 2] - self.gait_base_height)
+        return torch.square(self.body_pos[:, 2] - self.gait_body_height)
 
     def _reward_contact_force(self):
         # Behavior: tracking contact force of feet
@@ -52,15 +52,15 @@ class RewardWrapper:
 
     def _reward_lin_vel_z(self):
         # Penalize z axis base linear velocity
-        return torch.square(self.base_lin_vel[:, 2])
+        return torch.square(self.body_lin_vel[:, 2])
     
     def _reward_ang_vel_xy(self):
         # Penalize xy axes base angular velocity
-        return torch.sum(torch.square(self.base_ang_vel[:, :2]), dim=-1)
+        return torch.sum(torch.square(self.body_ang_vel[:, :2]), dim=-1)
 
     def _reward_orientation(self):
         # Penalize non flat base orientation
-        return torch.sum(torch.square(self.projected_gravity[:, :2]), dim=-1)
+        return torch.sum(torch.square(self.body_projected_gravity[:, :2]), dim=-1)
 
     def _reward_torques(self):
         # Penalize torques

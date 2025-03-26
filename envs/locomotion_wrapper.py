@@ -10,8 +10,8 @@ class GaitEnv(LocoEnv):
         self._load_gait(env_cfg['gait'])
 
         if self.debug:
-            self.ref_base_pos = self.base_init_pos
-            self.ref_base_pos[2] = self.gait_cfg['base_height_target']
+            self.ref_body_pos = self.body_init_pos
+            self.ref_body_pos[2] = self.gait_cfg['base_height_target']
 
     def _init_buffers(self):
         super()._init_buffers()
@@ -41,7 +41,7 @@ class GaitEnv(LocoEnv):
         self.gait_feet_stationary_pos = torch.zeros(
             (self.num_envs, len(self.feet_link_indices), 2), device=self.device, dtype=gs.tc_float,
         )
-        self.gait_base_height = torch.zeros(
+        self.gait_body_height = torch.zeros(
             self.num_envs, device=self.device, dtype=gs.tc_float,
         )
 
@@ -69,7 +69,7 @@ class GaitEnv(LocoEnv):
 
     def _load_gait(self, gait_cfg):
         self.gait_cfg = gait_cfg
-        self.gait_base_height[:] = gait_cfg['base_height_target']
+        self.gait_body_height[:] = gait_cfg['base_height_target']
         for i in range(len(self.feet_link_indices)):
             self.gait_frequency[:, i] = gait_cfg['frequency'][i]
             self.gait_duration[:, i] = gait_cfg['duration'][i]
@@ -144,11 +144,11 @@ class GaitEnv(LocoEnv):
         self.desired_feet_pos_local[:, :, 1] = desired_ys_norm + (desired_ys_offset + desired_yaw_to_ys_offset)
 
         # Feet positions in local frame
-        center = self.base_pos.clone().unsqueeze(1) # self.com.unsqueeze(1)
+        center = self.body_pos.clone().unsqueeze(1) # self.com.unsqueeze(1)
         center[:, :, 2] = 0.0
         feet_pos_translated = self.foot_positions - center
         for i in range(len(self.feet_link_indices)):
-            self.feet_pos_local[:, i, :] = gs_quat_apply_yaw(gs_quat_conjugate(self.base_quat),
+            self.feet_pos_local[:, i, :] = gs_quat_apply_yaw(gs_quat_conjugate(self.body_quat),
                                                                  feet_pos_translated[:, i, :])
 
     def _draw_debug_vis(self):
@@ -157,27 +157,27 @@ class GaitEnv(LocoEnv):
         ## Fix base
         fix_base = False
         if fix_base :
-            self.ref_base_pos[2] = self.gait_base_height[0]
-            self.ref_base_pos[:2] += self.commands[0, :2] * self.dt
-            self.robot.set_pos(self.ref_base_pos.unsqueeze(0))
+            self.ref_body_pos[2] = self.gait_body_height[0]
+            self.ref_body_pos[:2] += self.commands[0, :2] * self.dt
+            self.robot.set_pos(self.ref_body_pos.unsqueeze(0))
         else: 
-            self.ref_base_pos = self.base_pos[0].clone()
-            self.ref_base_pos[:2] += self.commands[0, :2] 
-            self.ref_base_pos[2] = self.gait_base_height[0]
+            self.ref_body_pos = self.body_pos[0].clone()
+            self.ref_body_pos[:2] += self.commands[0, :2] 
+            self.ref_body_pos[2] = self.gait_body_height[0]
 
         num_feet = len(self.feet_link_indices)
         feet_pos = self.feet_pos_local.clone()
         for i in range(num_feet):
-            feet_pos[:, i, :] = gs_quat_apply_yaw(self.base_quat, feet_pos[:, i, :])
-        feet_pos[:, :, :2] += self.base_pos.unsqueeze(1)[:, :, :2]
+            feet_pos[:, i, :] = gs_quat_apply_yaw(self.body_quat, feet_pos[:, i, :])
+        feet_pos[:, :, :2] += self.body_pos.unsqueeze(1)[:, :, :2]
 
         desired_feet_pos = self.desired_feet_pos_local.clone()
         for i in range(num_feet):
-            desired_feet_pos[:, i, :] = gs_quat_apply_yaw(self.base_quat, desired_feet_pos[:, i, :])
-        desired_feet_pos[:, :, :2] += self.base_pos.unsqueeze(1)[:, :, :2]
+            desired_feet_pos[:, i, :] = gs_quat_apply_yaw(self.body_quat, desired_feet_pos[:, i, :])
+        desired_feet_pos[:, :, :2] += self.body_pos.unsqueeze(1)[:, :, :2]
 
-        self.scene.draw_debug_sphere(pos=self.base_pos[0], radius=0.1, color=(0, 1, 0, 0.7))
-        self.scene.draw_debug_sphere(pos=self.ref_base_pos, radius=0.1, color=(0, 0, 1, 0.7))
+        self.scene.draw_debug_sphere(pos=self.body_pos[0], radius=0.1, color=(0, 1, 0, 0.7))
+        self.scene.draw_debug_sphere(pos=self.ref_body_pos, radius=0.1, color=(0, 0, 1, 0.7))
         for i in range(num_feet):
             self.scene.draw_debug_sphere(pos=feet_pos[0, i, :], radius=0.05, color=(0, 1, 0, 0.7))
             self.scene.draw_debug_sphere(pos=desired_feet_pos[0, i, :], radius=0.05, color=(1, 1 - self.desired_contact_states[0, i].cpu(), 0, 0.7))
@@ -185,7 +185,7 @@ class GaitEnv(LocoEnv):
     def compute_observation(self):
         obs_buf = torch.cat(
             [
-                self.base_ang_vel * self.obs_scales['ang_vel'],                     # 3
+                self.body_ang_vel * self.obs_scales['ang_vel'],                     # 3
                 self.projected_gravity,                                             # 3
                 self.commands * self.commands_scale,                                # 3
                 (self.dof_pos - self.default_dof_pos) * self.obs_scales['dof_pos'],
@@ -207,8 +207,8 @@ class GaitEnv(LocoEnv):
     def compute_critic_observation(self):
         privileged_obs_buf = torch.cat(
             [
-                self.base_lin_vel * self.obs_scales['lin_vel'],                     # 3
-                self.base_ang_vel * self.obs_scales['ang_vel'],                     # 3
+                self.body_lin_vel * self.obs_scales['lin_vel'],                     # 3
+                self.body_ang_vel * self.obs_scales['ang_vel'],                     # 3
                 self.projected_gravity,                                             # 3
                 self.commands * self.commands_scale,                                # 3
                 (self.dof_pos - self.default_dof_pos) * self.obs_scales['dof_pos'],
