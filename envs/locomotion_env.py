@@ -684,6 +684,16 @@ class LocoEnv:
             torch.abs(self.base_euler[:, 0])
             > self.env_cfg['termination_if_roll_greater_than'],
         )
+        
+        if self.debug and self.terminate_buf.any():
+            contact = torch.any(torch.norm(self.link_contact_forces[:, self.termination_contact_link_indices, :], dim=-1,)> 1.0,dim=1,)
+            pitch = torch.abs(self.base_euler[:, 1]) > self.env_cfg['termination_if_pitch_greater_than']
+            roll = torch.abs(self.base_euler[:, 0]) > self.env_cfg['termination_if_roll_greater_than']
+            print(f'Contact {contact}\nPitch {pitch}\nRoll {roll}')
+            if contact.any():
+                contact_idx = torch.norm(self.link_contact_forces[:, self.termination_contact_link_indices, :], dim=-1,) > 1.0
+                print(f'Detail contact: {contact_idx}')
+
         if self.env_cfg['use_terrain']:
             self.terminate_buf |= torch.logical_or(
                 self.base_pos[:, 0] > self.terrain_margin[0],
