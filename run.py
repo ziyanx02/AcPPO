@@ -237,7 +237,7 @@ if __name__ == '__main__':
     parser.add_argument('--eval', action='store_true', help='turn off domain randomization', default=False)
 
     # Eval
-    parser.add_argument('--num_eval_step', type=int, default=1000)
+    parser.add_argument('--num_eval_step', type=int, default=6000)
     parser.add_argument('-r', '--record', action='store_true', default=False)
     parser.add_argument('--record_length', help='unit: second', type=int, default=10)
     parser.add_argument('--resample_time', help='unit: second', type=float, default=2)

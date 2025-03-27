@@ -46,9 +46,10 @@ environment:
   PPO: false
   # asset
   urdf_path: urdf/panda_bullet/panda_nohand.urdf
-  robot_scale: 0.58282
+  robot_scale: 0.57705
   links_to_keep:
   - link0
+  - link7
   num_actions: 7
   num_dofs: 7
   num_states: 24 # 10 + num_dof * 2 
@@ -64,6 +65,7 @@ environment:
   - link3
   feet_link_names:
   - link0
+  - link7
   base_link_name:
   - link3
   # control
@@ -96,30 +98,30 @@ environment:
   termination_if_roll_greater_than: 0.4
   # init pos
   base_init_pos:
-  - 0.29829
+  - -0.32672
   - 0.0
-  - 0.06474
+  - 0.05877
   base_init_quat:
-  - 0.99946
-  - 0.0
-  - -0.03273
-  - 0.0
+  - 0.08683
+  - -0.08404
+  - 0.00735
+  - -0.99265
   body_init_pos:
   - 0.0
   - 0.0
   - 0.55
   body_init_quat:
-  - 0.86142
+  - 0.87056
   - 0.0
-  - -0.50789
+  - 0.49207
   - 0.0
   default_joint_angles:
-    joint1: 0.0
-    joint2: -1.0
+    joint1: 2.9671
+    joint2: 0.86
     joint3: 0.0
-    joint4: -2.0
-    joint5: 0.0
-    joint6: 2.0
+    joint4: -1.45358
+    joint5: 0.04429
+    joint6: 2.37808
     joint7: 0.0
   # domain randomization
   resampling_time_s: 4.0
@@ -171,18 +173,20 @@ environment:
     - 0
   gait:
     # the order of feet is defined by feet_link_name
-    base_height_target: 0.5
-    frequency: [3.0,]
-    duration: [0.5,]
-    offset: [0,] 
-    feet_height_target: [0.2,]
+    base_height_target: 0.45
+    frequency: [3.0, 3.0,]
+    duration: [0.5, 0.5,]
+    offset: [0, 0.5,] 
+    feet_height_target: [0.15, 0.15,]
     stationary_position:
-    - - 0.29829
+    - - -0.32672
       - 0.0
+    - - 0.4304
+      - -0.0
 
   observation:
-    num_obs: 31 # 9 + num_dof * 3 + num_feet 
-    num_priv_obs: 41 # 12 + num_dof * 4 + num_feet 
+    num_obs: 32 # 9 + num_dof * 3 + num_feet 
+    num_priv_obs: 42 # 12 + num_dof * 4 + num_feet 
     obs_noise:
       ang_vel: 0.1
       dof_pos: 0.01

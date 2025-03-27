@@ -208,6 +208,7 @@ class Robot:
         for link in self.foot_links:
             foot_idx = link.idx_local
             body_idx = self.body_link.idx_local
+            if foot_idx == body_idx: continue
             path = []
             visited = [False for _ in range(self.num_links)]
             dfs(foot_idx, body_idx, visited, path)
