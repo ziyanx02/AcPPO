@@ -60,7 +60,6 @@ environment:
   - link4
   - link5 
   - link6 
-  - link7
   penalized_contact_link_names:
   - link3
   feet_link_names:
