@@ -1,0 +1,58 @@
+robot:
+  asset_path: urdf/panda_bullet/panda_nohand.urdf
+  scale: 1.0
+  body_name: link3
+  foot_names:
+  - link0
+  - link7
+  links_to_keep:
+  - link0
+  - link7
+  link_names:
+  - link0
+  - link1
+  - link2
+  - link3
+  - link4
+  - link5
+  - link6
+  - link7
+control:
+  control_freq: 50
+  kp: 40.0
+  kd: 1.0
+  armature: 0.0
+  damping: 0.0
+  base_init_pos:
+  - -0.23735
+  - 0.0
+  - 0.05989
+  base_init_quat:
+  - 0.37459
+  - 0.00183
+  - -0.00074
+  - -0.92719
+  default_joint_angles:
+    joint1: 2.37368
+    joint2: 0.86
+    joint3: 0.0
+    joint4: -1.96936
+    joint5: 0.04429
+    joint6: 2.37808
+    joint7: 0.0
+  diameter: 1.2488789558410645
+  robot_scale: 0.80072
+  stationary_position:
+  - - -0.23735
+    - 0.0
+  - - 0.33116
+    - -0.0
+  body_init_pos:
+  - 0.0
+  - 0.0
+  - 0.6
+  body_init_quat:
+  - 0.90978
+  - 0.0
+  - 0.41508
+  - 0.0

@@ -1,0 +1,227 @@
+learning:
+  algorithm:
+    class_name: TDO
+    clip_param: 0.2
+    desired_kl: 0.01
+    entropy_coef: 0.01
+    gamma: 0.99
+    lam: 0.95
+    learning_rate: 0.001
+    max_grad_norm: 1.0
+    num_learning_epochs: 5
+    num_mini_batches: 4
+    schedule: adaptive
+    use_clipped_value_loss: true
+    value_loss_coef: 1.0
+    td_entropy_coef: 0.0
+    return_boosting_coef: 0.0
+    action_noise_threshold: 0.0
+  policy:
+    activation: elu
+    actor_hidden_dims:
+    - 512
+    - 256
+    - 128
+    class_name: ActorCriticTDO
+    critic_hidden_dims:
+    - 512
+    - 256
+    - 128
+    init_noise_std: 1.0
+  temporal_distribution:
+    learning_rate: 0.001
+    class_name: TemporalDistribution
+  PPO: false
+  empirical_normalization: false
+  exp_name: null
+  num_steps_per_env: 24
+  reset_rate: 0.0
+  print_infos: true
+  record_interval: 50
+  save_interval: 100
+  seed: 1
+  wandb_entity: ziyanx02
+  wandb_project: Gait
+environment:
+  PPO: false
+  urdf_path: urdf/panda_bullet/panda_nohand.urdf
+  robot_scale: 0.80072
+  links_to_keep:
+  - link0
+  - link7
+  num_actions: 7
+  num_dofs: 7
+  num_states: 24
+  termination_contact_link_names:
+  - link1
+  - link2
+  - link3
+  - link4
+  - link5
+  - link6
+  penalized_contact_link_names:
+  - link1
+  - link2
+  - link3
+  - link4
+  - link5
+  - link6
+  feet_link_names:
+  - link0
+  - link7
+  base_link_name:
+  - link3
+  PD_stiffness:
+    ? ''
+    : 40.0
+  PD_damping:
+    ? ''
+    : 1.0
+  armature: 0.0
+  dof_damping: 0.0
+  action_scale: 0.25
+  clip_actions: 100.0
+  control_freq: 50
+  decimation: 4
+  delay_action: true
+  dof_names:
+  - joint1
+  - joint2
+  - joint3
+  - joint4
+  - joint5
+  - joint6
+  - joint7
+  episode_length_s: 20.0
+  period_length_s: 0.5
+  use_timeout: true
+  reset_after_termination: true
+  termination_if_height_lower_than: 0.0
+  termination_if_pitch_greater_than: 0.4
+  termination_if_roll_greater_than: 0.4
+  base_init_pos:
+  - -0.23735
+  - 0.0
+  - 0.05989
+  base_init_quat:
+  - 0.37459
+  - 0.00183
+  - -0.00074
+  - -0.92719
+  default_joint_angles:
+    joint1: 2.37368
+    joint2: 0.86
+    joint3: 0.0
+    joint4: -1.96936
+    joint5: 0.04429
+    joint6: 2.37808
+    joint7: 0.0
+  resampling_time_s: 4.0
+  randomize_base_mass: true
+  added_mass_range:
+  - -1.0
+  - 3.0
+  randomize_com_displacement: true
+  com_displacement_range:
+  - -0.01
+  - 0.01
+  randomize_friction: true
+  friction_range:
+  - 0.2
+  - 1.5
+  randomize_kd_scale: true
+  kd_scale_range:
+  - 0.8
+  - 1.2
+  randomize_kp_scale: true
+  kp_scale_range:
+  - 0.8
+  - 1.2
+  randomize_motor_offset: true
+  motor_offset_range:
+  - -0.02
+  - 0.02
+  randomize_motor_strength: false
+  motor_strength_range:
+  - 0.9
+  - 1.1
+  pos_randomization: 0.0
+  rot_randomization: 0.1
+  dof_pos_randomization: 0.3
+  max_push_vel_xy: 1.0
+  push_interval_s: -1
+  use_terrain: false
+  command:
+    lin_vel_x_range:
+    - 0
+    - 0
+    lin_vel_y_range:
+    - 0
+    - 2.0
+    ang_vel_range:
+    - 0
+    - 0
+  gait:
+    base_height_target: 0.54
+    frequency:
+    - 3.0
+    - 3.0
+    duration:
+    - 0.5
+    - 0.5
+    offset:
+    - 0.0
+    - 0.5
+    feet_height_target:
+    - 0.21600000000000003
+    - 0.21600000000000003
+    stationary_position:
+    - - -0.23735
+      - 0.0
+    - - 0.33116
+      - -0.0
+  observation:
+    num_obs: 32
+    num_priv_obs: 42
+    obs_noise:
+      ang_vel: 0.1
+      dof_pos: 0.01
+      dof_vel: 0.5
+      gravity: 0.02
+    obs_scales:
+      ang_vel: 1.0
+      dof_pos: 1.0
+      dof_vel: 0.05
+      lin_vel: 1.0
+  reward:
+    reward_scales:
+      lin_vel: 3.0
+      ang_vel: 0.5
+      alive: 10.0
+      ang_vel_xy: -0.05
+      base_height: -30.0
+      dof_acc: -0.05
+      dof_vel: -0.01
+      dof_pos_diff: -0.1
+      lin_vel_z: -2.0
+      orientation: -5.0
+      contact_force: -5.0
+      feet_height: -100.0
+      feet_pos: -0.1
+      action_smoothness_1: -0.1
+      action_smoothness_2: -0.1
+    soft_dof_pos_limit: 0.9
+    tracking_sigma: 0.25
+  body_init_pos:
+  - 0.0
+  - 0.0
+  - 0.6
+  body_init_quat:
+  - 0.90978
+  - 0.0
+  - 0.41508
+  - 0.0
+reward_tuning:
+  num_iterations: 3
+  num_samples: 4
+  num_logpoints: 10

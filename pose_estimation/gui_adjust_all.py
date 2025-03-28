@@ -16,6 +16,7 @@ if args.cfg is not None:
     cfg = yaml.safe_load(open(f"./cfgs/{args.robot}/{args.cfg}.yaml"))
 
 def save(display):
+    cfg["robot"]["link_names"] = display.robot.link_name
     cfg["control"]["base_init_pos"] = [round(val, 5) for val in display.robot.base_pos.tolist()]
     cfg["control"]["base_init_quat"] = [round(val, 5) for val in display.robot.base_quat.tolist()]
     cfg["control"]["body_init_pos"] = [round(val, 5) for val in display.robot.body_pos.tolist()]
