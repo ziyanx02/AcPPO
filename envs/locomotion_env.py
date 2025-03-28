@@ -394,7 +394,7 @@ class LocoEnv:
         )
 
         self.dof_pos_limits = torch.stack(self.robot.get_dofs_limit(self.motor_dofs), dim=1)
-        self.torque_limits = self.robot.get_dofs_force_range(self.motor_dofs)[1]
+        self.torque_limits = self.robot.get_dofs_force_range(self.motor_dofs)[1] * pow(self.scale, 5)
         for i in range(self.dof_pos_limits.shape[0]):
             # soft limits
             m = (self.dof_pos_limits[i, 0] + self.dof_pos_limits[i, 1]) / 2
@@ -693,6 +693,10 @@ class LocoEnv:
             if contact.any():
                 contact_idx = torch.norm(self.link_contact_forces[:, self.termination_contact_link_indices, :], dim=-1,) > 1.0
                 print(f'Detail contact: {contact_idx}')
+            if pitch.any():
+                print(f'Pitch angle: {self.base_euler[:, 1]}')
+            if roll.any():
+                print(f'Roll angle: {self.base_euler[:, 0]}')
 
         if self.env_cfg['use_terrain']:
             self.terminate_buf |= torch.logical_or(
