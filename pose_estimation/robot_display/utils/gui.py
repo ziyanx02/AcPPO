@@ -28,15 +28,48 @@ class GUI:
         self.entries = []
 
         # Create all widgets before setting up any bindings
+        self.create_scrollable_area()
         self.create_widgets()
         # Set up bindings after all widgets are created
         self.setup_bindings()
+
+        # Calculate content height after widgets are created
+        self.root.update_idletasks()  # Force GUI layout calculations
+        content_height = self.scrollable_frame.winfo_reqheight()  # Get content height
+        screen_height = self.root.winfo_screenheight()  # Get max screen height
+        
+        # Set window height to content height (capped at 90% of screen height)
+        window_height = min(content_height, int(screen_height * 0.9))
+        self.root.geometry(f"700x{window_height}")  # Fixed width, dynamic height
+        self.root.resizable(False, False)  # Disable window resizing
+
+    def create_scrollable_area(self):
+        self.canvas = tk.Canvas(self.root)
+        self.scrollbar = tk.Scrollbar(self.root, orient=tk.VERTICAL, command=self.canvas.yview)
+        self.scrollable_frame = tk.Frame(self.canvas)
+
+        self.scrollable_frame.bind(
+            "<Configure>",
+            lambda e: self.canvas.configure(
+                scrollregion=self.canvas.bbox("all")
+            )
+        )
+
+        self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+        self.canvas.configure(yscrollcommand=self.scrollbar.set)
+
+        self.canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        self.canvas.bind("<MouseWheel>", self.on_mousewheel)  # Windows/Linux
+        self.canvas.bind("<Button-4>", self.on_mousewheel)   # Linux (scroll up)
+        self.canvas.bind("<Button-5>", self.on_mousewheel)   # Linux (scroll down)
 
     def create_widgets(self):
         for i, name in enumerate(self.labels):
             # Get the min and max limits for the slider
             min_limit, max_limit = self.cfg["range"][name][:2]
-            frame = tk.Frame(self.root)
+            frame = tk.Frame(self.scrollable_frame)
             frame.pack(pady=5, padx=10, fill=tk.X)
 
             # Label for the control
@@ -68,7 +101,7 @@ class GUI:
             self.entries.append(entry)
 
         if self.save_callback is not None or self.reset_callback is not None:
-            button_frame = tk.Frame(self.root)
+            button_frame = tk.Frame(self.scrollable_frame)
             button_frame.pack(pady=10, padx=10, fill=tk.X)
 
         if self.save_callback is not None:
@@ -131,6 +164,15 @@ class GUI:
             self.entries[i].insert(0, f"{value:.2f}")
         if self.reset_callback is not None:
             self.reset_callback()
+
+    def on_mousewheel(self, event):
+        if event.num == 4:  # Linux scroll up
+            self.canvas.yview_scroll(-1, "units")
+        elif event.num == 5:  # Linux scroll down
+            self.canvas.yview_scroll(1, "units")
+        else:  # Windows/macOS
+            self.canvas.yview_scroll(-1 * (event.delta // 60), "units")  # Adjust speed
+
 
 def start_gui(cfg: Dict, values: List[float], 
               save_callback: Callable = None, 
