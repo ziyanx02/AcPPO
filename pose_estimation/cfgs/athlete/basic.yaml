@@ -1,0 +1,132 @@
+robot:
+  asset_path: urdf/T12/urdf/T12.urdf
+  scale: 0.2
+  body_name: Body
+  foot_names:
+  - Foot1
+  - Foot2
+  - Foot3
+  - Foot4
+  - Foot5
+  - Foot6
+  links_to_keep:
+  - Foot1
+  - Foot2
+  - Foot3
+  - Foot4
+  - Foot5
+  - Foot6
+  link_names:
+  - Body
+  - Hip1
+  - Hip2
+  - Hip3
+  - Hip4
+  - Hip5
+  - Hip6
+  - Thigh1
+  - Thigh2
+  - Thigh3
+  - Thigh4
+  - Thigh5
+  - Thigh6
+  - Knee1
+  - Knee2
+  - Knee3
+  - Knee4
+  - Knee5
+  - Knee6
+  - Shin1
+  - Shin2
+  - Shin3
+  - Shin4
+  - Shin5
+  - Shin6
+  - Ankle1
+  - Ankle2
+  - Ankle3
+  - Ankle4
+  - Ankle5
+  - Ankle6
+  - Foot1
+  - Foot2
+  - Foot3
+  - Foot4
+  - Foot5
+  - Foot6
+control:
+  control_freq: 50
+  kp: 40.0
+  kd: 1.0
+  armature: 0.0
+  damping: 0.0
+  base_init_pos:
+  - 0.0
+  - 0.0
+  - 0.45
+  base_init_quat:
+  - 1.0
+  - 0.0
+  - 0.0
+  - 0.0
+  body_init_pos:
+  - 0.0
+  - 0.0
+  - 0.45
+  body_init_quat:
+  - 1.0
+  - 0.0
+  - 0.0
+  - 0.0
+  default_joint_angles:
+    HY1: 0.0
+    HY2: 0.0
+    HY3: 0.0
+    HY4: 0.0
+    HY5: 0.0
+    HY6: 0.0
+    HP1: 0.5
+    HP2: 0.5
+    HP3: 0.5
+    HP4: 0.5
+    HP5: 0.5
+    HP6: 0.5
+    KP1: 0.5
+    KP2: 0.5
+    KP3: 0.5
+    KP4: 0.5
+    KP5: 0.5
+    KP6: 0.5
+    KR1: 0.0
+    KR2: 0.0
+    KR3: 0.0
+    KR4: 0.0
+    KR5: 0.0
+    KR6: 0.0
+    AP1: 0.5
+    AP2: 0.5
+    AP3: 0.5
+    AP4: 0.5
+    AP5: 0.5
+    AP6: 0.5
+    AR1: 0.0
+    AR2: 0.0
+    AR3: 0.0
+    AR4: 0.0
+    AR5: 0.0
+    AR6: 0.0
+  diameter: 3.168657064437866
+  robot_scale: 0.31559
+  stationary_position:
+  - - 0.61602
+    - 0.35
+  - - 0.00075
+    - 0.71
+  - - -0.61526
+    - 0.36
+  - - -0.61602
+    - -0.35
+  - - -0.00076
+    - -0.71
+  - - 0.61526
+    - -0.36
