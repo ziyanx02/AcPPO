@@ -10,11 +10,11 @@ from mimetypes import guess_type
 # )
 client = AzureOpenAI(
     api_key="7EPgiBlH9dLjPZzVip6phrwmP0X67BOOAAZeh9kbEHDL1CPPUdLgJQQJ99BCACYeBjFXJ3w3AAABACOGAqyR",  
-    api_version="2024-02-01",
+    api_version="2024-12-01-preview",
     azure_endpoint="https://ziyanx-openai.openai.azure.com/",
 )
 
-deployment_name='gpt-4o' #This will correspond to the custom name you chose for your deployment when you deployed a model. Use a gpt-35-turbo-instruct deployment. 
+deployment_name='o1' #This will correspond to the custom name you chose for your deployment when you deployed a model. Use a gpt-35-turbo-instruct deployment. 
 
 def complete(messages):
     response = client.chat.completions.create(

@@ -1,6 +1,8 @@
 import os
 import time
 
+import cv2
+from scipy.ndimage import label, center_of_mass
 import numpy as np
 import torch
 from taichi._lib import core as _ti_core
@@ -82,9 +84,13 @@ class Robot:
             pos=np.array([1, 0, 0]),
             lookat=np.array([0, 0, 0]),
             res=(1280, 1280),
-            fov=getattr(vis_options, "fov", 17),
+            fov=getattr(vis_options, "fov", 40),
             GUI=False,
         )
+        self.camera_azimuth = 45
+        self.camera_elevation = 45
+        self.camera_lookat = np.array([0, 0, 0])
+        self.camera_distance = 1.5
 
         # Build scene
         self.scene.build(compile_kernels=False)
@@ -94,11 +100,7 @@ class Robot:
         self._init_buffers()
 
         center, diameter = self.get_center_diameter()
-        if self.show_viewer:
-            self.scene.viewer.set_camera_pose(
-                pos=center + diameter,
-                lookat=center,
-            )
+        self.set_camera_pose(lookat=center, distance=diameter * 2)
 
         self.step_target()
 
@@ -110,8 +112,11 @@ class Robot:
         self.dof_name = []
         self.dof_idx = []
         self.dof_idx_qpos = []
-        idx = 6 # Skip the base dofs
+        self.joint_name_to_dof_order = {}
+        order = 0
+        base_dof_offset = 6 # Skip the base dofs
         for joint in self.joints:
+            self.joint_name_to_dof_order[joint.name] = -1
             if joint.type == gs.JOINT_TYPE.FREE:
                 continue
             else:
@@ -119,12 +124,25 @@ class Robot:
                 if joint.type == gs.JOINT_TYPE.FIXED:
                     continue
                 self.dof_name.append(joint.name)
-                self.dof_idx.append(idx)
-                self.dof_idx_qpos.append(idx + 1)
-                idx += 1
+                self.dof_idx.append(order + base_dof_offset)
+                self.joint_name_to_dof_order[joint.name] = order
+                self.dof_idx_qpos.append(order + base_dof_offset + 1)
+                order += 1
         self.num_links = len(self.link_name)
         self.num_dofs = len(self.dof_name)
         self.num_joints = len(self.joint_name)
+
+        self.link_colors = []
+        for _ in range(self.num_links):
+            self.link_colors.append(np.random.randint(0, 256, 3))
+
+        self.link_adjacency_map = [[False for _ in range(self.num_links)] for _ in range(self.num_links)]
+        for link in self.links:
+            for idx in link.child_idxs_local:
+                self.link_adjacency_map[link.idx_local][idx] = self.links[idx].joint.name
+            if link.idx_local == 0:
+                continue
+            self.link_adjacency_map[link.idx_local][link.parent_idx_local] = link.joint.name
 
         if len(self.foot_links):
             self.update_skeleton()
@@ -161,7 +179,6 @@ class Robot:
         #     print(vertices.shape)
         #     exit()
 
-        self.link_adjacency_map = [[False for _ in range(self.num_links)] for _ in range(self.num_links)]
         self.leg = []
         self.body = []
         self.leg_joint_idx = []
@@ -177,13 +194,6 @@ class Robot:
             for joint_name2 in body_joint_name:
                 if joint_name1 < joint_name2:
                     self.body.append((joint_name1, joint_name2))
-
-        for link in self.links:
-            for idx in link.child_idxs_local:
-                self.link_adjacency_map[link.idx_local][idx] = self.links[idx].joint.name
-            if link.idx_local == 0:
-                continue
-            self.link_adjacency_map[link.idx_local][link.parent_idx_local] = link.joint.name
 
         def dfs(curr, target, visited, path):
             visited[curr] = True
@@ -407,8 +417,31 @@ class Robot:
     def get_joint(self, joint_name=None):
         return self.entity.get_joint(joint_name)
 
-    def get_link(self, link_name=None):
+    def get_dofs_between_links(self, link_id1, link_id2):
+        path = []
+        visited = [False for _ in range(self.num_links)]
+        def dfs(curr, target):
+            visited[curr] = True
+            if curr == target:
+                return True
+            for i in range(self.num_links):
+                if self.link_adjacency_map[curr][i] and not visited[i]:
+                    if dfs(i, target):
+                        path.append(self.link_adjacency_map[curr][i])
+                        return True
+            return False
+        dfs(link_id1, link_id2)
+        dofs = []
+        for joint_name in path:
+            if self.joint_name_to_dof_order[joint_name] != -1:
+                dofs.append(self.joint_name_to_dof_order[joint_name])
+        return dofs
+
+    def get_link_by_name(self, link_name=None):
         return self.entity.get_link(link_name)
+
+    def get_link_by_id(self, link_id=0):
+        return self.links[link_id]
 
     def set_body_link(self, link):
         self.body_link = link
@@ -419,7 +452,12 @@ class Robot:
 
     def set_body_link_by_name(self, body_name):
         self.body_name = body_name
-        self.body_link = self.get_link(body_name)
+        self.body_link = self.get_link_by_name(body_name)
+        self.step_target()
+
+    def set_body_link_by_id(self, body_id):
+        self.body_link = self.links[body_id]
+        self.body_name = self.body_link.name
         self.step_target()
 
     def set_init_state(self, body_pos, body_qaut, dof_pos):
@@ -435,11 +473,12 @@ class Robot:
     def set_dof_order(self, dof_names):
         dof_idx = []
         dof_idx_qpos = []
-        for name in dof_names:
+        for order, name in enumerate(dof_names):
             for idx, joint in enumerate(self.dof_name):
                 if name == joint:
                     dof_idx.append(self.dof_idx[idx])
                     dof_idx_qpos.append(self.dof_idx_qpos[idx])
+                    self.joint_name_to_dof_order[joint] = order
                     break
         assert len(dof_idx) == len(dof_names), "Some dof names are not found"
         self.dof_idx = dof_idx
@@ -487,6 +526,26 @@ class Robot:
             )
             self.set_dofs_position(qpos[self.dof_idx_qpos][self.leg_joint_idx[i]], self.leg_joint_idx[i])
 
+    def set_link_pose(self, link_id, pos, quat=None):
+        links = [self.body_link, self.links[link_id]]
+        poss = [self.target_body_pos, pos]
+        quats = [self.target_body_quat, quat]
+        # quats = [None, quat]
+        qpos, error = self.entity.inverse_kinematics_multilink(
+            links=links,
+            poss=poss,
+            quats=quats,
+            return_error=True,
+            max_solver_iters=200,
+        )
+        if error.abs().max() > 0.01:
+            return False
+        else:
+            dof_pos = qpos[self.dof_idx_qpos]
+            dof_idx = self.get_dofs_between_links(self.body_link.idx_local, link_id)
+            self.set_dofs_position(dof_pos[dof_idx], dof_idx)
+            return True
+
     def set_dofs_armature(self, armature):
         if not isinstance(armature, dict):
             dofs_armature = [armature] * self.num_dofs
@@ -523,96 +582,123 @@ class Robot:
                 dofs_kd.append(kd[name])
         self.entity.set_dofs_kv(dofs_kd, self.dof_idx)
 
-    def render(self, rgb=True, depth=False, segmentation=False):
-        center, diameter = self.get_center_diameter()
-
-        camera_pos = center.clone()
-        camera_pos[0] += 4 * diameter
-        self.camera.set_pose(pos=camera_pos, lookat=center)
-        rgb_x, depth_x, seg_x, _ = self.camera.render(rgb=rgb, depth=depth, segmentation=segmentation, colorize_seg=False)
-
-        camera_pos = center.clone()
-        camera_pos[1] += 4 * diameter
-        self.camera.set_pose(pos=camera_pos, lookat=center)
-        rgb_y, depth_y, seg_y, _ = self.camera.render(rgb=rgb, depth=depth, segmentation=segmentation, colorize_seg=False)
-
-        camera_pos = center.clone()
-        camera_pos[0] += -0.01
-        camera_pos[2] += 4 * diameter
-        self.camera.set_pose(pos=camera_pos, lookat=center)
-        rgb_z, depth_z, seg_z, _ = self.camera.render(rgb=rgb, depth=depth, segmentation=segmentation, colorize_seg=False)
-
-        camera_pos = center.clone()
-        camera_pos[0] += -4 * diameter
-        self.camera.set_pose(pos=camera_pos, lookat=center)
-        rgb__x, depth__x, seg__x, _ = self.camera.render(rgb=rgb, depth=depth, segmentation=segmentation, colorize_seg=False)
-
-        camera_pos = center.clone()
-        camera_pos[1] += -4 * diameter
-        self.camera.set_pose(pos=camera_pos, lookat=center)
-        rgb__y, depth__y, seg__y, _ = self.camera.render(rgb=rgb, depth=depth, segmentation=segmentation, colorize_seg=False)
-
-        camera_pos = center.clone()
-        camera_pos[0] += 0.01
-        camera_pos[2] += -4 * diameter
-        self.camera.set_pose(pos=camera_pos, lookat=center)
-        rgb__z, depth__z, seg__z, _ = self.camera.render(rgb=rgb, depth=depth, segmentation=segmentation, colorize_seg=False)
-
-        if self.visualize_skeleton:
-            skeleton_center = center - 2 * self.diameter
-
-            camera_pos = skeleton_center.clone()
-            camera_pos[0] += 4 * diameter
-            self.camera.set_pose(pos=camera_pos, lookat=skeleton_center)
-            skeleton_x, _, _, _ = self.camera.render()
-
-            camera_pos = skeleton_center.clone()
-            camera_pos[1] += 4 * diameter
-            self.camera.set_pose(pos=camera_pos, lookat=skeleton_center)
-            skeleton_y, _, _, _ = self.camera.render()
-
-            camera_pos = skeleton_center.clone()
-            camera_pos[0] += -0.01
-            camera_pos[2] += 4 * diameter
-            self.camera.set_pose(pos=camera_pos, lookat=skeleton_center)
-            skeleton_z, _, _, _ = self.camera.render()
-
-            camera_pos = skeleton_center.clone()
-            camera_pos[0] += -4 * diameter
-            self.camera.set_pose(pos=camera_pos, lookat=skeleton_center)
-            skeleton__x, _, _, _ = self.camera.render()
-
-            camera_pos = skeleton_center.clone()
-            camera_pos[1] += -4 * diameter
-            self.camera.set_pose(pos=camera_pos, lookat=skeleton_center)
-            skeleton__y, _, _, _ = self.camera.render()
-
-            camera_pos = skeleton_center.clone()
-            camera_pos[0] += 0.01
-            camera_pos[2] += -4 * diameter
-            self.camera.set_pose(pos=camera_pos, lookat=skeleton_center)
-            skeleton__z, _, _, _ = self.camera.render()
-
-            return (
-                (rgb_x, rgb_y, rgb_z, rgb__x, rgb__y, rgb__z),
-                (depth_x, depth_y, depth_z, depth__x, depth__y, depth__z),
-                (seg_x, seg_y, seg_z, seg__x, seg__y, seg__z),
-                (skeleton_x, skeleton_y, skeleton_z, skeleton__x, skeleton__y, skeleton__z)
+    def set_camera_pose(self, azimuth=None, elevation=None, distance=None, lookat=None):
+        if azimuth is not None:
+            self.camera_azimuth = azimuth
+            if self.camera_azimuth < 0:
+                self.camera_azimuth += 360
+            if self.camera_azimuth > 360:
+                self.camera_azimuth -= 360
+        if elevation is not None:
+            self.camera_elevation = elevation
+            if self.camera_elevation < -90:
+                self.camera_elevation = -90
+            if self.camera_elevation > 90:
+                self.camera_elevation = 90
+        if distance is not None:
+            self.camera_distance = distance
+        if lookat is not None:
+            self.camera_lookat = torch.tensor(lookat)
+        pos = self.camera_lookat + self.camera_distance * torch.tensor([
+            np.cos(self.camera_azimuth / 180 * np.pi) * np.cos(self.camera_elevation / 180 * np.pi),
+            np.sin(self.camera_azimuth / 180 * np.pi) * np.cos(self.camera_elevation / 180 * np.pi),
+            np.sin(self.camera_elevation / 180 * np.pi),
+        ])
+        self.camera.set_pose(
+            pos=pos,
+            lookat=self.camera_lookat,
+        )
+        if self.show_viewer:
+            self.scene.viewer.set_camera_pose(
+                pos=pos,
+                lookat=self.camera_lookat,
             )
-        else:
-            return (
-                (rgb_x, rgb_y, rgb_z, rgb__x, rgb__y, rgb__z),
-                (depth_x, depth_y, depth_z, depth__x, depth__y, depth__z),
-                (seg_x, seg_y, seg_z, seg__x, seg__y, seg__z),
-                None
-            )
+
+    def render(self):
+        rgb_arr, depth_arr, seg_arr, normal_arr = self.camera.render(rgb=True, segmentation=True)
+    
+        alpha = 0.5
+
+        # Create a color map for each segment ID
+        unique_labels = np.unique(seg_arr)
+        color_map = {}
+        for label_id in unique_labels:
+            if label_id == -1:
+                color_map[label_id] = np.array((0, 0, 0), dtype=np.float32)  # Black for background
+            else:
+                color_map[label_id] = self.link_colors[label_id]
+
+        # Create an output image with highlighted segments
+        highlighted_image = np.zeros_like(rgb_arr, dtype=np.float32)
+        for label_id in unique_labels:
+            if label_id == -1:
+                mask = (seg_arr == label_id)
+                highlighted_image[mask] = rgb_arr[mask]
+                continue
+            mask = (seg_arr == label_id)
+            highlight_color = color_map[label_id]
+            # Blend the highlight color with the original image
+            highlighted_image[mask] = alpha * highlight_color + (1 - alpha) * rgb_arr[mask]
+
+        # Convert the highlighted image back to uint8
+        highlighted_image = np.clip(highlighted_image, 0, 255).astype(np.uint8)
+
+        # Draw borders between segments
+        for label_id in unique_labels:
+            if label_id == -1:
+                continue  # Skip background
+            mask = (seg_arr == label_id).astype(np.uint8) * 255
+            contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            border_color = 0.5 * (color_map[label_id])
+            cv2.drawContours(highlighted_image, contours, -1, border_color, 2)  # Draw borders
+
+        labelled_image = highlighted_image.copy()
+
+        # Place segment IDs on the image
+        for label_id in unique_labels:
+            if label_id == -1:
+                continue  # Skip background
+            mask = (seg_arr == label_id)
+            if np.any(mask):
+                # Calculate the centroid of the segment
+                centroid = center_of_mass(mask)
+                y, x = map(int, centroid)
+
+                # Ensure the centroid lies within the segment
+                if not mask[y, x]:
+                    # Find the closest pixel in the segment to the centroid
+                    y, x = np.argwhere(mask)[np.linalg.norm(np.argwhere(mask) - centroid, axis=1).argmin()]
+
+                # Add a black square under the number for better visibility
+                text = str(label_id)
+                font = cv2.FONT_HERSHEY_SIMPLEX
+                font_scale = 1.0
+                thickness = 2
+                text_size, _ = cv2.getTextSize(text, font, font_scale, thickness)
+                text_w, text_h = text_size
+
+                # Coordinates for the black square
+                square_top_left = (x - text_w // 2 - 2, y - text_h // 2 - 2)
+                square_bottom_right = (x + text_w // 2 + 2, y + text_h // 2 + 2)
+
+                # Draw the black square
+                cv2.rectangle(labelled_image, square_top_left, square_bottom_right, (0, 0, 0), -1)  # -1 fills the rectangle
+
+                # Put the segment ID as text on the image
+                cv2.putText(labelled_image, text, (x - text_w // 2, y + text_h // 2), font, font_scale, (255, 255, 255), thickness)
+
+        return rgb_arr, highlighted_image, labelled_image
+
+    def get_center(self):
+        AABB = self.entity.get_AABB()
+        return (AABB[1] + AABB[0]) / 2
+
+    def get_diameter(self):
+        AABB = self.entity.get_AABB()
+        return torch.norm(AABB[1] - AABB[0])
 
     def get_center_diameter(self):
-        AABB = self.entity.get_AABB()
-        diameter = 2 * (AABB[1] - AABB[0]).max().item()
-        # center = (AABB[1] + AABB[0]) / 2
-        center = torch.zeros(3)
-        return center, diameter
+        return self.get_center(), self.get_diameter()
 
     @property
     def links(self):
