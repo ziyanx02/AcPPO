@@ -55,6 +55,10 @@ env_cfg['gait']['stationary_position'] = cfg_pose['control']['stationary_positio
 env_cfg['observation']['num_obs'] = 9 + num_dof * 3 + num_feet
 env_cfg['observation']['num_priv_obs'] = 12 + num_dof * 4 + num_feet
 
+env_cfg['command']['lin_vel_x_range'] = [0., cfg_pose['control']['diameter']]
+env_cfg['command']['lin_vel_y_range'] = [0., 0.]
+env_cfg['command']['ang_vel_range'] = [0., 0.]
+
 cfg['reward_tuning'] = {
     'num_iterations': 3,
     'num_samples': 4,

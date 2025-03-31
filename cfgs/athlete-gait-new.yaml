@@ -278,14 +278,14 @@ environment:
   use_terrain: false
   command:
     lin_vel_x_range:
-    - 0
-    - 2.0
+    - 0.0
+    - 15.843284606933594
     lin_vel_y_range:
-    - 0
-    - 0
+    - 0.0
+    - 0.0
     ang_vel_range:
-    - 0
-    - 0
+    - 0.0
+    - 0.0
   gait:
     base_height_target: 1.71
     frequency:
