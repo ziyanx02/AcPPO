@@ -57,7 +57,7 @@ class GUIDisplay:
         idx = 0
         if self.control_body_height:
             self.labels.append("Body Height")
-            self.limits["Body Height"] = [0.0, 1.0]
+            self.limits["Body Height"] = [0.0, self.robot.diameter * 2]
             self.values.append(self.robot.body_pos[2].item())
             self.value_body_height_idx = idx
             idx += 1

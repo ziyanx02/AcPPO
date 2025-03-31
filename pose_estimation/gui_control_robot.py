@@ -13,6 +13,7 @@ args = parser.parse_args()
 cfg = yaml.safe_load(open(f"./cfgs/{args.robot}/basic.yaml"))
 if args.cfg is not None:
     cfg = yaml.safe_load(open(f"./cfgs/{args.robot}/{args.cfg}.yaml"))
+cfg['robot']['scale'] = cfg['control']['robot_scale']
 display = GUIDisplay(
     cfg=cfg,
     body_pos=False,

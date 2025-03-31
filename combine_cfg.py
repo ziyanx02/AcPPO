@@ -12,12 +12,6 @@ args = parser.parse_args()
 cfg_train = yaml.safe_load(open(f"./cfgs/{args.cfg_train}.yaml"))
 cfg_pose = yaml.safe_load(open(f"./pose_estimation/cfgs/{args.robot}/{args.cfg_pose}.yaml"))
 
-scale = cfg_pose['robot']['scale']
-cfg_pose['control']['robot_scale'] = cfg_pose['control']['robot_scale'] * scale
-cfg_pose['control']['base_init_pos'] = [x / scale for x in cfg_pose['control']['base_init_pos']]
-cfg_pose['control']['body_init_pos'] = [x / scale for x in cfg_pose['control']['body_init_pos']]
-cfg_pose["control"]["stationary_position"] = [[x[0] / scale, x[1] / scale] for x in cfg_pose["control"]["stationary_position"]]
-
 cfg = cfg_train
 env_cfg = cfg['environment']
 

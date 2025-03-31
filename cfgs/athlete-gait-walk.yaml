@@ -45,7 +45,7 @@ learning:
 environment:
   PPO: false
   urdf_path: urdf/T12/urdf/T12.urdf
-  robot_scale: 0.063118
+  robot_scale: 0.12624
   links_to_keep:
   - Foot1
   - Foot2
@@ -189,7 +189,7 @@ environment:
   base_init_pos:
   - 0.0
   - 0.0
-  - 2.25
+  - 1.9
   base_init_quat:
   - 1.0
   - 0.0
@@ -198,7 +198,7 @@ environment:
   body_init_pos:
   - 0.0
   - 0.0
-  - 2.25
+  - 1.9
   body_init_quat:
   - 1.0
   - 0.0
@@ -287,7 +287,7 @@ environment:
     - 0
     - 0
   gait:
-    base_height_target: 2.025
+    base_height_target: 1.71
     frequency:
     - 3.0
     - 3.0
@@ -310,25 +310,25 @@ environment:
     - 0.0
     - 0.5
     feet_height_target:
-    - 0.81
-    - 0.81
-    - 0.81
-    - 0.81
-    - 0.81
-    - 0.81
+    - 0.684
+    - 0.684
+    - 0.684
+    - 0.684
+    - 0.684
+    - 0.684
     stationary_position:
-    - - 3.0801
-      - 1.7499999999999998
-    - - 0.00375
+    - - 3.08011
+      - 1.77
+    - - 0.00377
       - 3.55
-    - - -3.0763
-      - 1.7999999999999998
-    - - -3.0801
-      - -1.7499999999999998
-    - - -0.0038
+    - - -3.07631
+      - 1.78
+    - - -3.08011
+      - -1.77
+    - - -0.00378
       - -3.55
     - - 3.0763
-      - -1.7999999999999998
+      - -1.78
   observation:
     num_obs: 123
     num_priv_obs: 162

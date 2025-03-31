@@ -24,7 +24,8 @@ def save(display):
     dof_pos = display.robot.target_dof_pos.tolist()
     cfg["control"]["default_joint_angles"] = {display.robot.dof_name[i] : round(dof, 5) for i, dof in enumerate(dof_pos)}
     cfg["control"]["diameter"] = display.robot.diameter
-    cfg["control"]["robot_scale"] = round(1 / display.robot.diameter, 5)
+    cfg["control"]["mass"] = display.robot.mass
+    cfg["control"]["robot_scale"] = round(2 / display.robot.diameter, 5)
 
     foot_pos = display.robot.foot_pos
     foot_pos_list = []

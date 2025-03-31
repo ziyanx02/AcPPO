@@ -673,3 +673,7 @@ class Robot:
     @property
     def foot_quat(self):
         return self.links_quat[[link.idx_local for link in self.foot_links],]
+    
+    @property
+    def mass(self):
+        return self.entity.get_mass()
