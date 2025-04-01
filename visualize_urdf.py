@@ -42,5 +42,11 @@ robot = scene.add_entity(
 scene.build()
 
 
+link_names = [link.name for link in robot.links]
+joint_names = [joint.name for joint in robot.joints]
+
+print(f'Links : {link_names}')
+print(f'Joints: {joint_names}')
+
 while True:
     scene.step()

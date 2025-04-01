@@ -32,8 +32,13 @@ env_cfg['termination_contact_link_names'] = terminate.copy()
 env_cfg['penalized_contact_link_names'] = terminate.copy()
 env_cfg['feet_link_names'] = cfg_pose['robot']['foot_names']
 env_cfg['base_link_name'] = [cfg_pose['robot']['body_name']]
-env_cfg['PD_stiffness'] = {'': cfg_pose['control']['kp']}
-env_cfg['PD_damping'] = {'': cfg_pose['control']['kd']}
+
+if type(cfg_pose['control']['kp']) != dict :
+    cfg_pose['control']['kp'] = {'': cfg_pose['control']['kp']}
+env_cfg['PD_stiffness'] = cfg_pose['control']['kp']
+if type(cfg_pose['control']['kd']) != dict :
+    cfg_pose['control']['kd'] = {'': cfg_pose['control']['kd']}
+env_cfg['PD_damping'] = cfg_pose['control']['kd']
 env_cfg['armature'] = cfg_pose['control']['armature']
 env_cfg['dof_damping'] = cfg_pose['control']['damping'] 
 env_cfg['dof_names'] = list(cfg_pose['control']['default_joint_angles'].keys())

@@ -379,8 +379,8 @@ class LocoEnv:
                 if key in dof_name:
                     self.p_gains.append(stiffness[key])
                     self.d_gains.append(damping[key])
-        self.p_gains = torch.tensor(self.p_gains, device=self.device)
-        self.d_gains = torch.tensor(self.d_gains, device=self.device)
+        self.p_gains = torch.tensor(self.p_gains, device=self.device, dtype=gs.tc_float)
+        self.d_gains = torch.tensor(self.d_gains, device=self.device, dtype=gs.tc_float)
         self.batched_p_gains = self.p_gains[None, :].repeat(self.num_envs, 1)
         self.batched_d_gains = self.d_gains[None, :].repeat(self.num_envs, 1)
 
@@ -425,7 +425,7 @@ class LocoEnv:
 
         # body
         self.body_link_index = find_link_indices(self.env_cfg['base_link_name'], accurate=True)
-        if self.body_link_index != 0:
+        if self.body_link_index[0] != 0:
             self.body_init_pos = torch.tensor(
                 self.env_cfg['body_init_pos'], device=self.device
             )

@@ -1,0 +1,102 @@
+robot:
+  asset_path: urdf/g1/g1_12dof.urdf
+  scale: 1.0
+  body_name: pelvis
+  foot_names:
+  - right_ankle_roll_link
+  links_to_keep:
+  - right_ankle_roll_link
+  link_names:
+  - pelvis
+  - left_hip_pitch_link
+  - right_hip_pitch_link
+  - left_hip_roll_link
+  - right_hip_roll_link
+  - left_hip_yaw_link
+  - right_hip_yaw_link
+  - left_knee_link
+  - right_knee_link
+  - left_ankle_pitch_link
+  - right_ankle_pitch_link
+  - left_ankle_roll_link
+  - right_ankle_roll_link
+control:
+  control_freq: 50
+  dof_names:
+  - left_hip_pitch_joint
+  - left_hip_roll_joint
+  - left_hip_yaw_joint
+  - left_knee_joint
+  - left_ankle_pitch_joint
+  - left_ankle_roll_joint
+  - right_hip_pitch_joint
+  - right_hip_roll_joint
+  - right_hip_yaw_joint
+  - right_knee_joint
+  - right_ankle_pitch_joint
+  - right_ankle_roll_joint
+  kp:
+    left_hip_pitch_joint: 100
+    left_hip_roll_joint: 100
+    left_hip_yaw_joint: 100
+    left_knee_joint: 200
+    left_ankle_pitch_joint: 20
+    left_ankle_roll_joint: 20
+    right_hip_pitch_joint: 100
+    right_hip_roll_joint: 100
+    right_hip_yaw_joint: 100
+    right_knee_joint: 200
+    right_ankle_pitch_joint: 20
+    right_ankle_roll_joint: 20
+  kd:
+    left_hip_pitch_joint: 5.0
+    left_hip_roll_joint: 5.0
+    left_hip_yaw_joint: 5.0
+    left_knee_joint: 5.0
+    left_ankle_pitch_joint: 0.2
+    left_ankle_roll_joint: 0.1
+    right_hip_pitch_joint: 5.0
+    right_hip_roll_joint: 5.0
+    right_hip_yaw_joint: 5.0
+    right_knee_joint: 5.0
+    right_ankle_pitch_joint: 0.2
+    right_ankle_roll_joint: 0.1
+  armature: 0.0
+  damping: 0.0
+  base_init_pos:
+  - 0.0
+  - 0.0
+  - 0.82
+  base_init_quat:
+  - 0.98427
+  - 0.17665
+  - -0.0
+  - -0.0
+  body_init_pos:
+  - 0.0
+  - 0.0
+  - 0.82
+  body_init_quat:
+  - 0.98427
+  - 0.17665
+  - -0.0
+  - -0.0
+  default_joint_angles:
+    left_hip_pitch_joint: -1.0
+    right_hip_pitch_joint: -0.45129
+    left_hip_roll_joint: -0.17453
+    right_hip_roll_joint: -0.33605
+    left_hip_yaw_joint: 0.0
+    right_hip_yaw_joint: 0.0
+    left_knee_joint: 2.33731
+    right_knee_joint: 0.99771
+    left_ankle_pitch_joint: 0.00781
+    right_ankle_pitch_joint: -0.45066
+    left_ankle_roll_joint: 0.0
+    right_ankle_roll_joint: 0.0
+  diameter: 2.5582122802734375
+  mass: 34.13385727999999
+  robot_scale: 0.7818
+  stationary_position:
+  - - -0.0253
+    - -0.01
