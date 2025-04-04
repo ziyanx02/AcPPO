@@ -692,6 +692,14 @@ class LocoEnv:
             > 1.0,
             dim=1,
         )
+        self.terminate_buf |= torch.any(
+            torch.norm(
+                self.link_contact_forces[:, self.penalized_contact_link_indices, :],
+                dim=-1,
+            )
+            > 1.0,
+            dim=1,
+        ) & (self.episode_length_buf > 2.0 / self.dt)
         self.terminate_buf |= torch.logical_or(
             torch.abs(self.base_euler[:, 1])
             > self.env_cfg['termination_if_pitch_greater_than'],
@@ -1033,18 +1041,25 @@ class LocoEnv:
         '''
         self.scene.clear_debug_objects()
 
-        foot_poss = self.foot_positions[0].reshape(-1, 3)
-        # self.scene.draw_debug_spheres(poss=foot_poss, radius=0.03, color=(1, 0, 0, 0.7))
-
-        # foot_poss = foot_poss.cpu()
-        # self.scene.draw_debug_line(foot_poss[0], foot_poss[3], radius=0.002, color=(1, 0, 0, 0.7))
-        # self.scene.draw_debug_line(foot_poss[1], foot_poss[2], radius=0.002, color=(1, 0, 0, 0.7))
-
         com = self.com[0]
-        # self.scene.draw_debug_sphere(pos=com, radius=0.1, color=(0, 0, 1, 0.7))
 
         com[2] = 0.02 + self.terrain_heights[0]
         self.scene.draw_debug_sphere(pos=com, radius=0.02, color=(0, 0, 1, 0.7))
+
+        quat_yaw = gs_quat_from_angle_axis(self.body_euler[:, 2],
+                                               torch.tensor([0, 0, 1], device=self.device, dtype=torch.float))
+        body_quat_rel = gs_quat_mul(self.body_quat, gs_inv_quat(self.body_init_quat.reshape(1, -1).repeat(self.num_envs, 1)))
+        body_lin_vel = gs_transform_by_quat(self.body_lin_vel, quat_yaw)
+        body_ang_vel = gs_transform_by_quat(self.body_ang_vel, quat_yaw)
+        transform_gravity = gs.transform_by_quat(self.global_gravity, body_quat_rel[0])
+
+        self.scene.draw_debug_arrow(pos=self.body_pos[0].cpu(), vec=body_lin_vel[0].cpu(), radius=0.01, color=(1.0, 0.0, 0.0, 0.7))
+        self.scene.draw_debug_arrow(pos=self.body_pos[0].cpu(), vec=body_ang_vel[0].cpu(), radius=0.01, color=(0.0, 1.0, 0.0, 0.7))
+        self.scene.draw_debug_arrow(pos=self.body_pos[0].cpu(), vec=transform_gravity.cpu(), radius=0.01, color=(0.0, 0.0, 1.0, 0.7))
+
+        cmd_lin_vel = torch.cat([self.commands[0][:2], torch.tensor([0.0], device=self.device)], dim=-1)
+        desired_body_lin_vel = gs_transform_by_quat(cmd_lin_vel, quat_yaw[0])
+        self.scene.draw_debug_arrow(pos=self.body_pos[0].cpu(), vec=desired_body_lin_vel.cpu(), radius=0.01, color=(0.7, 0, 0, 0.7))
 
     def _set_camera(self):
         ''' Set camera position and direction

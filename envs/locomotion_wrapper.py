@@ -177,7 +177,7 @@ class GaitEnv(LocoEnv):
         desired_feet_pos[:, :, :2] += self.body_pos.unsqueeze(1)[:, :, :2]
 
         self.scene.draw_debug_sphere(pos=self.body_pos[0], radius=0.1, color=(0, 1, 0, 0.7))
-        self.scene.draw_debug_sphere(pos=self.ref_body_pos, radius=0.1, color=(0, 0, 1, 0.7))
+        # self.scene.draw_debug_sphere(pos=self.ref_body_pos, radius=0.1, color=(0, 0, 1, 0.7))
         for i in range(num_feet):
             self.scene.draw_debug_sphere(pos=feet_pos[0, i, :], radius=0.05, color=(0, 1, 0, 0.7))
             self.scene.draw_debug_sphere(pos=desired_feet_pos[0, i, :], radius=0.05, color=(1, 1 - self.desired_contact_states[0, i].cpu(), 0, 0.7))
