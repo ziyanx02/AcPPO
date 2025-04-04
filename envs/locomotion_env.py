@@ -697,7 +697,7 @@ class LocoEnv:
             > self.env_cfg['termination_if_pitch_greater_than'],
             torch.abs(self.base_euler[:, 0])
             > self.env_cfg['termination_if_roll_greater_than'],
-        )
+        ) & (self.episode_length_buf > 1.0 / self.dt)
         
         if self.debug and self.terminate_buf.any():
             contact = torch.any(torch.norm(self.link_contact_forces[:, self.termination_contact_link_indices, :], dim=-1,)> 1.0,dim=1,)
