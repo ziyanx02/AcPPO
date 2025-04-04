@@ -1,0 +1,85 @@
+robot:
+  name: go2
+  asset_path: urdf/go2/urdf/go2.urdf
+  scale: 1.0
+  body_name: base
+  foot_names:
+  - FL_foot
+  - FR_foot
+  links_to_keep:
+  - FL_foot
+  - FR_foot
+  link_names:
+  - base
+  - FL_hip
+  - FR_hip
+  - RL_hip
+  - RR_hip
+  - FL_thigh
+  - FR_thigh
+  - RL_thigh
+  - RR_thigh
+  - FL_calf
+  - FR_calf
+  - RL_calf
+  - RR_calf
+  - FL_foot
+  - FR_foot
+control:
+  control_freq: 50
+  dof_names:
+  - FR_hip_joint
+  - FR_thigh_joint
+  - FR_calf_joint
+  - FL_hip_joint
+  - FL_thigh_joint
+  - FL_calf_joint
+  - RR_hip_joint
+  - RR_thigh_joint
+  - RR_calf_joint
+  - RL_hip_joint
+  - RL_thigh_joint
+  - RL_calf_joint
+  kp: 30.0
+  kd: 2.0
+  armature: 0.0
+  damping: 0.0
+  body_init_pos:
+  - 0.0
+  - 0.0
+  - 0.50668
+  body_init_quat:
+  - -0.92124
+  - -0.0
+  - -0.38901
+  - -0.0
+  default_joint_angles:
+    FL_hip_joint: 0.05339
+    FR_hip_joint: -0.05339
+    RL_hip_joint: 0.06433
+    RR_hip_joint: -0.06433
+    FL_thigh_joint: 0.52498
+    FR_thigh_joint: 0.52498
+    RL_thigh_joint: 0.63098
+    RR_thigh_joint: 0.63098
+    FL_calf_joint: -1.37907
+    FR_calf_joint: -1.37908
+    RL_calf_joint: -1.61295
+    RR_calf_joint: -1.61296
+  diameter: 1.2640368938446045
+  mass: 15.019
+  robot_scale: 1.58223
+  stationary_position:
+  - - -0.05599
+    - 0.16
+  - - -0.05599
+    - -0.16
+  base_init_pos:
+  - 0.0
+  - 0.0
+  - 0.50668
+  base_init_quat:
+  - -0.92124
+  - -0.0
+  - -0.38901
+  - -0.0
