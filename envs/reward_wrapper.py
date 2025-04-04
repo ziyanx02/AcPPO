@@ -50,6 +50,10 @@ class RewardWrapper:
 
     # Regularization terms
 
+    def _reward_collision(self):
+        # Penalize collisions on selected bodies
+        return torch.sum(torch.norm(self.link_contact_forces[:, self.penalized_contact_link_indices, :], dim=-1,) > 0.1, dim=1)
+
     def _reward_lin_vel_z(self):
         # Penalize z axis base linear velocity
         return torch.square(self.body_lin_vel[:, 2])

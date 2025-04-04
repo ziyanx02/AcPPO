@@ -307,6 +307,14 @@ class RewardWrapper:
     # Regularization terms
     # These rewards penalize undesirable behaviors to encourage smooth, stable, and efficient locomotion.
 
+    def _reward_collision(self):
+        """
+        Penalty for undesired collisions on specific body links.
+        - Penalizes contact forces on links that shouldn't touch the ground in stable poses.
+        - Especially important when intermediate poses might involve brief contact—this reward discourages such transient but undesirable behaviors.
+        """
+        return torch.sum(torch.norm(self.link_contact_forces[:, self.penalized_contact_link_indices, :], dim=-1,) > 0.1, dim=1)
+
     def _reward_lin_vel_z(self):
         """
         Penalty for body linear velocity in the z-axis.
@@ -413,6 +421,7 @@ reward_scales:
     action_smoothness_1: -0.1
     action_smoothness_2: -0.1
     torques: -0.0001
+    collision: -1.0
 '''
 
 
