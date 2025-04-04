@@ -9,8 +9,8 @@ from utils import *
 def quaternion_from_projected_gravity(gravity):
     """
     Compute the minimum quaternion to rotate v1 to v2 for batched tensors.
-    v1: Fixed vector (0, 0, -1), shape (3,)
-    v2: Target batched vectors, shape (N, 3)
+    v1: Target batched vectors, shape (N, 3)
+    v2: Fixed vector (0, 0, -1), shape (3,)
     Returns: Quaternions of shape (N, 4) (w, x, y, z)
     """
     # Normalize gravity vectors
@@ -86,6 +86,8 @@ class LocoEnv:
             self.env_cfg['command']['lin_vel_x_range'] = [x * self.scale for x in self.env_cfg['command']['lin_vel_x_range']]
             self.env_cfg['command']['lin_vel_y_range'] = [x * self.scale for x in self.env_cfg['command']['lin_vel_y_range']]
             self.env_cfg['base_init_pos'] = [x * self.scale for x in self.env_cfg['base_init_pos']]
+            if 'base_reset_pos' in self.env_cfg.keys():
+                self.env_cfg['base_reset_pos'] = [x * self.scale for x in self.env_cfg['base_reset_pos']]
             for key in self.env_cfg['PD_stiffness'].keys():
                 self.env_cfg['PD_stiffness'][key] *= self.scale
             for key in self.env_cfg['PD_damping'].keys():
@@ -350,6 +352,16 @@ class LocoEnv:
             (self.num_envs, self.robot.n_links, 3), device=self.device, dtype=gs.tc_float
         )
 
+        self.base_reset_pos = torch.tensor(
+            self.env_cfg.get('base_reset_pos', self.env_cfg['base_init_pos']), device=self.device
+        )
+        self.base_reset_quat = torch.tensor(
+            self.env_cfg.get('base_reset_quat', self.env_cfg['base_init_quat']), device=self.device
+        )
+        self.projected_gravity_reset = gs_transform_by_quat(
+            self.global_gravity, gs_inv_quat(gs_quat_mul(self.base_reset_quat, gs_inv_quat(self.base_init_quat)))
+        )
+
         # extras
         self.continuous_push = torch.zeros(
             (self.num_envs, 3), device=self.device, dtype=gs.tc_float
@@ -390,6 +402,11 @@ class LocoEnv:
         default_joint_angles = self.env_cfg['default_joint_angles']
         self.default_dof_pos = torch.tensor(
             [default_joint_angles[name] for name in self.env_cfg['dof_names']],
+            device=self.device,
+        )
+        reset_joint_angles = self.env_cfg.get('reset_joint_angles', self.env_cfg['default_joint_angles'])
+        self.reset_dof_pos = torch.tensor(
+            [reset_joint_angles[name] for name in self.env_cfg['dof_names']],
             device=self.device,
         )
 
@@ -467,9 +484,8 @@ class LocoEnv:
     def _prepare_temporal_distribution(self):
         init_state_mean = torch.cat(
             [
-                self.base_init_pos[2:],
-                torch.zeros((2,), device=self.device, dtype=gs.tc_float),
-                -torch.ones((1,), device=self.device, dtype=gs.tc_float),
+                self.base_reset_pos[2:],
+                self.projected_gravity_reset,
                 torch.zeros((3,), device=self.device, dtype=gs.tc_float),
                 torch.zeros((3,), device=self.device, dtype=gs.tc_float),
                 self.default_dof_pos,
@@ -629,11 +645,10 @@ class LocoEnv:
         inv_quat_yaw = gs_quat_from_angle_axis(-self.base_euler[:, 2],
                                                torch.tensor([0, 0, 1], device=self.device, dtype=torch.float))
 
-        inv_base_quat = gs_inv_quat(self.base_quat)
         self.base_lin_vel[:] = gs_transform_by_quat(self.robot.get_vel(), inv_quat_yaw)
-        self.base_ang_vel[:] = gs_transform_by_quat(self.robot.get_ang(), inv_base_quat)
+        self.base_ang_vel[:] = gs_transform_by_quat(self.robot.get_ang(), inv_quat_yaw)
         self.projected_gravity = gs_transform_by_quat(
-            self.global_gravity, inv_base_quat
+            self.global_gravity, gs_inv_quat(base_quat_rel)
         )
 
         # Same as base
@@ -645,11 +660,10 @@ class LocoEnv:
         inv_quat_yaw = gs_quat_from_angle_axis(-self.body_euler[:, 2],
                                                torch.tensor([0, 0, 1], device=self.device, dtype=torch.float))
 
-        inv_body_quat = gs_inv_quat(self.body_quat)
         self.body_lin_vel[:] = gs_transform_by_quat(self.robot.get_links_vel()[:, self.body_link_index].squeeze(1), inv_quat_yaw)
-        self.body_ang_vel[:] = gs_transform_by_quat(self.robot.get_links_ang()[:, self.body_link_index].squeeze(1), inv_body_quat)
+        self.body_ang_vel[:] = gs_transform_by_quat(self.robot.get_links_ang()[:, self.body_link_index].squeeze(1), inv_quat_yaw)
         self.body_projected_gravity = gs_transform_by_quat(
-            self.global_gravity, inv_body_quat
+            self.global_gravity, gs_inv_quat(body_quat_rel)
         )
         
         self.dof_pos[:] = self.robot.get_dofs_position(self.motor_dofs)
@@ -713,6 +727,18 @@ class LocoEnv:
         self.reset_buf = torch.logical_or(self.terminate_buf, self.time_out_buf)
 
     def compute_state(self):
+        '''
+        State for restoring and observations: 
+        - height # 1
+        - projected_gravity # 3
+            apply the reverse rotation to vector of global gravity to obtain projected gravity (i.e. gravity vector in robot local frame)
+        - base_lin_vel # 3 
+            apply yaw rotation to the global lin_vel of base link, i.e. only transform at heading direction
+        - base_ang_vel # 3 
+            apply yaw rotation to the global ang_vel of base link, i.e. only transform at heading direction
+        - dof_pos # num_dof
+        - dof_vel # num_dof
+        '''
         self.state_buf = torch.cat(
             [
                 self.base_pos[:, 2:],
