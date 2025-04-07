@@ -1,5 +1,5 @@
 robot:
-  asset_path: urdf/g1/g1_12dof.urdf
+  asset_path: urdf/g1/g1_12dof_full.urdf
   scale: 1.0
   body_name: pelvis
   foot_names:

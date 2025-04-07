@@ -40,7 +40,7 @@ class GUI:
         
         # Set window height to content height (capped at 90% of screen height)
         window_height = min(content_height, int(screen_height * 0.9))
-        self.root.geometry(f"700x{window_height}")  # Fixed width, dynamic height
+        self.root.geometry(f"1000x{window_height}")  # Fixed width, dynamic height
         self.root.resizable(False, False)  # Disable window resizing
 
     def create_scrollable_area(self):
