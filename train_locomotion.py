@@ -25,10 +25,16 @@ def main(args):
 
     # load cfgs
     log_dir = f'logs/{args.exp_name}'
-    with open(f'./cfgs/{args.cfg}', 'r') as file:
-        cfg = yaml.safe_load(file)
-    train_cfg = cfg['learning']
-    env_cfg = cfg['environment']
+
+    if args.resume_cfg != None:
+        env_cfg, train_cfg = pickle.load(
+            open(f'logs/{args.resume_cfg}/cfgs.pkl', 'rb')
+        )
+    else:
+        with open(f'./cfgs/{args.cfg}', 'r') as file:
+            cfg = yaml.safe_load(file)
+        train_cfg = cfg['learning']
+        env_cfg = cfg['environment']
 
     if args.debug:
         train_cfg['record_interval'] = -1
@@ -94,6 +100,7 @@ if __name__ == '__main__':
     parser.add_argument('--eval', action='store_true', default=False)
     parser.add_argument('--debug', action='store_true', default=False)
     parser.add_argument('--ckpt', type=int, default=999)
+    parser.add_argument('--resume_cfg', type=str, help='resume cfg from pkl only', default=None)
     args = parser.parse_args()
 
     if args.exp_name == None:
