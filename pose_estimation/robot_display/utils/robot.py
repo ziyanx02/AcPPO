@@ -83,7 +83,7 @@ class Robot:
         self.camera = self.scene.add_camera(
             pos=np.array([1, 0, 0]),
             lookat=np.array([0, 0, 0]),
-            res=(1280, 1280),
+            res=(1024, 1024),
             fov=getattr(vis_options, "fov", 40),
             GUI=False,
         )
@@ -364,6 +364,21 @@ class Robot:
             vector = torch.tensor([0.0, 0.0, 1.0]) * self.diameter * length_frac
             self.scene.draw_debug_arrow(center, vector, radius=self.diameter / width_frac, color=(0.0, 0.0, 1.0, 1.0))
 
+    def visualize_link_frame(self, center, x=True, y=True, z=True):
+
+        length_frac = 0.8
+        width_frac = 70
+
+        if x:
+            vector = torch.tensor([1.0, 0.0, 0.0]) * self.diameter * length_frac
+            self.scene.draw_debug_arrow(center, vector, radius=self.diameter / width_frac, color=(1.0, 0.0, 0.0, 1.0))
+        if y:
+            vector = torch.tensor([0.0, 1.0, 0.0]) * self.diameter * length_frac
+            self.scene.draw_debug_arrow(center, vector, radius=self.diameter / width_frac, color=(0.0, 1.0, 0.0, 1.0))
+        if z:
+            vector = torch.tensor([0.0, 0.0, 1.0]) * self.diameter * length_frac
+            self.scene.draw_debug_arrow(center, vector, radius=self.diameter / width_frac, color=(0.0, 0.0, 1.0, 1.0))
+
     def _visualize_skeleton(self):
 
         if time.time() - self.last_visualize_time < self.visualize_interval:
@@ -546,6 +561,39 @@ class Robot:
             self.set_dofs_position(dof_pos[dof_idx], dof_idx)
             return True
 
+    def set_link_pos(self, link_id, pos):
+        links = [self.body_link, self.links[link_id]]
+        poss = [self.target_body_pos, pos]
+        quats = [self.target_body_quat, None]
+        # quats = [None, quat]
+        qpos, error = self.entity.inverse_kinematics_multilink(
+            links=links,
+            poss=poss,
+            quats=quats,
+            return_error=True,
+            max_solver_iters=200,
+        )
+        dof_pos = qpos[self.dof_idx_qpos]
+        dof_idx = self.get_dofs_between_links(self.body_link.idx_local, link_id)
+        self.set_dofs_position(dof_pos[dof_idx], dof_idx)
+
+    def try_set_link_pose(self, link_id, pos, quat=None):
+        links = [self.body_link, self.links[link_id]]
+        poss = [self.target_body_pos, pos]
+        quats = [self.target_body_quat, quat]
+        # quats = [None, quat]
+        qpos, error = self.entity.inverse_kinematics_multilink(
+            links=links,
+            poss=poss,
+            quats=quats,
+            return_error=True,
+            max_solver_iters=200,
+        )
+        if error.abs().max() > 0.01:
+            return False
+        else:
+            return True
+
     def set_dofs_armature(self, armature):
         if not isinstance(armature, dict):
             dofs_armature = [armature] * self.num_dofs
@@ -608,19 +656,21 @@ class Robot:
             pos=pos,
             lookat=self.camera_lookat,
         )
-        if self.show_viewer:
-            self.scene.viewer.set_camera_pose(
-                pos=pos,
-                lookat=self.camera_lookat,
-            )
+        # if self.show_viewer:
+        #     self.scene.viewer.set_camera_pose(
+        #         pos=pos,
+        #         lookat=self.camera_lookat,
+        #     )
 
-    def render(self):
+    def render(self, link_ids=None):
         rgb_arr, depth_arr, seg_arr, normal_arr = self.camera.render(rgb=True, segmentation=True)
     
         alpha = 0.5
 
         # Create a color map for each segment ID
         unique_labels = np.unique(seg_arr)
+        if link_ids is not None:
+            unique_labels = unique_labels[np.isin(unique_labels, link_ids)]
         color_map = {}
         for label_id in unique_labels:
             if label_id == -1:
@@ -687,7 +737,7 @@ class Robot:
                 # Put the segment ID as text on the image
                 cv2.putText(labelled_image, text, (x - text_w // 2, y + text_h // 2), font, font_scale, (255, 255, 255), thickness)
 
-        return rgb_arr, highlighted_image, labelled_image
+        return rgb_arr, seg_arr, labelled_image, unique_labels[unique_labels != -1]
 
     def get_center(self):
         AABB = self.entity.get_AABB()

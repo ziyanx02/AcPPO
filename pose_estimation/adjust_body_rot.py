@@ -3,139 +3,85 @@ import yaml
 import argparse
 import threading
 
-import torch
+import numpy as np
 import cv2
+from scipy.ndimage import label, center_of_mass
+import matplotlib.pyplot as plt
+import pickle
+
 from robot_display.display import Display
 from api.azure_openai import complete, local_image_to_data_url
 
-def normalize(x, eps: float = 1e-9):
-    return x / x.norm(p=2, dim=-1).clamp(min=eps, max=None).unsqueeze(-1)
-
-def quat_from_angle_axis(angle, axis):
-    theta = (angle / 2).unsqueeze(-1)
-    xyz = normalize(axis) * theta.sin()
-    w = theta.cos()
-    return normalize(torch.cat([w, xyz], dim=-1))
-
-def quat_mul(a, b):
-    assert a.shape == b.shape
-    shape = a.shape
-    a = a.reshape(-1, 4)
-    b = b.reshape(-1, 4)
-
-    w1, x1, y1, z1 = a[:, 0], a[:, 1], a[:, 2], a[:, 3]
-    w2, x2, y2, z2 = b[:, 0], b[:, 1], b[:, 2], b[:, 3]
-    ww = (z1 + x1) * (x2 + y2)
-    yy = (w1 - y1) * (w2 + z2)
-    zz = (w1 + y1) * (w2 - z2)
-    xx = ww + yy + zz
-    qq = 0.5 * (xx + (z1 - x1) * (x2 - y2))
-    w = qq - ww + (z1 - y1) * (y2 - z2)
-    x = qq - xx + (x1 + w1) * (x2 + w2)
-    y = qq - yy + (w1 - x1) * (y2 + z2)
-    z = qq - zz + (z1 + y1) * (w2 - x2)
-
-    quat = torch.stack([w, x, y, z], dim=-1).view(shape)
-
-    return quat
-
 parser = argparse.ArgumentParser()
-parser.add_argument('-r', '--robot', type=str, default='go2')
+parser.add_argument('-r', '--robot', type=str, default='leap_hand')
 parser.add_argument('-n', '--name', type=str, default='default')
 parser.add_argument('-c', '--cfg', type=str, default=None)
+parser.add_argument('--txt', type=str, default="walk palm parallel to xy-plane")
 args = parser.parse_args()
 
-cfg = yaml.safe_load(open(f"./cfgs/{args.robot}/{args.name}_body_name.yaml"))
+cfg = yaml.safe_load(open(f"./cfgs/{args.robot}/basic.yaml"))
 if args.cfg is not None:
     cfg = yaml.safe_load(open(f"./cfgs/{args.robot}/{args.cfg}.yaml"))
 
-def save(display):
-    cfg["robot"]["default_body_quat"] = [round(val, 4) for val in display.robot.target_body_quat.tolist()]
-    yaml.safe_dump(cfg, open(f"./cfgs/{args.robot}/{args.name}_body_rot.yaml", "w"))
-    print("Save to", f"./cfgs/{args.robot}/{args.name}_body_rot.yaml")
+from agent import Agent
 
-class VisOptions:
-    def __init__(self):
-        self.visualize_skeleton = True
-        self.visualize_robot_frame = True
-        self.visualize_target_foot_pos = False
-        self.merge_fixed_links = True
-        self.show_world_frame = False
-        self.shadow = False
-        self.background_color = (0.8, 0.8, 0.8)
-        self.show_viewer = False
+agent = Agent(f"./cfgs/{args.robot}/basic.yaml")
 
-display = Display(
-    cfg=cfg,
-    vis_options=VisOptions(),
-)
+body_link_id = 1
 
-log_dir = f"./cfgs/{args.robot}/body_rot"
-os.makedirs(log_dir, exist_ok=True)
+task = args.txt
 
-use_robot = True
-use_skeleton = True
-solved = False
+def rotate_robot(agent, axis, angle):
+    if axis == "x":
+        agent.rotate_along_x(angle)
+    if axis == "y":
+        agent.rotate_along_y(angle)
+    if axis == "z":
+        agent.rotate_along_z(angle)
 
-axis_to_index = {
-    "x": torch.tensor([1.0, 0.0, 0.0]),
-    "y": torch.tensor([0.0, 1.0, 0.0]),
-    "z": torch.tensor([0.0, 0.0, 1.0]),
-}
+agent.set_body_link(body_link_id)
+agent.update()
 
-while not solved:
+agent.render()
+agent.render_from_xyz()
 
-    display.step_target()
-    display.step_vis()
-    axes = ["x", "y", "z", "-x", "-y", "-z"]
-    views = {
-        "x": "front",
-        "y": "left",
-        "z": "top",
-        "-x": "back",
-        "-y": "right",
-        "-z": "bottom",
-    }
-    robot, _, _, skeleton = display.render(rgb=True, depth=False, segmentation=True)
-    for i in range(len(robot)):
-        image = robot[i].copy()[:, :, ::-1]
-        cv2.imwrite(os.path.join(log_dir, f"robot_{axes[i]}_prev.png"), image)
-        image = skeleton[i].copy()[:, :, ::-1]
-        cv2.imwrite(os.path.join(log_dir, f"skeleton_{axes[i]}_prev.png"), image)
+for _ in range(3):
 
-    requirement = "walk with index and middle fingers like a human."
+    # prompt = f"""
+    # Your task now is to rotate the robot to complete the task: {task}
+
+    # All robot links are movable except link {body_link_id}. So your task is actually consider the rotation of link {body_link_id}.
+
+    # Determine:
+    # - whether further rotation is needed
+    # - if yes, which axis should the robot rotate along now and the degree
+
+    # The blue arrow is z axis (upward). The red arrow is x axis (forwward). The gree arrow is y axis (leftward).
+
+    # Here are images from multiple perspectives.
+    # """
 
     prompt = f"""
-    The robot is displayed with world frame rendered.
-    The red arrow is x-axis or forward.
-    The green arrow is y-axis or leftward.
-    The blue arrow is z-axis or upward.
+    Your task now is to rotate the robot to complete the task: {task}
 
-    If images of skeleton are provided, cyan represents the legs and orange represents the base (which link should stay stable while walking) of the robot.
-
-    The description of the target way of walking is:
-    {requirement}
-
-    You are going to adjust robot's orientation to make the it suitable for a pose that could start walking after adjusting the joint positions.
+    All robot links are movable except link {body_link_id}. So your task is actually consider the rotation of link {body_link_id}.
 
     Determine:
-    - Whether the current orientation is good enough.
-    - If not, how to rotate the robot.
+    - whether further rotation is needed
+    - if yes, which axis should the robot rotate along now and the degree
 
-    In your reply, you should contain 1. whether the rotation is good enough and 2. if not, the first step of rotate the robot to a better pose.
-    The reply should be in the following format:
-    Example 1:
-    Yes
+    At the end of your reply, you should contain your answer as:
+    Example1:
+    Answer:
+    no
 
-    Example 2:
-    No
-    y 90
+    Example2:
+    Answer:
+    yes
+    y
 
-    Example 3:
-    No
-    x -180
+    The blue arrow is z axis (upward). The red arrow is x axis (forwward). The gree arrow is y axis (leftward).
 
-    Here are images from multiple perspectives.
     """
 
     messages = [
@@ -143,64 +89,164 @@ while not solved:
         {"role": "user", "content": prompt},
     ]
 
-    if use_robot:
-        for axis in axes:
-            image_path = os.path.join(log_dir, f"robot_{axis}_prev.png")
-            messages.append(
-                {
-                    "role": "user",
-                    "content": [
-                                {"type": "text", "text": f"The picture is taken from {views[axis]} of the robot."},
-                                {
-                                    "type": "image_url",
-                                    "image_url": {"url": local_image_to_data_url(image_path)},
-                                },
-                            ],
-                }
-            )
-
-    if use_skeleton:
-        for axis in axes:
-            image_path = os.path.join(log_dir, f"skeleton_{axis}_prev.png")
-            messages.append(
-                {
-                    "role": "user",
-                    "content": [
-                                {"type": "text", "text": f"The picture is taken from {views[axis]} of the skeleton."},
-                                {
-                                    "type": "image_url",
-                                    "image_url": {"url": local_image_to_data_url(image_path)},
-                                },
-                            ],
-                }
-            )
+    for axis in ["x", "y", "z"]:
+        image_path = f"./label_{axis}.png"
+        messages.append(
+            {
+                "role": "user",
+                "content": [
+                            {"type": "text", "text": f"The picture is taken from {axis} axis of the robot, along -{axis} axis."},
+                            {
+                                "type": "image_url",
+                                "image_url": {"url": local_image_to_data_url(image_path)},
+                            },
+                        ],
+            }
+        )
 
     response = complete(messages)
     print(response)
-
-    # Split the string into lines
-    lines = response.strip().split('\n')
-
-    if "yes" in lines[0]:
+    response = response.split("Answer:")[1]
+    lines = response.split("\n")
+    no_further_rotation = False
+    axis = "y"
+    for line in lines:
+        if "yes" in line:
+            continue
+        elif "x" in line:
+            axis = "x"
+        elif "y" in line:
+            axis = "y"
+        elif "z" in line:
+            axis = "z"
+        elif "no" in line:
+            no_further_rotation = True
+    if no_further_rotation:
         break
 
-    axis, degree = lines[1].strip().split(' ')
-    axis = axis_to_index[axis]
-    degree = torch.tensor([torch.pi * int(degree) / 180,])
+    prompt = f"""
+    Your task now is to judge which rotation is the best for the robot to complete the task: {task}
 
-    curr_quat = display.target_body_quat
-    rot = quat_from_angle_axis(degree, axis).squeeze()
+    Determine:
+    - which degree is the best for rotation
 
-    post_quat = quat_mul(rot, curr_quat)
-    display.set_body_quat(post_quat)
+    The blue arrow is z axis (upward). The red arrow is x axis (forwward). The gree arrow is y axis (leftward).
 
-    display.step_target()
-    display.step_vis()
-    robot, _, _, skeleton = display.render(rgb=True, depth=False, segmentation=True)
-    for i in range(len(robot)):
-        image = robot[i].copy()[:, :, ::-1]
-        cv2.imwrite(os.path.join(log_dir, f"robot_{axes[i]}_post.png"), image)
-        image = skeleton[i].copy()[:, :, ::-1]
-        cv2.imwrite(os.path.join(log_dir, f"skeleton_{axes[i]}_post.png"), image)
+    At the end of your reply, you should contain your answer as:
+    Example1:
+    Answer:
+    90
 
-    input()
+    Example2:
+    Answer:
+    270
+
+    Here are images for different rotations.
+    """
+
+    messages = [
+        {"role": "system", "content": "You are an expert in robot kinematics and motion planning."},
+        {"role": "user", "content": prompt},
+    ]
+
+    total_rotate = 0
+    agent.render_from_xyz()
+    messages.append(
+        {
+            "role": "user",
+            "content": [
+                        {"type": "text", "text": f"The picture is taken from {axis} axis of the robot with 0 degrees rotated."},
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": local_image_to_data_url(f"./label_{axis}.png")},
+                        },
+                    ],
+        }
+    )
+
+    for _ in range(3):
+        rotate_robot(agent, axis, 90)
+        total_rotate += 90
+        agent.update()
+        agent.render_from_xyz()
+        messages.append(
+            {
+                "role": "user",
+                "content": [
+                            {"type": "text", "text": f"The picture is taken from {axis} axis of the robot with {total_rotate} degrees rotated."},
+                            {
+                                "type": "image_url",
+                                "image_url": {"url": local_image_to_data_url(f"./label_{axis}.png")},
+                            },
+                        ],
+            }
+        )
+
+    rotate_robot(agent, axis, 90)
+    total_rotate += 90
+    agent.update()
+
+    response = complete(messages)
+    print(response)
+    lines = response.split("\n")
+    response = "0"
+    for i in range(len(lines)):
+        if "Answer:" in lines[i]:
+            response = lines[i+1]
+
+    rotate_robot(agent, axis, int(response))
+    agent.update()
+
+    messages = [
+        {"role": "system", "content": "You are an expert in robot kinematics and motion planning."},
+        {"role": "user", "content": prompt},
+    ]
+
+    rotate_robot(agent, axis, -45)
+    total_rotate = -45
+    agent.render_from_xyz()
+    messages.append(
+        {
+            "role": "user",
+            "content": [
+                        {"type": "text", "text": f"The picture is taken from {axis} axis of the robot with 0 degrees rotated."},
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": local_image_to_data_url(f"./label_{axis}.png")},
+                        },
+                    ],
+        }
+    )
+
+    for _ in range(2):
+        rotate_robot(agent, axis, 45)
+        total_rotate += 45
+        agent.render_from_xyz()
+        messages.append(
+            {
+                "role": "user",
+                "content": [
+                            {"type": "text", "text": f"The picture is taken from {axis} axis of the robot with {total_rotate} degrees rotated."},
+                            {
+                                "type": "image_url",
+                                "image_url": {"url": local_image_to_data_url(f"./label_{axis}.png")},
+                            },
+                        ],
+            }
+        )
+
+    rotate_robot(agent, axis, -45)
+    agent.update()
+
+    response = complete(messages)
+    print(response)
+    lines = response.split("\n")
+    response = "0"
+    for i in range(len(lines)):
+        if "Answer:" in lines[i]:
+            response = lines[i+1]
+
+    rotate_robot(agent, axis, int(response))
+    agent.update()
+
+input()

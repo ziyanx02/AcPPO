@@ -3,11 +3,6 @@ import base64
 from openai import AzureOpenAI
 from mimetypes import guess_type
 
-# client = AzureOpenAI(
-#     api_key=os.getenv("AZURE_OPENAI_API_KEY"),  
-#     api_version="2024-02-01",
-#     azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
-# )
 client = AzureOpenAI(
     api_key="7EPgiBlH9dLjPZzVip6phrwmP0X67BOOAAZeh9kbEHDL1CPPUdLgJQQJ99BCACYeBjFXJ3w3AAABACOGAqyR",  
     api_version="2024-12-01-preview",
@@ -17,10 +12,12 @@ client = AzureOpenAI(
 deployment_name='o1' #This will correspond to the custom name you chose for your deployment when you deployed a model. Use a gpt-35-turbo-instruct deployment. 
 
 def complete(messages):
+    print("Completing...")
     response = client.chat.completions.create(
         model=deployment_name,
         messages=messages,
     )
+    print("Completed.")
     return response.choices[0].message.content
 
 def local_image_to_data_url(image_path):

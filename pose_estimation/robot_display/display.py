@@ -18,7 +18,7 @@ class Display(Robot):
             vis_options=vis_options,
         )
         if "body_name" in self.cfg["robot"].keys():
-            self.set_body_link(self.get_link(self.cfg["robot"]["body_name"]))
+            self.set_body_link(self.get_link_by_name(self.cfg["robot"]["body_name"]))
         if "dof_names" in self.cfg["control"].keys():
             assert len(self.cfg["control"]["dof_names"]) == self.num_dofs, "Number of dof names should match the number of dofs"
             self.set_dof_order(self.cfg["control"]["dof_names"])
