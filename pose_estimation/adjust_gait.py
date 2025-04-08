@@ -19,6 +19,7 @@ parser.add_argument('-r', '--robot', type=str, default='leap_hand')
 parser.add_argument('-n', '--name', type=str, default='default')
 args = parser.parse_args()
 
+cfg_path = f"./cfgs/{args.robot}/{args.name}_gait.yaml"
 cfg_path = f"./cfgs/{args.robot}/{args.name}_dof_pos.yaml"
 cfg = yaml.safe_load(open(cfg_path))
 
@@ -40,6 +41,7 @@ agent.display.set_dofs_position(dof_pos)
 agent.update()
 
 agent.render_from_xyz(agent.get_body_pos())
+exit()
 
 prompt = f"""
 Your task is find a gait suitable for the robot to complete the task: {task}
