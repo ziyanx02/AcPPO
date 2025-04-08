@@ -48,18 +48,22 @@ class LowStateCmdHandler(LowStateMsgHandler):
     def __init__(self, cfg, freq=1000):
         super().__init__(cfg, freq)
 
-        if type(self.cfg["control"]["kp"]) is not dict:
-            self.kp = [self.cfg["control"]["kp"]] * self.num_dof
-        else:
-            self.kp = [self.cfg["control"]["kp"][name] for name in cfg["control"]["dof_names"]]
-        if type(self.cfg["control"]["kd"]) is not dict:
-            self.kd = [self.cfg["control"]["kd"]] * self.num_dof
-        else:
-            self.kd = [self.cfg["control"]["kd"][name] for name in cfg["control"]["dof_names"]]
+        self.kp = self.cfg["environment"]["PD_stiffness"]["joint"] * self.num_dof
+        self.kd = self.cfg["environment"]["PD_damping"]["joint"] * self.num_dof
+        # if type(self.cfg["environment"]["PD_stiffness"]) is not dict:
+        #     self.kp = self.cfg["environment"]["PD_stiffness"]["joint"] * self.num_dof
+        # else:
+        #     self.kp = [self.cfg["control"]["kp"][name] for name in cfg["control"]["dof_names"]]
+        # if type(self.cfg["control"]["kd"]) is not dict:
+        #     self.kd = [self.cfg["control"]["kd"]] * self.num_dof
+        # else:
+        #     self.kd = [self.cfg["control"]["kd"][name] for name in cfg["control"]["dof_names"]]
 
-        self.default_pos = np.array([self.cfg["control"]["default_dof_pos"][name] for name in cfg["control"]["dof_names"]])
-        self.target_pos = self.default_pos.copy()
+        self.default_pos = np.array([self.cfg["environment"]["default_joint_angles"][name] for name in self.dof_names])
+        self.target_pos = np.array([self.cfg["environment"]["reset_joint_angles"][name] for name in self.dof_names])
 
+        print(self.target_pos)
+        input()
         self.low_cmd = unitree_go_msg_dds__LowCmd_()  
         self.emergency_stop = False
 

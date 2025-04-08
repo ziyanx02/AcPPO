@@ -33,9 +33,10 @@ class LowStateMsgHandler:
 
         self.cfg = cfg
         self.update_interval = 1.0 / freq
-        self.robot_name = cfg["robot"]["name"]
-        self.num_dof = len(cfg["control"]["dof_names"])
-        self.dof_index = [JointID[self.robot_name][name] for name in cfg["control"]["dof_names"]]
+        self.robot_name = "go2"
+        self.dof_names = cfg["environment"]["dof_names"]
+        self.num_dof = len(self.dof_names)
+        self.dof_index = [JointID[self.robot_name][name] for name in self.dof_names]
 
         self.msg = None
         self.msg_received = False
