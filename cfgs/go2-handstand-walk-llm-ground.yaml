@@ -126,7 +126,7 @@ environment:
   base_reset_pos:
   - 0.0
   - 0.0
-  - 0.42
+  - 0.35
   base_reset_quat:
   - 1.0
   - 0.0
@@ -192,8 +192,8 @@ environment:
     - 0
     - 0
     ang_vel_range:
-    - 0
-    - 0
+    - -1.0
+    - 1.0
   gait:
     base_height_target: 0.4001657962799072
     duration:
