@@ -15,6 +15,11 @@ if args.cfg is not None:
     cfg = yaml.safe_load(open(f"../pose_estimation/cfgs/{args.robot}/{args.cfg}.yaml"))
 
 robot = Display(cfg)
+
+cfg_path = "go2-handstand-walk-llm-ground.yaml"
+with open(cfg_path, "r") as f:
+    cfg = yaml.safe_load(f)
+
 low_state_handler = LowStateMsgHandler(cfg)
 low_state_handler.init()
 

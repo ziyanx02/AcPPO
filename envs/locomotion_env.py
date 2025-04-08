@@ -665,7 +665,9 @@ class LocoEnv:
         self.body_projected_gravity = gs_transform_by_quat(
             self.global_gravity, gs_inv_quat(body_quat_rel)
         )
-        
+        # print(self.body_projected_gravity)
+        # print(gs_transform_by_quat(gs_transform_by_quat(self.global_gravity, gs_inv_quat(self.base_quat)), self.base_init_quat))
+
         self.dof_pos[:] = self.robot.get_dofs_position(self.motor_dofs)
         self.dof_vel[:] = self.robot.get_dofs_velocity(self.motor_dofs)
         self.link_contact_forces[:] = self.robot.get_links_net_contact_force()
