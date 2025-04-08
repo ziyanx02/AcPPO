@@ -229,22 +229,23 @@ environment:
       lin_vel: 1.0
   reward:
     reward_scales:
-      lin_vel: 1.0
-      ang_vel: 0.5
-      alive: 10.0
-      ang_vel_xy: -0.05
-      base_height: -30.0
-      dof_acc: -0.05
-      dof_vel: -0.01
-      dof_pos_diff: -0.1
-      lin_vel_z: -2.0
-      orientation: -5.0
-      contact_force: -5.
-      contact_vel: -5.
-      feet_height: -400.
-      feet_pos: -30.0
       action_smoothness_1: -0.1
       action_smoothness_2: -0.1
+      alive: 10.0
+      ang_vel: 0.5
+      ang_vel_xy: -0.05
+      base_height: -30.0
+      collision: -1.0
+      contact_force: -5.0
+      contact_vel: -5.0
+      dof_acc: -0.05
+      dof_pos_diff: -0.1
+      dof_vel: -0.01
+      feet_height: -400.0
+      feet_pos: -30.0
+      lin_vel: 1.0
+      lin_vel_z: -2.0
+      orientation: -5.0
       torques: -0.0001
 
     soft_dof_pos_limit: 0.9

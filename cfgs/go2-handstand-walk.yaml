@@ -197,27 +197,21 @@ environment:
     reward_scales:
       lin_vel: 1.0
       ang_vel: 0.5
-      action_rate: -0.01
+      alive: 10.0
       ang_vel_xy: -0.05
-      base_height: -5.0
-      collision: -1.0
-      dof_acc: -2.5e-07
-      dof_vel: -0.0
+      base_height: -30.0
+      dof_acc: -0.05
+      dof_vel: -0.01
       dof_pos_diff: -0.1
-      feet_air_time: 1.0
       lin_vel_z: -2.0
       orientation: -5.0
-      alive: 10.0
-      
-      # Additional in Gait
       contact_force: -5.
       contact_vel: -5.
-      feet_height: -100.
-      feet_pos: -7.0
-      # Additional auxiliary
-      action_smoothness_1: -0.01
-      action_smoothness_2: -0.01
-      feet_slip: -0.04
+      feet_height: -400.
+      feet_pos: -30.0
+      action_smoothness_1: -0.1
+      action_smoothness_2: -0.1
+      torques: -0.0001
     
 
     soft_dof_pos_limit: 0.9
