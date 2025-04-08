@@ -488,7 +488,7 @@ class LocoEnv:
                 self.projected_gravity_reset,
                 torch.zeros((3,), device=self.device, dtype=gs.tc_float),
                 torch.zeros((3,), device=self.device, dtype=gs.tc_float),
-                self.default_dof_pos,
+                self.reset_dof_pos,
                 torch.zeros((self.num_dof,), device=self.device, dtype=gs.tc_float),
             ],
             axis=-1,
@@ -896,9 +896,9 @@ class LocoEnv:
         )
 
         # update projected gravity
-        inv_base_quat = gs_inv_quat(self.base_quat)
-        self.projected_gravity = gs_transform_by_quat(
-            self.global_gravity, inv_base_quat
+        base_quat_rel = gs_quat_mul(self.base_quat[envs_idx], gs_inv_quat(self.base_init_quat.reshape(1, -1).repeat(len(envs_idx), 1)))
+        self.projected_gravity[envs_idx] = gs_transform_by_quat(
+            self.global_gravity, gs_inv_quat(base_quat_rel)
         )
 
         # reset buffers
