@@ -48,8 +48,8 @@ class LowStateCmdHandler(LowStateMsgHandler):
     def __init__(self, cfg, freq=1000):
         super().__init__(cfg, freq)
 
-        self.kp = self.cfg["environment"]["PD_stiffness"]["joint"] * self.num_dof
-        self.kd = self.cfg["environment"]["PD_damping"]["joint"] * self.num_dof
+        self.kp = [self.cfg["environment"]["PD_stiffness"]["joint"],] * self.num_dof
+        self.kd = [self.cfg["environment"]["PD_damping"]["joint"],] * self.num_dof
         # if type(self.cfg["environment"]["PD_stiffness"]) is not dict:
         #     self.kp = self.cfg["environment"]["PD_stiffness"]["joint"] * self.num_dof
         # else:
@@ -60,10 +60,13 @@ class LowStateCmdHandler(LowStateMsgHandler):
         #     self.kd = [self.cfg["control"]["kd"][name] for name in cfg["control"]["dof_names"]]
 
         self.default_pos = np.array([self.cfg["environment"]["default_joint_angles"][name] for name in self.dof_names])
-        self.target_pos = np.array([self.cfg["environment"]["reset_joint_angles"][name] for name in self.dof_names])
+        if "reset_joint_angles" in self.cfg["environment"].keys():
+            self.reset_pos = np.array([self.cfg["environment"]["reset_joint_angles"][name] for name in self.dof_names])
+            self.target_pos = np.array([self.cfg["environment"]["reset_joint_angles"][name] for name in self.dof_names])
+        else:
+            self.reset_pos = np.array([self.cfg["environment"]["default_joint_angles"][name] for name in self.dof_names])
+            self.target_pos = np.array([self.cfg["environment"]["default_joint_angles"][name] for name in self.dof_names])
 
-        print(self.target_pos)
-        input()
         self.low_cmd = unitree_go_msg_dds__LowCmd_()  
         self.emergency_stop = False
 
@@ -145,7 +148,7 @@ class LowStateCmdHandler(LowStateMsgHandler):
             self.emrgence_stop()
 
         if self.initial_stage < 1.0:
-            self.target_pos = self.initial_pos + (self.default_pos - self.initial_pos) * self.initial_stage
+            self.target_pos = self.initial_pos + (self.reset_pos - self.initial_pos) * self.initial_stage
             self.initial_stage += 0.001
 
         if self.emergency_stop:

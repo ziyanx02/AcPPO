@@ -6,7 +6,7 @@ import yaml
 from utils.low_state_controller import LowStateCmdHandler
 from transforms3d import quaternions
 
-cfg_path = "go2-handstand-walk-llm-ground.yaml"
+cfg_path = "go2-gait.yaml"
 with open(cfg_path, "r") as f:
     cfg = yaml.safe_load(f)
 
@@ -49,7 +49,7 @@ if __name__ == '__main__':
     handler.init()
     handler.start()
 
-    policy = torch.jit.load("./ckpts/handstand.pt")
+    policy = torch.jit.load("./ckpts/gait.pt")
     policy.to(device)
     policy.eval()
 
@@ -77,14 +77,14 @@ if __name__ == '__main__':
             )
             projected_gravity = gs_transform_by_quat(torch.tensor(projected_gravity, dtype=base_init_quat.dtype), base_init_quat)
             commands[0] = handler.Ly
-            commands[1] = -handler.Lx * 0
-            commands[2] = -handler.Rx * 0
+            commands[1] = -handler.Lx
+            commands[2] = -handler.Rx
             clock_input = get_clock_input(step_id * 0.02)
             obs = np.concatenate(
                 [
                     np.array(handler.ang_vel) * cfg["environment"]["observation"]["obs_scales"]["ang_vel"],
                     projected_gravity,
-                    commands[:3] * 1.0 * 0.3,
+                    commands[:3] * 1.0,
                     (np.array(handler.joint_pos) - default_dof_pos) * cfg["environment"]["observation"]["obs_scales"]["dof_pos"],
                     np.array(handler.joint_vel) * cfg["environment"]["observation"]["obs_scales"]["dof_vel"],
                     last_action,
