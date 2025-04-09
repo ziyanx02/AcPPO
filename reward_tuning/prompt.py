@@ -521,6 +521,8 @@ Below are the evaluation results for different reward parameters. Please identif
 index
 ```
 Important: The index **must** be an integer which matches the index of reward parameters. 
+Take care of the format of this output. Any difference is not allowed for processablity. 
+You need to explain your idea. 
 In locomotion task, you must much more focus on termination rate and linear velocity error, which show its stability and movability. 
 '''
 
