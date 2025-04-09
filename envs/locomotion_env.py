@@ -702,6 +702,15 @@ class LocoEnv:
             > 1.0,
             dim=1,
         ) & (self.episode_length_buf > 2.0 / self.dt)
+
+        if self.debug:
+            link_contact = torch.norm(self.link_contact_forces[:, :, :], dim=-1,) > 1.0
+            link_contact_name = []
+            for i in range(link_contact.shape[1]):
+                if link_contact[0][i] == True:
+                    link_contact_name.append(self.robot.links[i].name)
+            print(f'Contact link names: {link_contact_name}')
+
         self.terminate_buf |= torch.logical_or(
             torch.abs(self.base_euler[:, 1])
             > self.env_cfg['termination_if_pitch_greater_than'],

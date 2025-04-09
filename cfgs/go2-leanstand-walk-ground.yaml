@@ -53,9 +53,11 @@ environment:
   num_states: 34
   termination_contact_link_names:
   - base
+  - hip
   - thigh
   penalized_contact_link_names:
   - base
+  - hip
   - thigh
   - calf
   - FL_foot
