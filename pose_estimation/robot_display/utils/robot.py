@@ -144,7 +144,7 @@ class Robot:
                 continue
             self.link_adjacency_map[link.idx_local][link.parent_idx_local] = link.joint.name
 
-        if len(self.foot_links):
+        if len(self.foot_links) > 1:
             self.update_skeleton()
         else:
             joint_pos = []
@@ -461,7 +461,7 @@ class Robot:
     def set_body_link(self, link):
         self.body_link = link
         self.body_name = link.name
-        if len(self.foot_links):
+        if len(self.foot_links) > 1:
             self.update_skeleton()
         self.step_target()
 

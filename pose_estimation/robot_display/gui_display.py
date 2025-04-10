@@ -35,7 +35,7 @@ class GUIDisplay:
             vis_options=self.vis_options,
         )
         if "body_name" in self.cfg["robot"].keys():
-            self.robot.set_body_link(self.robot.get_link(self.cfg["robot"]["body_name"]))
+            self.robot.set_body_link(self.robot.get_link_by_name(self.cfg["robot"]["body_name"]))
         # if "dof_names" in self.cfg["control"].keys():
         #     assert len(self.cfg["control"]["dof_names"]) == self.robot.num_dofs, "Number of dof names should match the number of dofs"
         #     self.robot.set_dof_order(self.cfg["control"]["dof_names"])

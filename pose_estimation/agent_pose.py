@@ -25,6 +25,7 @@ from agent import Agent
 agent = Agent(cfg_path)
 
 visible_links_id, camera_transforms = agent.render_from_xyz(agent.get_body_pos())
+visible_links_id, camera_transforms = agent.render()
 
 task = args.task
 

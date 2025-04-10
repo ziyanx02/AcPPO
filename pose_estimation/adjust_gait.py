@@ -41,6 +41,7 @@ agent.display.set_dofs_position(dof_pos)
 agent.update()
 
 agent.render_from_xyz(agent.get_body_pos())
+agent.render()
 exit()
 
 prompt = f"""

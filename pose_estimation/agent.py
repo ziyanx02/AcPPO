@@ -23,7 +23,7 @@ class VisOptions:
     merge_fixed_links = False
     show_world_frame = False
     shadow = False
-    background_color = (0.8, 0.8, 0.8)
+    background_color = (1., 1., 1.)
     show_viewer = True
 
 def rotate_quat_from_rpy(quat, roll, pitch, yaw):

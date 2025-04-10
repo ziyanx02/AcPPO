@@ -85,7 +85,7 @@ for link_id in extremities:
     agent.render()
     _, camera_transforms = agent.render_from_xyz(agent.get_link_pos(link_id))
     mean = agent.get_link_pos(link_id)
-    sigma = torch.ones(3, dtype=torch.float) * diameter / 4
+    sigma = torch.ones(3, dtype=torch.float) * diameter / 8
     axis = ["x", "y", "z"]
     circle_radius = 20
 
@@ -196,6 +196,8 @@ x:
 1, 3, 9, 14
 y:
 2, 3
+z:
+3, 5, 7
 
 Example2:
 Answer:
@@ -203,6 +205,8 @@ x:
 3, 7
 y:
 2, 7, 9, 15
+z:
+5, 8
 
 The blue arrow is z axis (upward). The red arrow is x axis (forwward). The gree arrow is y axis (leftward).
 Here are the images:
