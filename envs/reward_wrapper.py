@@ -100,5 +100,11 @@ class RewardWrapper:
         diff = diff * (self.last_actions != 0) * (self.last_last_actions != 0)  # ignore first&second step
         return torch.mean(diff, dim=-1)
     
+    def _reward_dof_pos_limits(self):
+        # Penalize dof positions too close to the limit
+        out_of_limits = -(self.dof_pos - self.dof_pos_limits[:, 0]).clip(max=0.0)  # lower limit
+        out_of_limits += (self.dof_pos - self.dof_pos_limits[:, 1]).clip(min=0.0)  # upper limit
+        return torch.sum(out_of_limits, dim=1) # >=0
+    
 def RewardFactory(base_class):
     return type(f"{base_class.__name__}Reward", (base_class, RewardWrapper), {})
