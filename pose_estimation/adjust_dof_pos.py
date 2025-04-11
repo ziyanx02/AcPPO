@@ -61,6 +61,7 @@ visible_links, _ = agent.render_from_xyz(agent.get_body_pos())
 
 extremities = []
 for link in agent.display.links:
+    print(link.is_leaf, link.idx_local)
     if link.is_leaf:
         extremities.append(link.idx_local)
 extremities = list(set(extremities) & set(visible_links))
@@ -275,6 +276,7 @@ Here are the images:
         sigma[0] = np.std(x_dist).item()
         sigma[1] = np.std(x_dist).item()
         sigma[2] = np.std(x_dist).item()
+        input()
 
     agent.set_link_pose(link_id, mean)
     agent.update()

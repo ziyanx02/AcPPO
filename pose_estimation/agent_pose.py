@@ -29,27 +29,9 @@ visible_links_id, camera_transforms = agent.render()
 
 task = args.task
 
-prompt = f"""
-The robot in the images is divided into multiple parts (called links). Each link is highlighted with a unique color and labeled with an ID.
-
-Visible link IDs in the images:
-{visible_links_id}
-
-The robot's target walking behavior is described as:
-{task}
-
-Your task:
-- Identify the base link. The base is the part of the robot that should stay stable while the robot moves according to velocity commands.
-
-Instructions:
-- Respond with **only one number** — the ID of the base link.
-
-You are given images of the robot from different views.
-"""
-
 messages = [
     {"role": "system", "content": SYSTEM_PROMPT},
-    {"role": "user", "content": prompt},
+    {"role": "user", "content": BODY_SELECTION_PROMPT.format(visible_links_id=visible_links_id, task=task)},
 ]
 
 for axis in ["x", "y", "z"]:
@@ -95,35 +77,10 @@ for attempt in range(max_attempts):
         before_images[axis] = local_image_to_data_url(f"./label_{axis}.png")
 
     # Ask VLM to propose a rotation
-    prompt = f"""
-You are helping to rotate a robot to complete this task: "{task}"
-The rotation follows right-hand rule.
-Rotation around the x-axis goes from +y to +z, from +z to -y.
-Rotation around the y-axis goes from +z to +x, from +x to -z.
-Rotation around the z-axis goes from +x to +y, from +y to -x.
-
-- The base of the robot is link {body_link_id}, and its rotation should remain fixed during completing the task.
-- Propose how the robot should be rotated to better match the target task.
-
-Respond in this format:
-
-<your analysis>
-Answer:
-yes
-<axis>
-<angle>
-
-or
-
-<your analysis>
-Answer:
-no
-
-<axis> can be either **x**, **y**, or **z**
-<angle> should be specified in **degrees**.
-"""
-
-    messages = [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": prompt}]
+    messages = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "user", "content": ROTATION_PROPOSE_PROMPT.format(task=task, body_link_id=body_link_id)},
+    ]
     for axis in ["x", "y", "z"]:
         messages.append({
             "role": "user",
@@ -154,36 +111,11 @@ no
     for ax in ["x", "y", "z"]:
         after_images[ax] = local_image_to_data_url(f"./label_{ax}.png")
 
-    prompt = f"""
-You are helping to rotate a robot to complete this task: "{task}"
-
-The robot has just been rotated around axis '{axis}' by {angle} degrees.
-
-Based on the images before and after the rotation, decide:
-- Should we **keep this rotation** and consider further rotation?
-- Should we **cancel the last rotation**?
-- Or is the **robot well-aligned now**?
-
-Format:
-
-<your analysis>
-Answer:
-continue
-
-or
-
-<your analysis>
-Answer:
-cancel
-
-or
-
-<your analysis>
-Answer:
-done
-"""
-
-    messages = [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": prompt}]
+    # Ask VLM to evaluate the rotation
+    messages = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "user", "content": ROTATION_EVALUATE_PROMPT.format(task=task, axis=axis, angle=angle)},
+    ]
     for ax in ["x", "y", "z"]:
         messages.append({
             "role": "user",
