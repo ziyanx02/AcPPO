@@ -6,9 +6,11 @@ import yaml
 from utils.low_state_controller import LowStateCmdHandler
 from transforms3d import quaternions
 
-cfg_path = "go2-handstand-walk-llm-ground.yaml"
+cfg_path = "go2-handstand.yaml"
 with open(cfg_path, "r") as f:
     cfg = yaml.safe_load(f)
+
+cfg["robot_name"] = "go2"
 
 base_init_quat = torch.tensor(cfg["environment"]["base_init_quat"])
 frequency = torch.tensor(cfg["environment"]["gait"]["frequency"])

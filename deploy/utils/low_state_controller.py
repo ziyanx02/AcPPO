@@ -130,17 +130,17 @@ class LowStateCmdHandler(LowStateMsgHandler):
                 self.low_cmd.motor_cmd[i].kd = Kd[i]
                 self.low_cmd.motor_cmd[i].tau = 0. 
         elif self.robot_name == "go2":
-            self.low_cmd.head[0]=0xFE
-            self.low_cmd.head[1]=0xEF
-            self.low_cmd.level_flag = 0xFF
-            self.low_cmd.gpio = 0
-            # for i in range(20):
-            #     self.low_cmd.motor_cmd[i].mode = 0x01  # (PMSM) mode
-            #     self.low_cmd.motor_cmd[i].q= 2.146e9
-            #     self.low_cmd.motor_cmd[i].kp = 0
-            #     self.low_cmd.motor_cmd[i].dq = 16000.0
-            #     self.low_cmd.motor_cmd[i].kd = 0
-            #     self.low_cmd.motor_cmd[i].tau = 0
+            # self.low_cmd.head[0]=0xFE
+            # self.low_cmd.head[1]=0xEF
+            # self.low_cmd.level_flag = 0xFF
+            # self.low_cmd.gpio = 0
+            for i in range(12):
+                self.low_cmd.motor_cmd[i].mode = 0x01  # (PMSM) mode
+                self.low_cmd.motor_cmd[i].q = self.full_initial_pos[i]
+                self.low_cmd.motor_cmd[i].kp = 30
+                self.low_cmd.motor_cmd[i].dq = 0
+                self.low_cmd.motor_cmd[i].kd = 1.5
+                self.low_cmd.motor_cmd[i].tau = 0. 
 
     def set_stop_cmd(self):
         if self.robot_name == "go2":
