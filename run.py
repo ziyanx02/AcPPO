@@ -242,6 +242,7 @@ if __name__ == '__main__':
     parser.add_argument('--record_length', help='unit: second', type=int, default=10)
     parser.add_argument('--resample_time', help='unit: second', type=float, default=2)
     parser.add_argument('--resume_from_iter', help='resume from log prefix. (e.g. go2-gait_3-20-4-12_it0)', type=str, default=None)
+    parser.add_argument('--real', action='store_true', help='eval with noise', default=False)
 
     args = parser.parse_args()
 
