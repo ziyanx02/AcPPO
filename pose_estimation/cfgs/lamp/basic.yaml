@@ -1,0 +1,48 @@
+robot:
+  name: lamp
+  asset_path: urdf/lamp/lamp.urdf
+  scale: 1.0
+  body_name: rod2
+  foot_names:
+  - base
+  links_to_keep:
+  - base
+  link_names:
+  - base
+  - rod1
+  - rod2
+  - light
+control:
+  control_freq: 50
+  kp: 20
+  kd: 0.5
+  armature: 0.0
+  damping: 0.0
+  base_init_pos:
+  - 0.1184
+  - 0.01364
+  - 0.02527
+  base_init_quat:
+  - 0.47086
+  - 0.5144
+  - 0.50213
+  - 0.51142
+  body_init_pos:
+  - 0.0
+  - 0.0
+  - 0.22
+  body_init_quat:
+  - 0.01132
+  - 0.69727
+  - 0.71499
+  - 0.04982
+  default_joint_angles:
+    base_rod1_joint: 0.0
+    rod1_rod2_joint: 0.0
+    rod2_light_joint: 0.0
+  diameter: 0.6874668002128601
+  mass: 2.1
+  robot_scale: 1.0
+  stationary_position:
+  - - 0.1184
+    - 0.01

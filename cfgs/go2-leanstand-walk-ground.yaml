@@ -44,34 +44,36 @@ learning:
   wandb_project: Gait
 environment:
   PPO: false
-  # asset
   urdf_path: urdf/go2/urdf/go2.urdf
   links_to_keep:
-  - FL_foot
   - FR_foot
+  - RR_foot
   num_actions: 12
   num_dofs: 12
   num_states: 34
   termination_contact_link_names:
   - base
+  - hip
   - thigh
   penalized_contact_link_names:
   - base
+  - hip
   - thigh
   - calf
-  - RL_foot
-  - RR_foot
-  feet_link_names:
   - FL_foot
+  - RL_foot
+  feet_link_names:
   - FR_foot
+  - RR_foot
   base_link_name:
   - base
-  # control
   PD_stiffness:
-    joint: 30.0
+    ? ''
+    : 30.0
   PD_damping:
-    joint: 2.0
-  armature: 0.05
+    ? ''
+    : 2.0
+  armature: 0.0
   dof_damping: 0.0
   action_scale: 0.25
   clip_actions: 100.0
@@ -79,19 +81,18 @@ environment:
   decimation: 4
   delay_action: true
   dof_names:
-  - FR_hip_joint
-  - FR_thigh_joint
-  - FR_calf_joint
   - FL_hip_joint
-  - FL_thigh_joint
-  - FL_calf_joint
-  - RR_hip_joint
-  - RR_thigh_joint
-  - RR_calf_joint
+  - FR_hip_joint
   - RL_hip_joint
+  - RR_hip_joint
+  - FL_thigh_joint
+  - FR_thigh_joint
   - RL_thigh_joint
+  - RR_thigh_joint
+  - FL_calf_joint
+  - FR_calf_joint
   - RL_calf_joint
-  # termination
+  - RR_calf_joint
   episode_length_s: 20.0
   period_length_s: 0.5
   use_timeout: true
@@ -99,30 +100,28 @@ environment:
   termination_if_height_lower_than: 0.0
   termination_if_pitch_greater_than: 0.4
   termination_if_roll_greater_than: 0.4
-  # init pos
   base_init_pos:
   - 0.0
   - 0.0
-  - 0.5066820859909057
+  - 0.4
   base_init_quat:
-  - -0.9238795638084412
+  - 0.81299
+  - 0.58228
   - 0.0
-  - -0.3826833963394165
-  - -2.659523374859418e-07
+  - 0.0
   default_joint_angles:
-    FL_calf_joint: -1.3790717124938965
-    FL_hip_joint: 0.0533900260925293
-    FL_thigh_joint: 0.5249806642532349
-    FR_calf_joint: -1.379075527191162
-    FR_hip_joint: -0.05338793992996216
-    FR_thigh_joint: 0.5249819159507751
-    RL_calf_joint: -1.6129530668258667
-    RL_hip_joint: 0.06433446705341339
-    RL_thigh_joint: 0.6309767961502075
-    RR_calf_joint: -1.6129592657089233
-    RR_hip_joint: -0.06433191150426865
-    RR_thigh_joint: 0.6309773325920105
-
+    FL_hip_joint: 0.83776
+    FR_hip_joint: -0.83776
+    RL_hip_joint: 0.83776
+    RR_hip_joint: -0.83776
+    FL_thigh_joint: 0.4
+    FR_thigh_joint: 0.4
+    RL_thigh_joint: 0.4
+    RR_thigh_joint: 0.4
+    FL_calf_joint: -2.0
+    FR_calf_joint: -1.5
+    RL_calf_joint: -2.0
+    RR_calf_joint: -1.5
   base_reset_pos:
   - 0.0
   - 0.0
@@ -145,8 +144,6 @@ environment:
     RR_calf_joint: -1.5
     RR_hip_joint: 0.0
     RR_thigh_joint: 1.0
-
-  # domain randomization
   resampling_time_s: 4.0
   randomize_base_mass: true
   added_mass_range:
@@ -176,26 +173,24 @@ environment:
   motor_strength_range:
   - 0.9
   - 1.1
-  # random initialization
   pos_randomization: 0.0
   rot_randomization: 0.1
   dof_pos_randomization: 0.3
-  # random push
   max_push_vel_xy: 1.0
   push_interval_s: -1
   use_terrain: false
   command:
     lin_vel_x_range:
-    - 0
+    - 0.0
     - 1.0
     lin_vel_y_range:
-    - 0
-    - 0
+    - 0.0
+    - 0.0
     ang_vel_range:
-    - -1.0
-    - 1.0
+    - 0.0
+    - 0.0
   gait:
-    base_height_target: 0.4001657962799072
+    base_height_target: 0.36000000000000004
     duration:
     - 0.5
     - 0.5
@@ -205,18 +200,17 @@ environment:
     offset:
     - 0.0
     - 0.5
-    feet_height_target: 
-    - 0.12
-    - 0.12
+    feet_height_target:
+    - 0.14400000000000002
+    - 0.14400000000000002
     stationary_position:
-    - - -0.05051339417695999
-      - 0.15916676819324493
-    - - -0.050512880086898804
-      - -0.15916594862937927
-
+    - - 0.30028
+      - 0.01
+    - - -0.08652
+      - 0.01
   observation:
-    num_obs: 47 # 45 + 2(num_feet)
-    num_priv_obs: 62 # 60 + 2(num_feet)
+    num_obs: 47
+    num_priv_obs: 62
     obs_noise:
       ang_vel: 0.1
       dof_pos: 0.01
@@ -247,10 +241,18 @@ environment:
       lin_vel_z: -2.0
       orientation: -5.0
       torques: -0.0001
-
     soft_dof_pos_limit: 0.9
     tracking_sigma: 0.25
-
+  robot_scale: 1.0
+  body_init_pos:
+  - 0.0
+  - 0.0
+  - 0.4
+  body_init_quat:
+  - 0.81299
+  - 0.58228
+  - 0.0
+  - 0.0
 reward_tuning:
   num_iterations: 3
   num_samples: 4

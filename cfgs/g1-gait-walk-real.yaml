@@ -41,36 +41,53 @@ learning:
   save_interval: 100
   seed: 1
   wandb_entity: ziyanx02
-  wandb_project: Gait
+  wandb_project: TDO
 environment:
   PPO: false
   # asset
-  urdf_path: urdf/go2/urdf/go2.urdf
+  urdf_path: urdf/g1/g1_12dof.urdf
   links_to_keep:
-  - FL_foot
-  - FR_foot
+  - left_ankle_roll_link
+  - right_ankle_roll_link
   num_actions: 12
   num_dofs: 12
   num_states: 34
   termination_contact_link_names:
-  - base
-  - thigh
+  - pelvis
   penalized_contact_link_names:
-  - base
-  - thigh
-  - calf
-  - RL_foot
-  - RR_foot
+  - pelvis
   feet_link_names:
-  - FL_foot
-  - FR_foot
+  - left_ankle_roll_link
+  - right_ankle_roll_link
   base_link_name:
-  - base
+  - pelvis
   # control
   PD_stiffness:
-    joint: 30.0
+    left_hip_pitch_joint: 100.
+    left_hip_roll_joint: 100.
+    left_hip_yaw_joint: 100.
+    left_knee_joint: 200.
+    left_ankle_pitch_joint: 20.
+    left_ankle_roll_joint: 20.
+    right_hip_pitch_joint: 100.
+    right_hip_roll_joint: 100.
+    right_hip_yaw_joint: 100.
+    right_knee_joint: 200.
+    right_ankle_pitch_joint: 20.
+    right_ankle_roll_joint: 20.
   PD_damping:
-    joint: 2.0
+    left_hip_pitch_joint: 5.0
+    left_hip_roll_joint: 5.0
+    left_hip_yaw_joint: 5.0
+    left_knee_joint: 5.0
+    left_ankle_pitch_joint: 0.2
+    left_ankle_roll_joint: 0.1
+    right_hip_pitch_joint: 5.0
+    right_hip_roll_joint: 5.0
+    right_hip_yaw_joint: 5.0
+    right_knee_joint: 5.0
+    right_ankle_pitch_joint: 0.2
+    right_ankle_roll_joint: 0.1
   armature: 0.05
   dof_damping: 0.0
   action_scale: 0.25
@@ -79,73 +96,49 @@ environment:
   decimation: 4
   delay_action: true
   dof_names:
-  - FR_hip_joint
-  - FR_thigh_joint
-  - FR_calf_joint
-  - FL_hip_joint
-  - FL_thigh_joint
-  - FL_calf_joint
-  - RR_hip_joint
-  - RR_thigh_joint
-  - RR_calf_joint
-  - RL_hip_joint
-  - RL_thigh_joint
-  - RL_calf_joint
+  - left_hip_pitch_joint
+  - left_hip_roll_joint
+  - left_hip_yaw_joint
+  - left_knee_joint
+  - left_ankle_pitch_joint
+  - left_ankle_roll_joint
+  - right_hip_pitch_joint
+  - right_hip_roll_joint
+  - right_hip_yaw_joint
+  - right_knee_joint
+  - right_ankle_pitch_joint
+  - right_ankle_roll_joint
   # termination
   episode_length_s: 20.0
   period_length_s: 0.5
   use_timeout: true
   reset_after_termination: true
   termination_if_height_lower_than: 0.0
-  termination_if_pitch_greater_than: 0.4
-  termination_if_roll_greater_than: 0.4
+  termination_if_pitch_greater_than: 0.3
+  termination_if_roll_greater_than: 0.3
   # init pos
   base_init_pos:
   - 0.0
   - 0.0
-  - 0.5066820859909057
+  - 0.85
   base_init_quat:
-  - -0.9238795638084412
-  - 0.0
-  - -0.3826833963394165
-  - -2.659523374859418e-07
-  default_joint_angles:
-    FL_calf_joint: -1.3790717124938965
-    FL_hip_joint: 0.0533900260925293
-    FL_thigh_joint: 0.5249806642532349
-    FR_calf_joint: -1.379075527191162
-    FR_hip_joint: -0.05338793992996216
-    FR_thigh_joint: 0.5249819159507751
-    RL_calf_joint: -1.6129530668258667
-    RL_hip_joint: 0.06433446705341339
-    RL_thigh_joint: 0.6309767961502075
-    RR_calf_joint: -1.6129592657089233
-    RR_hip_joint: -0.06433191150426865
-    RR_thigh_joint: 0.6309773325920105
-
-  base_reset_pos:
-  - 0.0
-  - 0.0
-  - 0.35
-  base_reset_quat:
   - 1.0
   - 0.0
   - 0.0
   - 0.0
-  reset_joint_angles:
-    FL_calf_joint: -1.5
-    FL_hip_joint: 0.0
-    FL_thigh_joint: 0.8
-    FR_calf_joint: -1.5
-    FR_hip_joint: 0.0
-    FR_thigh_joint: 0.8
-    RL_calf_joint: -1.5
-    RL_hip_joint: 0.0
-    RL_thigh_joint: 1.0
-    RR_calf_joint: -1.5
-    RR_hip_joint: 0.0
-    RR_thigh_joint: 1.0
-
+  default_joint_angles:
+    left_hip_yaw_joint: 0.
+    left_hip_roll_joint: 0.
+    left_hip_pitch_joint: -0.1
+    left_knee_joint: 0.3
+    left_ankle_pitch_joint: -0.2
+    left_ankle_roll_joint: 0.
+    right_hip_yaw_joint: 0.
+    right_hip_roll_joint: 0.
+    right_hip_pitch_joint: -0.1
+    right_knee_joint: 0.3
+    right_ankle_pitch_joint: -0.2
+    right_ankle_roll_joint: 0.
   # domain randomization
   resampling_time_s: 4.0
   randomize_base_mass: true
@@ -186,33 +179,24 @@ environment:
   use_terrain: false
   command:
     lin_vel_x_range:
-    - 0
+    - -1.0
     - 1.0
     lin_vel_y_range:
-    - 0
-    - 0
+    - -0.5
+    - 0.5
     ang_vel_range:
     - -1.0
     - 1.0
   gait:
-    base_height_target: 0.4001657962799072
-    duration:
-    - 0.5
-    - 0.5
-    frequency:
-    - 3.0
-    - 3.0
-    offset:
-    - 0.0
-    - 0.5
-    feet_height_target: 
-    - 0.12
-    - 0.12
+    # the order of feet is defined by feet_link_name
+    base_height_target: 0.80
+    frequency: [2.0, 2.0,]
+    duration: [0.5, 0.5,]
+    offset: [0.5, 0,] 
+    feet_height_target: [0.2, 0.2]
     stationary_position:
-    - - -0.05051339417695999
-      - 0.15916676819324493
-    - - -0.050512880086898804
-      - -0.15916594862937927
+      - [0, 0.11] 
+      - [0, -0.11]
 
   observation:
     num_obs: 47 # 45 + 2(num_feet)
@@ -229,25 +213,30 @@ environment:
       lin_vel: 1.0
   reward:
     reward_scales:
-      action_smoothness_1: -0.1
-      action_smoothness_2: -0.1
-      alive: 10.0
-      ang_vel: 0.5
-      ang_vel_xy: -0.05
-      base_height: -30.0
-      collision: -1.0
-      contact_force: -5.0
-      contact_vel: -5.0
-      dof_acc: -0.05
-      dof_pos_diff: -0.1
-      dof_vel: -0.01
-      feet_height: -400.0
-      feet_pos: -30.0
       lin_vel: 1.0
+      ang_vel: 0.5
+      action_rate: -0.01
+      ang_vel_xy: -0.05
+      base_height: -5.0
+      collision: -1.0
+      dof_acc: -2.5e-07
+      dof_vel: -0.0
+      feet_air_time: 1.0
       lin_vel_z: -2.0
       orientation: -5.0
       torques: -0.0001
+      terminate: -30.0
 
+      # Additional in Gait
+      contact_force: -1.
+      contact_vel: -1.
+      feet_height: -100.
+      feet_pos: -7.0
+      # Additional auxiliary
+      action_smoothness_1: -0.01
+      action_smoothness_2: -0.01
+      feet_slip: -0.04
+      
     soft_dof_pos_limit: 0.9
     tracking_sigma: 0.25
 

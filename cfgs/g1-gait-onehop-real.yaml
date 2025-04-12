@@ -44,33 +44,67 @@ learning:
   wandb_project: Gait
 environment:
   PPO: false
-  # asset
-  urdf_path: urdf/go2/urdf/go2.urdf
+  urdf_path: urdf/g1/g1_12dof_full.urdf
+  robot_scale: 1.0
   links_to_keep:
-  - FL_foot
-  - FR_foot
+  - right_ankle_roll_link
   num_actions: 12
   num_dofs: 12
   num_states: 34
   termination_contact_link_names:
-  - base
-  - thigh
+  - pelvis
+  - left_hip_pitch_link
+  - right_hip_pitch_link
+  - left_hip_roll_link
+  - right_hip_roll_link
+  - left_hip_yaw_link
+  - right_hip_yaw_link
+  - left_knee_link
+  - right_knee_link
+  - right_ankle_pitch_link
   penalized_contact_link_names:
-  - base
-  - thigh
-  - calf
-  - RL_foot
-  - RR_foot
+  - pelvis
+  - left_hip_pitch_link
+  - right_hip_pitch_link
+  - left_hip_roll_link
+  - right_hip_roll_link
+  - left_hip_yaw_link
+  - right_hip_yaw_link
+  - left_knee_link
+  - right_knee_link
+  - left_ankle_pitch_link
+  - right_ankle_pitch_link
+  - left_ankle_roll_link
   feet_link_names:
-  - FL_foot
-  - FR_foot
+  - right_ankle_roll_link
   base_link_name:
-  - base
-  # control
+  - pelvis
   PD_stiffness:
-    joint: 30.0
+    left_hip_pitch_joint: 100
+    left_hip_roll_joint: 100
+    left_hip_yaw_joint: 100
+    left_knee_joint: 200
+    left_ankle_pitch_joint: 20
+    left_ankle_roll_joint: 20
+    right_hip_pitch_joint: 100
+    right_hip_roll_joint: 100
+    right_hip_yaw_joint: 100
+    right_knee_joint: 200
+    right_ankle_pitch_joint: 20
+    right_ankle_roll_joint: 20
   PD_damping:
-    joint: 2.0
+    left_hip_pitch_joint: 5.0
+    left_hip_roll_joint: 5.0
+    left_hip_yaw_joint: 5.0
+    left_knee_joint: 5.0
+    left_ankle_pitch_joint: 0.2
+    left_ankle_roll_joint: 0.1
+    right_hip_pitch_joint: 5.0
+    right_hip_roll_joint: 5.0
+    right_hip_yaw_joint: 5.0
+    right_knee_joint: 5.0
+    right_ankle_pitch_joint: 0.2
+    right_ankle_roll_joint: 0.1
   armature: 0.05
   dof_damping: 0.0
   action_scale: 0.25
@@ -79,19 +113,18 @@ environment:
   decimation: 4
   delay_action: true
   dof_names:
-  - FR_hip_joint
-  - FR_thigh_joint
-  - FR_calf_joint
-  - FL_hip_joint
-  - FL_thigh_joint
-  - FL_calf_joint
-  - RR_hip_joint
-  - RR_thigh_joint
-  - RR_calf_joint
-  - RL_hip_joint
-  - RL_thigh_joint
-  - RL_calf_joint
-  # termination
+  - left_hip_pitch_joint
+  - right_hip_pitch_joint
+  - left_hip_roll_joint
+  - right_hip_roll_joint
+  - left_hip_yaw_joint
+  - right_hip_yaw_joint
+  - left_knee_joint
+  - right_knee_joint
+  - left_ankle_pitch_joint
+  - right_ankle_pitch_joint
+  - left_ankle_roll_joint
+  - right_ankle_roll_joint
   episode_length_s: 20.0
   period_length_s: 0.5
   use_timeout: true
@@ -99,54 +132,61 @@ environment:
   termination_if_height_lower_than: 0.0
   termination_if_pitch_greater_than: 0.4
   termination_if_roll_greater_than: 0.4
-  # init pos
   base_init_pos:
   - 0.0
   - 0.0
-  - 0.5066820859909057
+  - 0.80
   base_init_quat:
-  - -0.9238795638084412
+  - 0.98427
+  - 0.17665
+  - -0.0
+  - -0.0
+  body_init_pos:
   - 0.0
-  - -0.3826833963394165
-  - -2.659523374859418e-07
+  - 0.0
+  - 0.80
+  body_init_quat:
+  - 0.98427
+  - 0.17665
+  - -0.0
+  - -0.0
   default_joint_angles:
-    FL_calf_joint: -1.3790717124938965
-    FL_hip_joint: 0.0533900260925293
-    FL_thigh_joint: 0.5249806642532349
-    FR_calf_joint: -1.379075527191162
-    FR_hip_joint: -0.05338793992996216
-    FR_thigh_joint: 0.5249819159507751
-    RL_calf_joint: -1.6129530668258667
-    RL_hip_joint: 0.06433446705341339
-    RL_thigh_joint: 0.6309767961502075
-    RR_calf_joint: -1.6129592657089233
-    RR_hip_joint: -0.06433191150426865
-    RR_thigh_joint: 0.6309773325920105
+    left_hip_pitch_joint: -1.0
+    right_hip_pitch_joint: -0.45129
+    left_hip_roll_joint: -0.17453
+    right_hip_roll_joint: -0.33605
+    left_hip_yaw_joint: 0.0
+    right_hip_yaw_joint: 0.0
+    left_knee_joint: 2.33731
+    right_knee_joint: 0.99771
+    left_ankle_pitch_joint: 0.00781
+    right_ankle_pitch_joint: -0.45066
+    left_ankle_roll_joint: 0.0
+    right_ankle_roll_joint: 0.0
 
   base_reset_pos:
   - 0.0
   - 0.0
-  - 0.35
+  - 0.80
   base_reset_quat:
   - 1.0
   - 0.0
   - 0.0
   - 0.0
   reset_joint_angles:
-    FL_calf_joint: -1.5
-    FL_hip_joint: 0.0
-    FL_thigh_joint: 0.8
-    FR_calf_joint: -1.5
-    FR_hip_joint: 0.0
-    FR_thigh_joint: 0.8
-    RL_calf_joint: -1.5
-    RL_hip_joint: 0.0
-    RL_thigh_joint: 1.0
-    RR_calf_joint: -1.5
-    RR_hip_joint: 0.0
-    RR_thigh_joint: 1.0
+    left_hip_yaw_joint: 0.
+    left_hip_roll_joint: 0.
+    left_hip_pitch_joint: -0.1
+    left_knee_joint: 0.3
+    left_ankle_pitch_joint: -0.2
+    left_ankle_roll_joint: 0.
+    right_hip_yaw_joint: 0.
+    right_hip_roll_joint: 0.
+    right_hip_pitch_joint: -0.1
+    right_knee_joint: 0.3
+    right_ankle_pitch_joint: -0.2
+    right_ankle_roll_joint: 0.
 
-  # domain randomization
   resampling_time_s: 4.0
   randomize_base_mass: true
   added_mass_range:
@@ -176,47 +216,38 @@ environment:
   motor_strength_range:
   - 0.9
   - 1.1
-  # random initialization
   pos_randomization: 0.0
   rot_randomization: 0.1
   dof_pos_randomization: 0.3
-  # random push
   max_push_vel_xy: 1.0
   push_interval_s: -1
   use_terrain: false
   command:
     lin_vel_x_range:
-    - 0
+    - 0.0
     - 1.0
     lin_vel_y_range:
-    - 0
-    - 0
+    - 0.0
+    - 0.0
     ang_vel_range:
     - -1.0
     - 1.0
   gait:
-    base_height_target: 0.4001657962799072
-    duration:
-    - 0.5
-    - 0.5
+    base_height_target: 0.738
     frequency:
     - 3.0
-    - 3.0
+    duration:
+    - 0.5
     offset:
     - 0.0
-    - 0.5
-    feet_height_target: 
-    - 0.12
-    - 0.12
+    feet_height_target:
+    - 0.2952
     stationary_position:
-    - - -0.05051339417695999
-      - 0.15916676819324493
-    - - -0.050512880086898804
-      - -0.15916594862937927
-
+    - - -0.0253
+      - -0.01
   observation:
-    num_obs: 47 # 45 + 2(num_feet)
-    num_priv_obs: 62 # 60 + 2(num_feet)
+    num_obs: 46
+    num_priv_obs: 61
     obs_noise:
       ang_vel: 0.1
       dof_pos: 0.01
@@ -229,28 +260,25 @@ environment:
       lin_vel: 1.0
   reward:
     reward_scales:
-      action_smoothness_1: -0.1
-      action_smoothness_2: -0.1
-      alive: 10.0
+      lin_vel: 1.0
       ang_vel: 0.5
+      alive: 10.0
       ang_vel_xy: -0.05
       base_height: -30.0
-      collision: -1.0
-      contact_force: -5.0
-      contact_vel: -5.0
       dof_acc: -0.05
-      dof_pos_diff: -0.1
       dof_vel: -0.01
-      feet_height: -400.0
-      feet_pos: -30.0
-      lin_vel: 1.0
+      dof_pos_diff: -0.1
       lin_vel_z: -2.0
       orientation: -5.0
+      contact_force: -5.0
+      contact_vel: -5.0
+      feet_height: -400.0
+      feet_pos: -30.0
+      action_smoothness_1: -0.1
+      action_smoothness_2: -0.1
       torques: -0.0001
-
     soft_dof_pos_limit: 0.9
     tracking_sigma: 0.25
-
 reward_tuning:
   num_iterations: 3
   num_samples: 4
