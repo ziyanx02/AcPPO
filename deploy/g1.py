@@ -6,7 +6,7 @@ import yaml
 from utils.low_state_controller import LowStateCmdHandler
 from transforms3d import quaternions
 
-cfg_path = "go2-gait.yaml"
+cfg_path = "g1-walk.yaml"
 with open(cfg_path, "r") as f:
     cfg = yaml.safe_load(f)
 
@@ -45,11 +45,13 @@ if __name__ == '__main__':
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
+    cfg["robot_name"] = "g1"
+
     handler = LowStateCmdHandler(cfg)
     handler.init()
     handler.start()
 
-    policy = torch.jit.load("./ckpts/gait.pt")
+    policy = torch.jit.load("./ckpts/g1.pt")
     policy.to(device)
     policy.eval()
 
@@ -75,7 +77,6 @@ if __name__ == '__main__':
                 v=np.array([0, 0, -1]),
                 q=quaternions.qinverse(handler.quat),
             )
-            projected_gravity = gs_transform_by_quat(torch.tensor(projected_gravity, dtype=base_init_quat.dtype), base_init_quat)
             commands[0] = handler.Ly
             commands[1] = -handler.Lx
             commands[2] = -handler.Rx
@@ -93,8 +94,10 @@ if __name__ == '__main__':
             )
             action = policy(torch.tensor(obs).to(device).float()).cpu().detach().numpy()
             last_action = action
+            # action[[5, 11]] = 0
             handler.target_pos = reset_dof_pos + (default_dof_pos + action * cfg["environment"]["action_scale"] - reset_dof_pos) * 1.0
             step_id += 1
+            print(time.time() - last_update_time)
     except KeyboardInterrupt:
         pass
 

@@ -39,7 +39,42 @@ JointID = {
         "right_knee_joint": 9,
         "right_ankle_pitch_joint": 10,
         "right_ankle_roll_joint": 11,
-    }
+        # "LeftHipPitch": 0,
+        # "LeftHipRoll": 1,
+        # "LeftHipYaw": 2,
+        # "LeftKnee": 3,
+        # "LeftAnklePitch": 4,
+        # "LeftAnkleB": 4,
+        # "LeftAnkleRoll": 5,
+        # "LeftAnkleA": 5,
+        # "RightHipPitch": 6,
+        # "RightHipRoll": 7,
+        # "RightHipYaw": 8,
+        # "RightKnee": 9,
+        # "RightAnklePitch": 10,
+        # "RightAnkleB": 10,
+        # "RightAnkleRoll": 11,
+        # "RightAnkleA": 11,
+        # "WaistYaw": 12,
+        # "WaistRoll": 13,        # NOTE: INVALID for g1 23dof/29dof with waist locked
+        # "WaistA": 13,           # NOTE: INVALID for g1 23dof/29dof with waist locked
+        # "WaistPitch": 14,       # NOTE: INVALID for g1 23dof/29dof with waist locked
+        # "WaistB": 14,           # NOTE: INVALID for g1 23dof/29dof with waist locked
+        # "LeftShoulderPitch": 15,
+        # "LeftShoulderRoll": 16,
+        # "LeftShoulderYaw": 17,
+        # "LeftElbow": 18,
+        # "LeftWristRoll": 19,
+        # "LeftWristPitch": 20,   # NOTE: INVALID for g1 23dof
+        # "LeftWristYaw": 21,     # NOTE: INVALID for g1 23dof
+        # "RightShoulderPitch": 22,
+        # "RightShoulderRoll": 23,
+        # "RightShoulderYaw": 24,
+        # "RightElbow": 25,
+        # "RightWristRoll": 26,
+        # "RightWristPitch": 27,  # NOTE: INVALID for g1 23dof
+        # "RightWristYaw": 28,    # NOTE: INVALID for g1 23dof
+    },
 }
 
 class LowStateMsgHandler:
@@ -62,6 +97,12 @@ class LowStateMsgHandler:
         self.joint_vel = np.zeros(self.num_dof)
         self.torque = np.zeros(self.num_dof)
         self.temperature = np.zeros(self.num_dof)
+        if self.robot_name == "go2":
+            self.num_full_dof = 12
+            self.full_joint_pos = np.zeros(12)
+        if self.robot_name == "g1":
+            self.num_full_dof = 29
+            self.full_joint_pos = np.zeros(29)
 
         # button
         self.L1 = 0
@@ -123,8 +164,9 @@ class LowStateMsgHandler:
             self.parse_motor_state(self.msg.motor_state)
             self.parse_wireless_remote(self.msg.wireless_remote)
 
-            if time.time() - update_start_time < self.update_interval:
-                time.sleep(self.update_interval - (time.time() - update_start_time))
+            cur_time = time.time()
+            if cur_time - update_start_time < self.update_interval:
+                time.sleep(self.update_interval - (cur_time - update_start_time))
 
             # Print publishing rate
             # total_publish_cnt += 1
@@ -145,9 +187,11 @@ class LowStateMsgHandler:
             self.joint_vel[i] = motor_state[self.dof_index[i]].dq
             self.torque[i] = motor_state[self.dof_index[i]].tau_est
             # self.temperature[i] = motor_state[self.dof_index[i]].temperature
-            # error_code = motor_state[self.dof_index[i]].reserve[0]
-            # if error_code != 0:
-            #     print(f"Joint {self.dof_index[i]} Error Code: {error_code}")
+            error_code = motor_state[self.dof_index[i]].reserve[0]
+            if error_code != 0:
+                print(f"Joint {self.dof_index[i]} Error Code: {error_code}")
+        for i in range(self.num_full_dof):
+            self.full_joint_pos[i] = motor_state[i].q
         # print(self.joint_pos)
         # print("low_state_big_flag", self.robot_low_state.bit_flag)
 
@@ -215,7 +259,7 @@ if __name__ == "__main__":
     parser.add_argument('-c', '--cfg', type=str, default=None)
     args = parser.parse_args()
 
-    cfg = yaml.safe_load(open(f"./cfgs/{args.robot}/basic.yaml"))
+    cfg = yaml.safe_load(open(f"../{args.robot}.yaml"))
     if args.cfg is not None:
         cfg = yaml.safe_load(open(f"./cfgs/{args.robot}/{args.cfg}.yaml"))
 
@@ -224,4 +268,4 @@ if __name__ == "__main__":
     low_state_handler.init()
     while True:
         time.sleep(1)
-        pass
+        print(low_state_handler.joint_pos)
