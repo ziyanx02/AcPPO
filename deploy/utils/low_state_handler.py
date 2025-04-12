@@ -25,6 +25,20 @@ JointID = {
         "RL_hip_joint": 9,
         "RL_thigh_joint": 10,
         "RL_calf_joint": 11,
+    },
+    "g1": {
+        "left_hip_pitch_joint": 0,
+        "left_hip_roll_joint": 1,
+        "left_hip_yaw_joint": 2,
+        "left_knee_joint": 3,
+        "left_ankle_pitch_joint": 4,
+        "left_ankle_roll_joint": 5,
+        "right_hip_pitch_joint": 6,
+        "right_hip_roll_joint": 7,
+        "right_hip_yaw_joint": 8,
+        "right_knee_joint": 9,
+        "right_ankle_pitch_joint": 10,
+        "right_ankle_roll_joint": 11,
     }
 }
 
@@ -33,7 +47,7 @@ class LowStateMsgHandler:
 
         self.cfg = cfg
         self.update_interval = 1.0 / freq
-        self.robot_name = "go2"
+        self.robot_name = cfg["robot_name"]
         self.dof_names = cfg["environment"]["dof_names"]
         self.num_dof = len(self.dof_names)
         self.dof_index = [JointID[self.robot_name][name] for name in self.dof_names]
@@ -83,7 +97,6 @@ class LowStateMsgHandler:
         elif self.robot_name == "g1":
             self.robot_lowstate_subscriber = ChannelSubscriber("rt/lowstate", LowState_hg)
             self.robot_lowstate_subscriber.Init(self.LowStateHandler_hg, 10)
-            raise NotImplementedError
         while not self.msg_received:
             print("Waiting for Low State Message...")
             time.sleep(0.1)
@@ -131,10 +144,10 @@ class LowStateMsgHandler:
             self.joint_pos[i] = motor_state[self.dof_index[i]].q
             self.joint_vel[i] = motor_state[self.dof_index[i]].dq
             self.torque[i] = motor_state[self.dof_index[i]].tau_est
-            self.temperature[i] = motor_state[self.dof_index[i]].temperature
-            error_code = motor_state[self.dof_index[i]].reserve[0]
-            if error_code != 0:
-                print(f"Joint {self.dof_index[i]} Error Code: {error_code}")
+            # self.temperature[i] = motor_state[self.dof_index[i]].temperature
+            # error_code = motor_state[self.dof_index[i]].reserve[0]
+            # if error_code != 0:
+            #     print(f"Joint {self.dof_index[i]} Error Code: {error_code}")
         # print(self.joint_pos)
         # print("low_state_big_flag", self.robot_low_state.bit_flag)
 

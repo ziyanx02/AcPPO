@@ -16,9 +16,13 @@ if args.cfg is not None:
 
 robot = Display(cfg)
 
-cfg_path = "go2-handstand-walk-llm-ground.yaml"
+if args.robot == "go2":
+    cfg_path = "go2-handstand.yaml"
+elif args.robot == "g1":
+    cfg_path = "g1-walk.yaml"
 with open(cfg_path, "r") as f:
     cfg = yaml.safe_load(f)
+cfg["robot_name"] = args.robot
 
 low_state_handler = LowStateMsgHandler(cfg)
 low_state_handler.init()

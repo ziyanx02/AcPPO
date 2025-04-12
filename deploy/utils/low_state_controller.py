@@ -19,24 +19,7 @@ from unitree_sdk2py.utils.thread import RecurrentThread
 from unitree_sdk2py.comm.motion_switcher.motion_switcher_client import MotionSwitcherClient
 from unitree_sdk2py.go2.sport.sport_client import SportClient
 
-from .low_state_handler import LowStateMsgHandler
-
-JointID = {
-    "go2": {
-        "FR_hip_joint": 0,
-        "FR_thigh_joint": 1,
-        "FR_calf_joint": 2,
-        "FL_hip_joint": 3,
-        "FL_thigh_joint": 4,
-        "FL_calf_joint": 5,
-        "RR_hip_joint": 6,
-        "RR_thigh_joint": 7,
-        "RR_calf_joint": 8,
-        "RL_hip_joint": 9,
-        "RL_thigh_joint": 10,
-        "RL_calf_joint": 11,
-    }
-}
+from .low_state_handler import LowStateMsgHandler, JointID
 
 HIGHLEVEL = 0xEE
 LOWLEVEL = 0xFF
@@ -48,16 +31,14 @@ class LowStateCmdHandler(LowStateMsgHandler):
     def __init__(self, cfg, freq=1000):
         super().__init__(cfg, freq)
 
-        self.kp = [self.cfg["environment"]["PD_stiffness"]["joint"],] * self.num_dof
-        self.kd = [self.cfg["environment"]["PD_damping"]["joint"],] * self.num_dof
-        # if type(self.cfg["environment"]["PD_stiffness"]) is not dict:
-        #     self.kp = self.cfg["environment"]["PD_stiffness"]["joint"] * self.num_dof
-        # else:
-        #     self.kp = [self.cfg["control"]["kp"][name] for name in cfg["control"]["dof_names"]]
-        # if type(self.cfg["control"]["kd"]) is not dict:
-        #     self.kd = [self.cfg["control"]["kd"]] * self.num_dof
-        # else:
-        #     self.kd = [self.cfg["control"]["kd"][name] for name in cfg["control"]["dof_names"]]
+        if self.robot_name == "go2":
+            self.kp = [self.cfg["environment"]["PD_stiffness"]["joint"],] * self.num_dof
+        else:
+            self.kp = [self.cfg["environment"]["PD_stiffness"][name] for name in self.dof_names]
+        if self.robot_name == "go2":
+            self.kd = [self.cfg["environment"]["PD_damping"]["joint"],] * self.num_dof
+        else:
+            self.kd = [self.cfg["environment"]["PD_damping"][name] for name in self.dof_names]
 
         self.default_pos = np.array([self.cfg["environment"]["default_joint_angles"][name] for name in self.dof_names])
         if "reset_joint_angles" in self.cfg["environment"].keys():
@@ -67,7 +48,10 @@ class LowStateCmdHandler(LowStateMsgHandler):
             self.reset_pos = np.array([self.cfg["environment"]["default_joint_angles"][name] for name in self.dof_names])
             self.target_pos = np.array([self.cfg["environment"]["default_joint_angles"][name] for name in self.dof_names])
 
-        self.low_cmd = unitree_go_msg_dds__LowCmd_()  
+        if self.robot_name == "go2":
+            self.low_cmd = unitree_go_msg_dds__LowCmd_()
+        elif self.robot_name == "g1":
+            self.low_cmd = unitree_hg_msg_dds__LowCmd_()
         self.emergency_stop = False
 
         # thread handling
