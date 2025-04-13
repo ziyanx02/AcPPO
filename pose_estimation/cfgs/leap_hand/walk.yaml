@@ -1,0 +1,85 @@
+robot:
+  asset_path: urdf/leap_hand/leap_hand_right_glb.urdf
+  scale: 1.0
+  body_name: base
+  foot_names:
+  - thumb_fingertip
+  - fingertip
+  - fingertip_2
+  - fingertip_3
+  links_to_keep:
+  - thumb_fingertip
+  - fingertip
+  - fingertip_2
+  - fingertip_3
+  link_names:
+  - base
+  - mcp_joint
+  - mcp_joint_2
+  - mcp_joint_3
+  - thumb_temp_base
+  - pip
+  - pip_2
+  - pip_3
+  - thumb_pip
+  - dip
+  - dip_2
+  - dip_3
+  - thumb_dip
+  - fingertip
+  - fingertip_2
+  - fingertip_3
+  - thumb_fingertip
+control:
+  control_freq: 50
+  kp: 40.0
+  kd: 1.0
+  armature: 0.0
+  damping: 0.0
+  base_init_pos:
+  - 0.0
+  - 0.0
+  - 0.1
+  base_init_quat:
+  - 0.70711
+  - 0.0
+  - 0.70711
+  - 0.0
+  default_joint_angles:
+    '1': 0.0
+    '5': 0.0
+    '9': 0.0
+    '12': 0.0
+    '0': -0.5
+    '4': 0.2
+    '8': 0.8
+    '13': 1.6
+    '2': 0.5
+    '6': 0.5
+    '10': 0.5
+    '14': 0.0
+    '3': 1.0
+    '7': 1.0
+    '11': 1.0
+    '15': 1.5
+  diameter: 0.47545725107192993
+  stationary_position:
+  - - 0.03039
+    - 0.11
+  - - 0.16331
+    - 0.08
+  - - 0.17755
+    - 0.01
+  - - 0.17164
+    - -0.07
+  robot_scale: 1.0
+  body_init_pos:
+  - 0.0
+  - 0.0
+  - 0.1
+  body_init_quat:
+  - 0.70711
+  - 0.0
+  - 0.70711
+  - 0.0
+  mass: 0.7460000000000002
