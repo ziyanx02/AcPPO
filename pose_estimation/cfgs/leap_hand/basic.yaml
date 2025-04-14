@@ -16,7 +16,7 @@ control:
   control_freq: 50
   kp: 40.0
   kd: 1.0
-  armature: 0.0
+  armature: 0.05
   damping: 0.0
   base_init_pos:
   - 0.0

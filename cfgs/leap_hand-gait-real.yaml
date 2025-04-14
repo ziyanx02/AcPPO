@@ -45,7 +45,7 @@ learning:
 environment:
   PPO: false
   urdf_path: urdf/leap_hand/leap_hand_right_glb.urdf
-  robot_scale: 1.0
+  robot_scale: 2.0
   links_to_keep:
   - thumb_fingertip
   - fingertip
@@ -95,7 +95,7 @@ environment:
   PD_damping:
     ? ''
     : 1.0
-  armature: 0.0
+  armature: 0.05
   dof_damping: 0.0
   action_scale: 0.25
   clip_actions: 100.0
