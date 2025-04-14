@@ -44,6 +44,7 @@ class LowStateCmdHandler(LowStateMsgHandler):
         self.full_default_pos = np.zeros(self.num_full_dof)
         for i in range(self.num_dof):
             self.full_default_pos[self.dof_index[i]] = self.default_pos[i]
+            self.full_joint_pos[self.dof_index[i]] = self.reset_pos[i]
 
         if self.robot_name == "go2":
             self.low_cmd = unitree_go_msg_dds__LowCmd_()
@@ -149,7 +150,7 @@ class LowStateCmdHandler(LowStateMsgHandler):
                 self.low_cmd.motor_cmd[i].q= 2.146e9
                 self.low_cmd.motor_cmd[i].kp = 0
                 self.low_cmd.motor_cmd[i].dq = 16000.0
-                self.low_cmd.motor_cmd[i].kd = 0
+                self.low_cmd.motor_cmd[i].kd = 5
                 self.low_cmd.motor_cmd[i].tau = 0
         elif self.robot_name == "g1":
             for i in range(29):
@@ -157,7 +158,7 @@ class LowStateCmdHandler(LowStateMsgHandler):
                 self.low_cmd.motor_cmd[i].q= 0
                 self.low_cmd.motor_cmd[i].kp = 0
                 self.low_cmd.motor_cmd[i].dq = 0
-                self.low_cmd.motor_cmd[i].kd = 0
+                self.low_cmd.motor_cmd[i].kd = 5
                 self.low_cmd.motor_cmd[i].tau = 0
 
     def set_cmd(self):
