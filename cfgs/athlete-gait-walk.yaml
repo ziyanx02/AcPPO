@@ -45,7 +45,7 @@ learning:
 environment:
   PPO: false
   urdf_path: urdf/T12/urdf/T12.urdf
-  robot_scale: 0.12624
+  robot_scale: 1.0
   links_to_keep:
   - Foot1
   - Foot2
@@ -131,11 +131,11 @@ environment:
   - Body
   PD_stiffness:
     ? ''
-    : 40.0
+    : 40000.0
   PD_damping:
     ? ''
-    : 1.0
-  armature: 0.0
+    : 7000.0
+  armature: 0.05
   dof_damping: 0.0
   action_scale: 0.25
   clip_actions: 100.0
@@ -211,30 +211,30 @@ environment:
     HY4: 0.0
     HY5: 0.0
     HY6: 0.0
-    HP1: 0.5
-    HP2: 0.5
-    HP3: 0.5
-    HP4: 0.5
-    HP5: 0.5
-    HP6: 0.5
-    KP1: 0.5
-    KP2: 0.5
-    KP3: 0.5
-    KP4: 0.5
-    KP5: 0.5
-    KP6: 0.5
+    HP1: 0.0
+    HP2: 0.0
+    HP3: 0.0
+    HP4: 0.0
+    HP5: 0.0
+    HP6: 0.0
+    KP1: 1.5
+    KP2: 1.5
+    KP3: 1.5
+    KP4: 1.5
+    KP5: 1.5
+    KP6: 1.5
     KR1: 0.0
     KR2: 0.0
     KR3: 0.0
     KR4: 0.0
     KR5: 0.0
     KR6: 0.0
-    AP1: 0.5
-    AP2: 0.5
-    AP3: 0.5
-    AP4: 0.5
-    AP5: 0.5
-    AP6: 0.5
+    AP1: 0.0
+    AP2: 0.0
+    AP3: 0.0
+    AP4: 0.0
+    AP5: 0.0
+    AP6: 0.0
     AR1: 0.0
     AR2: 0.0
     AR3: 0.0
@@ -278,23 +278,23 @@ environment:
   use_terrain: false
   command:
     lin_vel_x_range:
-    - 0
-    - 2.0
+    - 0.0
+    - 5.0
     lin_vel_y_range:
-    - 0
-    - 0
+    - 0.0
+    - 0.0
     ang_vel_range:
-    - 0
-    - 0
+    - 0.0
+    - 0.0
   gait:
     base_height_target: 1.71
     frequency:
-    - 3.0
-    - 3.0
-    - 3.0
-    - 3.0
-    - 3.0
-    - 3.0
+    - 0.8
+    - 0.8
+    - 0.8
+    - 0.8
+    - 0.8
+    - 0.8
     duration:
     - 0.5
     - 0.5
@@ -317,18 +317,18 @@ environment:
     - 0.684
     - 0.684
     stationary_position:
-    - - 3.08011
-      - 1.77
+    - - 2.84698
+      - 1.64
     - - 0.00377
-      - 3.55
-    - - -3.07631
-      - 1.78
-    - - -3.08011
-      - -1.77
+      - 3.29
+    - - -2.84318
+      - 1.65
+    - - -2.84699
+      - -1.64
     - - -0.00378
-      - -3.55
-    - - 3.0763
-      - -1.78
+      - -3.29
+    - - 2.84318
+      - -1.65
   observation:
     num_obs: 123
     num_priv_obs: 162

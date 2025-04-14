@@ -56,9 +56,9 @@ robot:
   - Foot6
 control:
   control_freq: 50
-  kp: 40.0
-  kd: 1.0
-  armature: 0.0
+  kp: 40000.0
+  kd: 7000.0
+  armature: 0.05
   damping: 0.0
   base_init_pos:
   - 0.0
@@ -116,7 +116,7 @@ control:
     AR5: 0.0
     AR6: 0.0
   diameter: 15.843284606933594
-  robot_scale: 0.12624
+  robot_scale: 1.0
   stationary_position:
   - - 2.84698
     - 1.64
