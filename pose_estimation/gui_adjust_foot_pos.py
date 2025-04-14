@@ -31,8 +31,8 @@ def save(display):
 
 class VisOptions:
     def __init__(self):
-        self.visualize_skeleton = True
-        self.visualize_target_foot_pos = True
+        self.visualize_skeleton = False
+        self.visualize_target_foot_pos = False
         self.merge_fixed_links = True
         self.show_world_frame = False
         self.shadow = False

@@ -3,12 +3,16 @@ robot:
   scale: 1.0
   body_name: base
   foot_names:
-    - thumb_tip_head
-    - index_tip_head
-    - middle_tip_head
-    - ring_tip_head
+    - thumb_fingertip
+    - fingertip_1
+    - fingertip_2
+    - fingertip_3
   links_to_keep:
-    - thumb_tip_head
-    - index_tip_head
-    - middle_tip_head
-    - ring_tip_head
+    - thumb_fingertip
+    - fingertip_1
+    - fingertip_2
+    - fingertip_3
+control:
+  kp: 30.0
+  kd: 2.0
+  control_freq: 50

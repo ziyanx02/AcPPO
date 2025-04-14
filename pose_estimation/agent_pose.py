@@ -25,7 +25,7 @@ from agent import Agent
 agent = Agent(cfg_path)
 
 visible_links_id, camera_transforms = agent.render_from_xyz(agent.get_body_pos())
-visible_links_id, camera_transforms = agent.render()
+agent.render()
 
 task = args.task
 
@@ -69,6 +69,8 @@ agent.render_from_xyz(agent.get_body_pos())
 max_attempts = 5  # avoid infinite loops
 rotation_history = []
 
+rotation_propose_messages = [{"role": "system", "content": SYSTEM_PROMPT},]
+
 for attempt in range(max_attempts):
     # Save pre-rotation image
     agent.render_from_xyz(agent.get_body_pos())
@@ -77,12 +79,9 @@ for attempt in range(max_attempts):
         before_images[axis] = local_image_to_data_url(f"./label_{axis}.png")
 
     # Ask VLM to propose a rotation
-    messages = [
-        {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "user", "content": ROTATION_PROPOSE_PROMPT.format(task=task, body_link_id=body_link_id)},
-    ]
+    rotation_propose_messages.append({"role": "user", "content": ROTATION_PROPOSE_PROMPT.format(task=task, body_link_id=body_link_id)})
     for axis in ["x", "y", "z"]:
-        messages.append({
+        rotation_propose_messages.append({
             "role": "user",
             "content": [
                 {"type": "text", "text": ORIENTATION_PROMPT[axis]},
@@ -90,8 +89,9 @@ for attempt in range(max_attempts):
             ]
         })
 
-    response = complete(messages)
+    response = complete(rotation_propose_messages)
     print(response)
+    rotation_propose_messages.append({"role": "assistant", "content": response})
 
     lines = response.split("Answer:")[-1].strip().split("\n")
     if lines[0].strip().lower() == "no":
@@ -130,6 +130,7 @@ for attempt in range(max_attempts):
     response = complete(messages)
     print(response)
     answer = response.split("Answer:")[-1].strip().lower()
+    rotation_propose_messages.append({"role": "user", "content": response})
 
     if "cancel" in answer:
         # Undo last rotation
