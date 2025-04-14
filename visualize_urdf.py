@@ -34,9 +34,9 @@ else:
     raise ValueError(f"Unsupported file format: {asset_file}")
 robot = scene.add_entity(
     morph,
-    # surface=gs.surfaces.Default(
-    #     vis_mode="visual",
-    # ),
+    surface=gs.surfaces.Default(
+        vis_mode="collision", # "visual"
+    ),
 )
 
 scene.build()

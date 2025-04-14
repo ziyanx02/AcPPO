@@ -44,7 +44,7 @@ learning:
   wandb_project: Gait
 environment:
   PPO: false
-  urdf_path: urdf/T12/urdf/T12.urdf
+  urdf_path: urdf/T12/urdf/T12_simplified.urdf
   robot_scale: 1.0
   links_to_keep:
   - Foot1

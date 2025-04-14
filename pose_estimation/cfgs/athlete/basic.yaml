@@ -1,5 +1,5 @@
 robot:
-  asset_path: urdf/T12/urdf/T12.urdf
+  asset_path: urdf/T12/urdf/T12_simplified
   scale: 1.0
   body_name: Body
   foot_names:
