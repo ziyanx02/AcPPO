@@ -36,7 +36,7 @@ def main(args):
         num_envs=1,
         env_cfg=env_cfg,
         show_viewer=not args.headless,
-        eval=True,
+        eval=not args.real,
         debug=args.debug,
     )
     env = TimeWrapper(env, int(env_cfg['period_length_s'] * env_cfg['control_freq']), reset_each_period=False, observe_time=False)
@@ -96,6 +96,7 @@ if __name__ == '__main__':
     parser.add_argument('--record_length', help='unit: second', type=int, default=10)
     parser.add_argument('--debug', action='store_true', default=False)
     parser.add_argument('--resample_time', help='unit: second', type=float, default=2)
+    parser.add_argument('--real', action='store_true', help='Eval with noise.', default=False)
     args = parser.parse_args()
 
     if args.task == None and args.exp_name != None:

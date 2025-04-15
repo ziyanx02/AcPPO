@@ -1,9 +1,134 @@
-import numpy as np
-import torch
-import torch.nn as nn
+ENVIRONMENT_TEMPLATE = '''
+self.base_euler = torch.zeros(
+    (self.num_envs, 3), device=self.device, dtype=gs.tc_float
+)
+self.base_lin_vel = torch.zeros(
+    (self.num_envs, 3), device=self.device, dtype=gs.tc_float
+)
+self.base_ang_vel = torch.zeros(
+    (self.num_envs, 3), device=self.device, dtype=gs.tc_float
+)
+self.projected_gravity = torch.zeros(
+    (self.num_envs, 3), device=self.device, dtype=gs.tc_float
+)
+self.global_gravity = torch.tensor(
+    np.array([0.0, 0.0, -1.0]), device=self.device, dtype=gs.tc_float
+)
+self.terminate_buf = torch.ones(
+    (self.num_envs,), device=self.device, dtype=gs.tc_int
+)
+self.commands = torch.zeros(
+    (self.num_envs, 3), device=self.device, dtype=gs.tc_float
+)
+self.commands_scale = torch.tensor(
+    [
+        self.obs_scales['lin_vel'],
+        self.obs_scales['lin_vel'],
+        self.obs_scales['ang_vel'],
+    ],
+    device=self.device,
+    dtype=gs.tc_float,
+)
 
-import genesis as gs
+self.penalized_contact_link_indices = find_link_indices(
+    self.env_cfg['penalized_contact_link_names']
+)
+self.feet_link_indices = find_link_indices(
+    self.env_cfg['feet_link_names'],
+    accurate=True,
+)
 
+# actions
+self.actions = torch.zeros(
+    (self.num_envs, self.num_dof), device=self.device, dtype=gs.tc_float
+)
+self.last_actions = torch.zeros(
+    (self.num_envs, self.num_dof), device=self.device, dtype=gs.tc_float
+)
+self.last_last_actions = torch.zeros(
+    (self.num_envs, self.num_dof), device=self.device, dtype=gs.tc_float
+)
+self.dof_pos = torch.zeros(
+    (self.num_envs, self.num_dof), device=self.device, dtype=gs.tc_float
+)
+self.dof_vel = torch.zeros(
+    (self.num_envs, self.num_dof), device=self.device, dtype=gs.tc_float
+)
+self.last_dof_vel = torch.zeros(
+    (self.num_envs, self.num_dof), device=self.device, dtype=gs.tc_float
+)
+self.root_vel = torch.zeros(
+    (self.num_envs, 3), device=self.device, dtype=gs.tc_float
+)
+self.last_root_vel = torch.zeros(
+    (self.num_envs, 3), device=self.device, dtype=gs.tc_float
+)
+self.base_pos = torch.zeros(
+    (self.num_envs, 3), device=self.device, dtype=gs.tc_float
+)
+self.base_quat = torch.zeros(
+    (self.num_envs, 4), device=self.device, dtype=gs.tc_float
+)
+self.link_contact_forces = torch.zeros(
+    (self.num_envs, self.robot.n_links, 3), device=self.device, dtype=gs.tc_float
+)
+# gait control
+self.foot_positions = torch.ones(
+    self.num_envs, len(self.feet_link_indices), 3, device=self.device, dtype=gs.tc_float,
+)
+self.foot_quaternions = torch.ones(
+    self.num_envs, len(self.feet_link_indices), 4, device=self.device, dtype=gs.tc_float,
+)
+self.foot_velocities = torch.ones(
+    self.num_envs, len(self.feet_link_indices), 3, device=self.device, dtype=gs.tc_float,
+)
+self.com = torch.zeros(
+    self.num_envs, 3, device=self.device, dtype=gs.tc_float,
+)
+
+# current phase
+self.gait_indices = torch.zeros(
+    (self.num_envs, len(self.feet_link_indices)), device=self.device, dtype=gs.tc_float,
+)
+# current phase per foot 
+self.foot_indices = torch.zeros(
+    (self.num_envs, len(self.feet_link_indices)), device=self.device, dtype=gs.tc_float,
+)
+
+# desired gait
+self.gait_frequency = torch.ones(
+    (self.num_envs, len(self.feet_link_indices)), device=self.device, dtype=gs.tc_float,
+)
+self.gait_duration = torch.zeros(
+    (self.num_envs, len(self.feet_link_indices)), device=self.device, dtype=gs.tc_float,
+)
+self.gait_offset = torch.zeros(
+    (self.num_envs, len(self.feet_link_indices)), device=self.device, dtype=gs.tc_float,
+)
+self.gait_feet_height = torch.zeros(
+    (self.num_envs, len(self.feet_link_indices)), device=self.device, dtype=gs.tc_float,
+)
+self.gait_feet_stationary_pos = torch.zeros(
+    (self.num_envs, len(self.feet_link_indices), 2), device=self.device, dtype=gs.tc_float,
+)
+self.gait_base_height = torch.zeros(
+    self.num_envs, device=self.device, dtype=gs.tc_float,
+)
+
+# reference buffer 
+self.desired_contact_states = torch.zeros(
+    (self.num_envs, len(self.feet_link_indices)), device=self.device, dtype=gs.tc_float,
+)
+self.desired_feet_pos_local = torch.zeros(
+    (self.num_envs, len(self.feet_link_indices), 3), device=self.device, dtype=gs.tc_float,
+)
+self.feet_pos_local = torch.zeros(
+    (self.num_envs, len(self.feet_link_indices), 3), device=self.device, dtype=gs.tc_float,
+)
+'''
+
+
+REWARD_CLASS_TEMPLATE = '''
 class RewardWrapper:
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -193,6 +318,64 @@ class RewardWrapper:
         out_of_limits = -(self.dof_pos - self.dof_pos_limits[:, 0]).clip(max=0.0)  # lower limit
         out_of_limits += (self.dof_pos - self.dof_pos_limits[:, 1]).clip(min=0.0)  # upper limit
         return torch.sum(out_of_limits, dim=1) # >=0
-    
-def RewardFactory(base_class):
-    return type(f"{base_class.__name__}Reward", (base_class, RewardWrapper), {})
+'''
+
+REWARD_CONFIG_TEMPLATE = '''
+reward_scales:
+    lin_vel: 1.0
+    ang_vel: 0.5
+    alive: 10.0
+    ang_vel_xy: -0.05
+    base_height: -30.0
+    dof_acc: -0.05
+    dof_vel: -0.01
+    dof_pos_diff: -0.1
+    lin_vel_z: -2.0
+    orientation: -5.0
+    contact_force: -5.
+    contact_vel: -5.
+    feet_height: -400.
+    feet_pos: -30.0
+    action_smoothness_1: -0.1
+    action_smoothness_2: -0.1
+    torques: -0.0001
+    collision: -1.0
+    dof_pos_limits: -10.0
+'''
+
+METRIC_FUNCTION_TEMPLATE = '''
+# Metrics for tracking robot locomotion performance
+
+# Measures how well the robot follows the commanded linear velocity (xy-plane)
+# Uses an exponential function to reward smaller velocity errors
+lin_vel_error = torch.sum(torch.square(self.commands[:, :2] - self.body_lin_vel[:, :2]), dim=1)
+metric['lin_vel'] = torch.exp(-lin_vel_error / 0.1)
+
+# Measures how well the robot follows the commanded angular velocity (yaw)
+# Encourages precise yaw control using an exponential decay function
+ang_vel_error = torch.square(self.commands[:, 2] - self.body_ang_vel[:, 2])
+metric['ang_vel'] = torch.exp(-ang_vel_error / 0.1)
+
+# Measures the deviation of foot contact forces from the desired contact states
+# Encourages proper foot placement and avoids unnecessary ground impact
+foot_forces = torch.norm(self.link_contact_forces[:, self.feet_link_indices, :], dim=-1)
+desired_contact = self.desired_contact_states
+metric['contact_force'] = torch.mean((1 - desired_contact) * (1 - torch.exp(-foot_forces ** 2 / 100.)), dim=-1)
+
+# Measures the deviation of the robot's base height from the desired gait-defined height
+# Encourages stable locomotion at the appropriate height
+body_height_error = torch.square(self.body_pos[:, 2] - self.gait_body_height)
+metric['base_height'] = torch.exp(-body_height_error / 0.25)
+
+# Measures the difference between current dof position and the default dof pos
+# Encourage more natural motions
+dof_pos_diff = torch.mean(torch.square(self.dof_pos - self.default_dof_pos), dim=-1)
+metric['dof_pos_diff'] = torch.exp(-dof_pos_diff)
+
+# Indicates the number of failures during evaluation (e.g., falling, instability)
+metric['terminate'] = self.terminate_buf.float()
+'''
+
+TASK_NOTE_TEMPLATE = '''
+A quadruped robot dog with 12 degrees of freedom.
+'''

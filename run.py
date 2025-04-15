@@ -10,9 +10,10 @@ import pickle
 
 import torch.multiprocessing as mp
 import torch
-from reward_tuning.prompt import INITIAL_USER, INITIAL_SYSTEM, JUDGE_SYSTEM, JUDGE_USER
+from reward_tuning.prompt import INITIAL_SYSTEM, INITIAL_USER, JUDGE_SYSTEM, JUDGE_USER
 from reward_tuning.prompt import TRAIN_FEEDBACK, EVAL_FEEDBACK, CODE_FEEDBACK, CODE_OUTPUT_TIP
 from reward_tuning.example import RESPONSE_SAMPLE_REWARD
+from reward_tuning.template import REWARD_CLASS_TEMPLATE, REWARD_CONFIG_TEMPLATE, METRIC_FUNCTION_TEMPLATE, TASK_NOTE_TEMPLATE
 from reward_tuning.client import Client
 
 from scripts.train import train_try
@@ -87,7 +88,7 @@ def get_best(client, results):
 
     message = [
         {"role": "system", "content": JUDGE_SYSTEM},
-        {"role": "user", "content": JUDGE_USER + eval_result}
+        {"role": "user", "content": JUDGE_USER.format(task_note=TASK_NOTE_TEMPLATE) + eval_result}
     ]
 
     response = client.response(message)
@@ -110,13 +111,27 @@ def get_reward_reflection(result):
         values = [round(log_dict[i][key], 2) for i in log_dict.keys()]
         content += f"{key}: {values}, Max {max(values)}, Mean {statistics.mean(values)}, Min {min(values)}\n"
 
-    content += EVAL_FEEDBACK
+    content += EVAL_FEEDBACK.format(metric_function=METRIC_FUNCTION_TEMPLATE)
     content += get_eval_result(result)
     
     content += CODE_FEEDBACK.format(max_episode_length=result['train']['max_episode_length'])
     content += CODE_OUTPUT_TIP
 
     return content
+
+def overload_prompt(args, cfg):
+    # May be needed for REWARD_CLASS & METRIC_FUNCTION in the future
+    global REWARD_CLASS_TEMPLATE, REWARD_CONFIG_TEMPLATE, METRIC_FUNCTION_TEMPLATE, TASK_NOTE_TEMPLATE
+    
+    if 'note' in cfg['reward_tuning']:
+        TASK_NOTE_TEMPLATE = cfg['reward_tuning']['note']
+
+    if args.reward_template != None:
+        env_cfg, train_cfg = pickle.load(
+           open(f'logs/{args.reward_template}/cfgs.pkl', 'rb')
+        )
+        reward_scales = {'reward_scales': env_cfg['reward']['reward_scales']}
+        REWARD_CONFIG_TEMPLATE = yaml.dump(reward_scales, sort_keys=False)
 
 def main(args):
     mp.set_start_method("spawn", force=True)
@@ -126,16 +141,18 @@ def main(args):
     client_reward = Client(disable=args.disable, template=RESPONSE_SAMPLE_REWARD)
     client_judge = Client()
 
-    base_message = [
-        {"role": "system", "content": INITIAL_SYSTEM},
-        {"role": "user", "content": INITIAL_USER}
-    ]
-
     with open(f'./cfgs/{args.cfg}', 'r') as file:
         cfg = yaml.safe_load(file)
     train_cfg = cfg['learning']
     env_cfg = cfg['environment']
     tune_cfg = cfg['reward_tuning']
+
+    overload_prompt(args, cfg)
+
+    base_message = [
+        {"role": "system", "content": INITIAL_SYSTEM.format(reward_class=REWARD_CLASS_TEMPLATE, reward_config=REWARD_CONFIG_TEMPLATE)},
+        {"role": "user", "content": INITIAL_USER.format(task_note=TASK_NOTE_TEMPLATE)}
+    ]
 
     best_result_list = []
 
@@ -234,7 +251,7 @@ if __name__ == '__main__':
     parser.add_argument('-p', '--ppo', action='store_false', default=True)
     parser.add_argument('--debug', action='store_true', default=False)
     parser.add_argument('--disable', action='store_true', default=False)
-    parser.add_argument('--eval', action='store_true', help='turn off domain randomization', default=False)
+    parser.add_argument('--eval', action='store_true', help='Turn off domain randomization.', default=False)
 
     # Eval
     parser.add_argument('--num_eval_step', type=int, default=6000)
@@ -242,7 +259,10 @@ if __name__ == '__main__':
     parser.add_argument('--record_length', help='unit: second', type=int, default=10)
     parser.add_argument('--resample_time', help='unit: second', type=float, default=2)
     parser.add_argument('--resume_from_iter', help='resume from log prefix. (e.g. go2-gait_3-20-4-12_it0)', type=str, default=None)
-    parser.add_argument('--real', action='store_true', help='eval with noise', default=False)
+    parser.add_argument('--real', action='store_true', help='Eval with noise.', default=False)
+
+    parser.add_argument('--reward_template', type=str, default=None,
+                        help='Load reward template by exp_name for further training with a proper init reward. (e.g. go2-handstand-walk-llm-real_4-14-18-8_it2_0)',)
 
     args = parser.parse_args()
 
