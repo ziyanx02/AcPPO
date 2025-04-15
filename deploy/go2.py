@@ -6,11 +6,14 @@ import yaml
 from utils.low_state_controller import LowStateCmdHandler
 from transforms3d import quaternions
 
-cfg_path = "go2-handstand.yaml"
+task_name = "go2-handstand"
+ckpt_path = f"./ckpts/{task_name}.pt"
+cfg_path = f"./cfgs/{task_name}.yaml"
+
 with open(cfg_path, "r") as f:
     cfg = yaml.safe_load(f)
 
-cfg["robot_name"] = "go2"
+cfg["robot_name"] = task_name.split('-')[0]
 
 base_init_quat = torch.tensor(cfg["environment"]["base_init_quat"])
 frequency = torch.tensor(cfg["environment"]["gait"]["frequency"])
@@ -51,14 +54,14 @@ if __name__ == '__main__':
     handler.init()
     handler.start()
 
-    policy = torch.jit.load("./ckpts/handstand.pt")
+    policy = torch.jit.load(ckpt_path)
     policy.to(device)
     policy.eval()
 
     default_dof_pos = handler.default_pos
     reset_dof_pos = handler.reset_pos.copy()
     commands = np.array([0., 0., 0.,])
-    last_action = np.array([0.0] * 12)
+    last_action = np.array([0.0] * cfg["environment"]["num_actions"])
 
     try:
         while not handler.Start:
@@ -79,14 +82,14 @@ if __name__ == '__main__':
             )
             projected_gravity = gs_transform_by_quat(torch.tensor(projected_gravity, dtype=base_init_quat.dtype), base_init_quat)
             commands[0] = handler.Ly
-            commands[1] = -handler.Lx * 0
-            commands[2] = -handler.Rx * 0
+            commands[1] = -handler.Lx
+            commands[2] = -handler.Rx
             clock_input = get_clock_input(step_id * 0.02)
             obs = np.concatenate(
                 [
                     np.array(handler.ang_vel) * cfg["environment"]["observation"]["obs_scales"]["ang_vel"],
                     projected_gravity,
-                    commands[:3] * 1.0 * 0.3,
+                    commands[:3] * 1.0,
                     (np.array(handler.joint_pos) - default_dof_pos) * cfg["environment"]["observation"]["obs_scales"]["dof_pos"],
                     np.array(handler.joint_vel) * cfg["environment"]["observation"]["obs_scales"]["dof_vel"],
                     last_action,

@@ -6,9 +6,14 @@ import yaml
 from utils.low_state_controller import LowStateCmdHandler
 from transforms3d import quaternions
 
-cfg_path = "g1-walk.yaml"
+task_name = "g1-gait"
+ckpt_path = f"./ckpts/{task_name}.pt"
+cfg_path = f"./cfgs/{task_name}.yaml"
+
 with open(cfg_path, "r") as f:
     cfg = yaml.safe_load(f)
+
+cfg["robot_name"] = task_name.split('-')[0]
 
 base_init_quat = torch.tensor(cfg["environment"]["base_init_quat"])
 frequency = torch.tensor(cfg["environment"]["gait"]["frequency"])
@@ -45,20 +50,18 @@ if __name__ == '__main__':
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-    cfg["robot_name"] = "g1"
-
     handler = LowStateCmdHandler(cfg)
     handler.init()
     handler.start()
 
-    policy = torch.jit.load("./ckpts/g1.pt")
+    policy = torch.jit.load(ckpt_path)
     policy.to(device)
     policy.eval()
 
     default_dof_pos = handler.default_pos
     reset_dof_pos = handler.reset_pos.copy()
     commands = np.array([0., 0., 0.,])
-    last_action = np.array([0.0] * 12)
+    last_action = np.array([0.0] * cfg["environment"]["num_actions"])
 
     try:
         while not handler.Start:
