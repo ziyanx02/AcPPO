@@ -14,6 +14,7 @@ import pickle
 
 from robot_display.display import Display
 from api.azure_openai import complete, local_image_to_data_url
+from prompts.prompts import *
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-r', '--robot', type=str, default='leap_hand')
@@ -61,7 +62,7 @@ visible_links, _ = agent.render_from_xyz(agent.get_body_pos())
 
 extremities = []
 for link in agent.display.links:
-    print(link.is_leaf, link.idx_local)
+    # print(link.is_leaf, link.idx_local)
     if link.is_leaf:
         extremities.append(link.idx_local)
 extremities = list(set(extremities) & set(visible_links))
@@ -212,9 +213,12 @@ z:
 The blue arrow is z axis (upward). The red arrow is x axis (forwward). The gree arrow is y axis (leftward).
 Here are the images:
 """
+        movement_selection_prompt = MOVEMENT_SELECTION_PROMPT.format(task=task, body_link_id=body_link_id, link_id=link_id, sampled_points=[i for i in range(len(sampled_points))])
+        print(movement_selection_prompt)
+        exit()
 
         messages = [
-            {"role": "system", "content": "You are an expert in robot kinematics and motion planning."},
+            {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": prompt},
         ]
 
