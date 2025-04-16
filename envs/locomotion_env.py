@@ -468,6 +468,9 @@ class LocoEnv:
         self.body_ang_vel = torch.zeros(
             (self.num_envs, 3), device=self.device, dtype=gs.tc_float
         )
+        self.body_ang_vel_local = torch.zeros(
+            (self.num_envs, 3), device=self.device, dtype=gs.tc_float
+        ) # For real deploy, apply full rotation on ang_vel instead of only yaw rotation as `self.body_ang_vel` has
         self.body_projected_gravity = torch.zeros(
             (self.num_envs, 3), device=self.device, dtype=gs.tc_float
         )
@@ -662,6 +665,7 @@ class LocoEnv:
 
         self.body_lin_vel[:] = gs_transform_by_quat(self.robot.get_links_vel()[:, self.body_link_index].squeeze(1), inv_quat_yaw)
         self.body_ang_vel[:] = gs_transform_by_quat(self.robot.get_links_ang()[:, self.body_link_index].squeeze(1), inv_quat_yaw)
+        self.body_ang_vel_local[:] = gs_transform_by_quat(self.robot.get_links_ang()[:, self.body_link_index].squeeze(1), gs_inv_quat(body_quat_rel))
         self.body_projected_gravity = gs_transform_by_quat(
             self.global_gravity, gs_inv_quat(body_quat_rel)
         )

@@ -187,7 +187,7 @@ class GaitEnv(LocoEnv):
     def compute_observation(self):
         obs_buf = torch.cat(
             [
-                self.body_ang_vel * self.obs_scales['ang_vel'],                     # 3
+                self.body_ang_vel_local * self.obs_scales['ang_vel'],               # 3
                 self.projected_gravity,                                             # 3
                 self.commands * self.commands_scale,                                # 3
                 (self.dof_pos - self.default_dof_pos) * self.obs_scales['dof_pos'],
