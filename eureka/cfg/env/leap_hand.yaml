@@ -1,0 +1,4 @@
+task: LeapHandWalk
+env_name: leap_hand
+description: to walk the lieap hand with required command of linear and angular velocity
+max_iterations: 1500
