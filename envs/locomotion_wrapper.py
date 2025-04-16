@@ -147,8 +147,9 @@ class GaitEnv(LocoEnv):
         center = self.body_pos.clone().unsqueeze(1) # self.com.unsqueeze(1)
         center[:, :, 2] = 0.0
         feet_pos_translated = self.foot_positions - center
+        body_quat_rel = gs_quat_mul(self.body_quat, gs_inv_quat(self.body_init_quat.reshape(1, -1).repeat(self.num_envs, 1)))
         for i in range(len(self.feet_link_indices)):
-            self.feet_pos_local[:, i, :] = gs_quat_apply_yaw(gs_quat_conjugate(self.body_quat),
+            self.feet_pos_local[:, i, :] = gs_quat_apply_yaw(gs_quat_conjugate(body_quat_rel),
                                                                  feet_pos_translated[:, i, :])
 
     def _draw_debug_vis(self):
@@ -167,13 +168,14 @@ class GaitEnv(LocoEnv):
 
         num_feet = len(self.feet_link_indices)
         feet_pos = self.feet_pos_local.clone()
+        body_quat_rel = gs_quat_mul(self.body_quat, gs_inv_quat(self.body_init_quat.reshape(1, -1).repeat(self.num_envs, 1)))
         for i in range(num_feet):
-            feet_pos[:, i, :] = gs_quat_apply_yaw(self.body_quat, feet_pos[:, i, :])
+            feet_pos[:, i, :] = gs_quat_apply_yaw(body_quat_rel, feet_pos[:, i, :])
         feet_pos[:, :, :2] += self.body_pos.unsqueeze(1)[:, :, :2]
 
         desired_feet_pos = self.desired_feet_pos_local.clone()
         for i in range(num_feet):
-            desired_feet_pos[:, i, :] = gs_quat_apply_yaw(self.body_quat, desired_feet_pos[:, i, :])
+            desired_feet_pos[:, i, :] = gs_quat_apply_yaw(body_quat_rel, desired_feet_pos[:, i, :])
         desired_feet_pos[:, :, :2] += self.body_pos.unsqueeze(1)[:, :, :2]
 
         self.scene.draw_debug_sphere(pos=self.body_pos[0], radius=0.1, color=(0, 1, 0, 0.7))

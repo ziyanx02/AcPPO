@@ -883,6 +883,7 @@ class LocoEnv:
             envs_idx=envs_idx,
         )
 
+        # reset root states - orientation
         rotation = quaternion_from_projected_gravity(projected_gravity)
         self.base_quat[envs_idx] = self.base_init_quat.reshape(1, -1)
         self.base_quat[envs_idx] = gs_quat_mul(
@@ -895,10 +896,12 @@ class LocoEnv:
             envs_idx=envs_idx
         )
 
+        # reset root velocity
         self.base_lin_vel[envs_idx] = lin_vel
-        self.base_ang_vel[envs_idx] = gs_transform_by_quat(ang_vel, self.base_quat[envs_idx])
+        self.base_ang_vel[envs_idx] = ang_vel
         base_vel = torch.concat(
-            [self.base_lin_vel[envs_idx], self.base_ang_vel[envs_idx]], dim=1
+            [gs_quat_apply_yaw(gs_quat_conjugate(rotation), self.base_lin_vel[envs_idx]), 
+             gs_quat_apply_yaw(gs_quat_conjugate(rotation), self.base_ang_vel[envs_idx])], dim=1
         )
         self.robot.set_dofs_velocity(
             velocity=base_vel,
@@ -1071,6 +1074,10 @@ class LocoEnv:
         cmd_lin_vel = torch.cat([self.commands[0][:2], torch.tensor([0.0], device=self.device)], dim=-1)
         desired_body_lin_vel = gs_transform_by_quat(cmd_lin_vel, quat_yaw[0])
         self.scene.draw_debug_arrow(pos=self.body_pos[0].cpu(), vec=desired_body_lin_vel.cpu(), radius=0.01, color=(0.7, 0, 0, 0.7))
+
+        cmd_ang_vel = torch.cat([torch.tensor([0.0, 0.0], device=self.device), self.commands[0][2:]], dim=-1)
+        desired_body_ang_vel = gs_transform_by_quat(cmd_ang_vel, quat_yaw[0])
+        self.scene.draw_debug_arrow(pos=self.body_pos[0].cpu(), vec=desired_body_ang_vel.cpu(), radius=0.01, color=(0, 0.7, 0, 0.7))
 
     def _set_camera(self):
         ''' Set camera position and direction
