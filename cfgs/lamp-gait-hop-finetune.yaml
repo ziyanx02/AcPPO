@@ -147,7 +147,7 @@ environment:
   command:
     lin_vel_x_range:
     - 0.0
-    - 1.0
+    - 2.0
     lin_vel_y_range:
     - 0.0
     - 0.0
@@ -155,7 +155,7 @@ environment:
     - 0.0
     - 0.0
   gait:
-    base_height_target: 0.198
+    base_height_target: 0.25
     frequency:
     - 3.0
     duration:
@@ -163,7 +163,7 @@ environment:
     offset:
     - 0.0
     feet_height_target:
-    - 0.0792
+    - 0.15
     stationary_position:
     - - 0.1184
       - 0.00
@@ -182,22 +182,22 @@ environment:
       lin_vel: 1.0
   reward:
     reward_scales:
-      lin_vel: 1.0
-      ang_vel: 0.5
-      alive: 10.0
-      ang_vel_xy: -0.05
-      base_height: -30.0
-      dof_acc: -0.05
-      dof_vel: -0.01
-      dof_pos_diff: -0.1
-      lin_vel_z: -2.0
-      orientation: -5.0
-      contact_force: -5.0
-      contact_vel: -5.0
-      feet_height: -400.0
-      feet_pos: -30.0
       action_smoothness_1: -0.1
       action_smoothness_2: -0.1
+      alive: 10.0
+      ang_vel: 0.5
+      ang_vel_xy: -0.05
+      base_height: -30.0
+      contact_force: -15.0
+      contact_vel: -5.0
+      dof_acc: -0.05
+      dof_pos_diff: -0.1
+      dof_vel: -0.01
+      feet_height: -200.0
+      feet_pos: -30.0
+      lin_vel: 3.0
+      lin_vel_z: -2.0
+      orientation: -2.0
       torques: -0.0001
     soft_dof_pos_limit: 0.9
     tracking_sigma: 0.25
