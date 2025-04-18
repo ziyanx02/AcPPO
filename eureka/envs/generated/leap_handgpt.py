@@ -745,11 +745,13 @@ class LeapHand:
         self.privileged_obs_buf = torch.clip(privileged_obs_buf, -clip_obs, clip_obs)
 
     def compute_reward(self):
-        self.rew_buf[:], self.rew_dict = compute_reward(self.base_lin_vel, self.base_ang_vel, self.commands, self.projected_gravity, self.link_contact_forces)
+        self.rew_buf[:], self.rew_dict = compute_reward(self.base_lin_vel, self.base_ang_vel, self.commands)
         self.extras['gpt_reward'] = self.rew_buf.mean()
         for rew_state in self.rew_dict: self.extras[rew_state] = self.rew_dict[rew_state].mean()
-        self.consecutive_successes = 1.0 * (self.episode_length_buf > self.max_episode_length / 2)
-        self.extras['consecutive_successes'] = self.consecutive_successes.mean()
+        lin_vel_error = torch.sum(torch.square(self.commands[:, :2] - self.base_lin_vel[:, :2]), dim=1)
+        ang_vel_error = torch.square(self.commands[:, 2] - self.base_ang_vel[:, 2])
+        consecutive_successes = -(lin_vel_error + ang_vel_error).mean()
+        self.extras['consecutive_successes'] = consecutive_successes.mean()
         self.extras['gt_reward'] = self.rew_buf.mean()
 
     def update_extras(self, reset_envs_idx):
@@ -1084,42 +1086,29 @@ import torch
 from torch import Tensor
 @torch.jit.script
 def compute_reward(
-    base_lin_vel: torch.Tensor, 
-    base_ang_vel: torch.Tensor, 
-    commands: torch.Tensor,
-    projected_gravity: torch.Tensor,
-    link_contact_forces: torch.Tensor
+    base_lin_vel: torch.Tensor,
+    base_ang_vel: torch.Tensor,
+    commands: torch.Tensor
 ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
-    # Parameters for reward component transformations
-    lin_vel_temp = 1.0
-    ang_vel_temp = 1.0
-    stability_temp = 1.0
-    contact_temp = 1.0
+    # Temperature parameters for normalization
+    lin_vel_temp = 1.0  # Temperature parameter for linear velocity reward
+    ang_vel_temp = 1.0  # Temperature parameter for angular velocity reward
 
-    # Linear velocity tracking reward
-    lin_vel_error = torch.norm(base_lin_vel[:, :2] - commands[:, :2], dim=-1)
-    lin_vel_reward = torch.exp(-lin_vel_error / lin_vel_temp)
+    # Reward for linear velocity matching the command
+    lin_vel_error = base_lin_vel[:, :2] - commands[:, :2]  # Compare only the x, y components
+    lin_vel_reward = torch.exp(-torch.norm(lin_vel_error, dim=-1) / lin_vel_temp)
 
-    # Angular velocity tracking reward
-    ang_vel_error = torch.abs(base_ang_vel[:, 2] - commands[:, 2])
-    ang_vel_reward = torch.exp(-ang_vel_error / ang_vel_temp)
+    # Reward for angular velocity matching the command
+    ang_vel_error = base_ang_vel[:, 2] - commands[:, 2]  # Angular velocity is in the z direction
+    ang_vel_reward = torch.exp(-torch.abs(ang_vel_error) / ang_vel_temp)
 
-    # Stability reward based on projected gravity alignment
-    stability_reward = torch.exp(-torch.norm(projected_gravity - torch.tensor([0.0, 0.0, 1.0], device=projected_gravity.device), dim=-1) / stability_temp)
+    # Total reward
+    total_reward = lin_vel_reward + ang_vel_reward
 
-    # Contact force reward penalizing excessive forces
-    contact_force_norm = torch.norm(link_contact_forces, dim=-1).sum(dim=-1)
-    contact_force_penalty = torch.exp(-contact_force_norm / contact_temp)
-
-    # Combine reward components
-    total_reward = lin_vel_reward + ang_vel_reward + stability_reward + contact_force_penalty
-
-    # Output the individual reward components and total reward
-    rewards_dict = {
+    # Individual reward components for debugging and analysis
+    reward_components = {
         "lin_vel_reward": lin_vel_reward,
-        "ang_vel_reward": ang_vel_reward,
-        "stability_reward": stability_reward,
-        "contact_force_penalty": contact_force_penalty,
+        "ang_vel_reward": ang_vel_reward
     }
 
-    return total_reward, rewards_dict
+    return total_reward, reward_components

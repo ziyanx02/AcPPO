@@ -199,7 +199,7 @@ class TDORunner:
             learn_time = stop - start
             self.current_learning_iteration = it
             if self.log_dir is not None:
-                self.log(locals())
+                self.log(locals(), infos)
             if self.cfg["record_interval"] > 0 and self.logger_type == "wandb":
                 self.log_video()
                 if self.cfg["record_interval"] > 0 and it % self.cfg["record_interval"] == 0:
@@ -217,7 +217,7 @@ class TDORunner:
 
         self.save(os.path.join(self.log_dir, f"model_{self.current_learning_iteration}.pt"))
 
-    def log(self, locs: dict, width: int = 80, pad: int = 35):
+    def log(self, locs: dict, infos: dict, width: int = 80, pad: int = 35):
         self.tot_timesteps += self.num_steps_per_env * self.env.num_envs
         self.tot_time += locs["collection_time"] + locs["learn_time"]
         iteration_time = locs["collection_time"] + locs["learn_time"]
@@ -258,6 +258,13 @@ class TDORunner:
         mean_std = self.alg.actor_critic.std.mean()
         max_std = self.alg.actor_critic.std.max()
         fps = int(self.num_steps_per_env * self.env.num_envs / (locs["collection_time"] + locs["learn_time"]))
+
+        if "gt_reward" in infos.keys():
+            self.writer.add_scalar("gt_reward", infos["gt_reward"].mean(), step)
+        if "gpt_reward" in infos.keys():
+            self.writer.add_scalar("gpt_reward", infos["gpt_reward"].mean(), step)
+        if "consecutive_successes" in infos.keys():
+            self.writer.add_scalar("consecutive_successes", infos["consecutive_successes"].mean(), step)
 
         self.writer.add_scalar("AC/value_function", locs["mean_value_loss"], step)
         self.writer.add_scalar("AC/surrogate", locs["mean_surrogate_loss"], step)

@@ -366,8 +366,7 @@ def main(cfg):
         # Execute the python file with flags
         rl_filepath = f"reward_code_eval{i}.txt"
         with open(rl_filepath, 'w') as f:
-            process = subprocess.Popen(['python', '-u', './train.py',  
-                                        'hydra/output=subprocess',
+            process = subprocess.Popen(['python', './train.py',
                                         f'task={task}{suffix}', f'wandb_activate={cfg.use_wandb}',
                                         f'wandb_entity={cfg.wandb_username}', f'wandb_project={cfg.wandb_project}',
                                         f'headless={not cfg.capture_video}', f'capture_video={cfg.capture_video}', 'force_render=False', f'seed={i}',

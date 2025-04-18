@@ -718,12 +718,6 @@ class LeapHand:
             ],
             axis=-1,
         )
-        # add noise
-        if not self.eval:
-            obs_buf += gs_rand_float(
-                -1.0, 1.0, (self.num_obs,), self.device
-            )  * self.obs_noise
-
         clip_obs = 100.0
         self.obs_buf = torch.clip(obs_buf, -clip_obs, clip_obs)
 
@@ -745,8 +739,10 @@ class LeapHand:
         self.privileged_obs_buf = torch.clip(privileged_obs_buf, -clip_obs, clip_obs)
 
     def compute_reward(self):
-        self.consecutive_successes = 1.0 * (self.episode_length_buf > self.max_episode_length / 2)
-        self.extras['consecutive_successes'] = self.consecutive_successes.mean()
+        lin_vel_error = torch.sum(torch.square(self.commands[:, :2] - self.base_lin_vel[:, :2]), dim=1)
+        ang_vel_error = torch.square(self.commands[:, 2] - self.base_ang_vel[:, 2])
+        consecutive_successes = -(lin_vel_error + ang_vel_error).mean()
+        self.extras['consecutive_successes'] = consecutive_successes.mean()
         self.extras['gt_reward'] = self.rew_buf.mean()
 
     def update_extras(self, reset_envs_idx):
