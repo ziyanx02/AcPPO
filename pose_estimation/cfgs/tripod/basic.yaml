@@ -1,0 +1,46 @@
+robot:
+  asset_path: urdf/tripod/tripod.urdf
+  scale: 1.0
+  body_name: base_link
+  foot_names:
+  - leg1_tip
+  - leg2_tip
+  - leg3_tip
+  links_to_keep:
+  - leg1_tip
+  - leg2_tip
+  - leg3_tip
+control:
+  control_freq: 50
+  kp: 20.0
+  kd: 2.0
+  armature: 0.05
+  damping: 0.0
+  base_init_pos:
+  - 0.0
+  - 0.0
+  - 0.0
+  base_init_quat:
+  - 1.0
+  - 0.0
+  - 0.0
+  - 0.0
+  default_joint_angles:
+    'leg1_joint': 0.0
+    'leg2_joint': 0.0
+    'leg3_joint': 0.0
+    'leg1_slide': 0.0
+    'leg2_slide': 0.0
+    'leg3_slide': 0.0
+  stationary_position:
+  - - 0.05649
+    - 0.11
+  - - 0.17959
+    - 0.05
+  - - 0.17686
+    - -0.03
+  - - 0.15498
+    - -0.1
+  - - 0.05831
+    - 0.11
+  robot_scale: 1.0
