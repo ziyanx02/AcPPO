@@ -10,37 +10,55 @@ robot:
   - leg1_tip
   - leg2_tip
   - leg3_tip
+  link_names:
+  - base_link
+  - leg1_joint_base
+  - leg2_joint_base
+  - leg3_joint_base
+  - leg1_link
+  - leg2_link
+  - leg3_link
+  - leg1_tip
+  - leg2_tip
+  - leg3_tip
 control:
   control_freq: 50
-  kp: 20.0
-  kd: 2.0
+  kp: 30.0
+  kd: 3.5
   armature: 0.05
   damping: 0.0
   base_init_pos:
   - 0.0
   - 0.0
-  - 0.0
+  - 0.65
   base_init_quat:
   - 1.0
   - 0.0
   - 0.0
   - 0.0
   default_joint_angles:
-    'leg1_joint': 0.0
-    'leg2_joint': 0.0
-    'leg3_joint': 0.0
-    'leg1_slide': 0.0
-    'leg2_slide': 0.0
-    'leg3_slide': 0.0
+    leg1_joint: 0.2
+    leg2_joint: 0.2
+    leg3_joint: 0.2
+    leg1_slide: 0.2
+    leg2_slide: 0.2
+    leg3_slide: 0.2
   stationary_position:
-  - - 0.05649
-    - 0.11
-  - - 0.17959
-    - 0.05
-  - - 0.17686
-    - -0.03
-  - - 0.15498
+  - - 0.11145
+    - -0.0
+  - - -0.05573
+    - 0.1
+  - - -0.05573
     - -0.1
-  - - 0.05831
-    - 0.11
   robot_scale: 1.0
+  body_init_pos:
+  - 0.0
+  - 0.0
+  - 0.65
+  body_init_quat:
+  - 1.0
+  - 0.0
+  - 0.0
+  - 0.0
+  diameter: 0.9
+  mass: 0.55569
