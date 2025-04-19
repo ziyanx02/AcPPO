@@ -455,6 +455,12 @@ class Robot:
     def get_link_by_name(self, link_name=None):
         return self.entity.get_link(link_name)
 
+    def get_qpos(self):
+        return self.entity.get_qpos()
+
+    def set_qpos(self, qpos):
+        return self.entity.set_qpos(qpos)
+
     def get_link_by_id(self, link_id=0):
         return self.links[link_id]
 

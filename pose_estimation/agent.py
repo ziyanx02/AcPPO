@@ -257,6 +257,12 @@ class Agent:
     #     joint_limit = (self.display.dof_limit[0][joint_id].item(), self.display.dof_limit[1][joint_id].item())
     #     return joint_pos, joint_limit
 
+    def get_qpos(self):
+        return self.display.get_qpos()
+
+    def set_qpos(self, qpos):
+        return self.display.set_qpos(qpos)
+
     def get_joint_pos(self, joint_id):
         """
         Get the joint position.
@@ -502,6 +508,8 @@ class Agent:
         else:
             axis.append("-z")
         self.display.clear_debug_objects()
+
+        camera_transforms = [camera_transforms[ax] for ax in axis]
 
         return camera_transforms, axis
 

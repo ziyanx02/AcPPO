@@ -37,8 +37,8 @@ This image shows the robot looking from its right side.
 The blue arrow shows the z-axis (upward). The red arrow shows the x-axis (forward).
 **Important**:
 - 'Up' in the image is upward for the robot.
-- 'Left' in the image is the robot's front.
-- 'Reft' in the image is the robot's back.
+- 'Left' in the image is the robot's back.
+- 'Reft' in the image is the robot's front.
 """,
     "-z": """
 This image shows the robot looking from bottom.
@@ -67,8 +67,6 @@ Your task:
 
 Instructions:
 - Respond with **only one number** — the ID of the base link.
-
-You are given images of the robot from different views.
 """
 ROTATION_PROPOSE_PROMPT = """
 You are helping to rotate a robot to complete this task: "{task}"
@@ -127,33 +125,77 @@ Answer:
 done
 """
 MOVEMENT_SELECTION_PROMPT = """
-Your task is find a standing pose of the robot to complete the task: {task}
-Now the link {body_link_id} is adjusted and fixed. So the rotation of the robot is not your task now.
-You are moving link {link_id} by inverse kinametics (as link {body_link_id} is fixed so only joint between link {body_link_id} and link {link_id} will change during ik).
+Your task is to adjust the robot pose for a standing pose to complete the task: {task}
+Now the link {body_link_id} is **adjusted and fixed**. So **don't** consider the rotation of link {body_link_id}.
+
+You are moving link {link_id} by inverse kinametics (as link {body_link_id} is fixed so only joint between link {body_link_id} and link {link_id} will move during ik).
 The potential positions are labeled by ids in the annotated images, including: {sampled_points}
 
 First analysis the front / back, left / right in each image.
-Then analysis which way you should move the link. And for the image taken from each axis, find out reasonable movements. Do not consider the connections between different views.
+Then analysis what usage is link {link_id} for. For example, if link {link_id} needs to touch the ground, then it should be put lower.
+For each potential positions (ids), analysis why or why not you are going to select it.
 
 At the end of your reply, you should contain the ids you think are reasonable in this format (remamber to add \\n after Answer:):
-Example1:
+<Your analysis>
 Answer:
-x:
-1, 3, 9, 14
-y:
-2, 3
-z:
-3, 5, 7
+<ids list>
 
-Example2:
+<Your analysis> is the analysis you made.
+<ids list> should be the ids (numbers) you selected, seperate by a comma.
+
+The blue arrow is z axis (upward). The red arrow is x axis (forward). The gree arrow is y axis (leftward).
+"""
+POSE_COMPARISON_PROMPT = """
+Your task is to find a standing pose of the robot to complete the task: {task}
+
+You will be given two set of pictures. One is before an adjustment, one is after. You are going to decide whether to keep this adjustment.
+This is not the final adjustment, so you only need to consider whether **this adjustment** make the robot pose **better**.
+If the adjustment make the pose better or there is no difference, return "Continue".
+If the adjustment make the pose worse, return "Cancel".
+
+This is the format you should follow in the reply:
+<Your analysis>
 Answer:
-x:
-3, 7
-y:
-2, 7, 9, 15
-z:
-5, 8
+<Your decision>
 
-The blue arrow is z axis (upward). The red arrow is x axis (forwward). The gree arrow is y axis (leftward).
-Here are the images:
+<Your analysis> is the analysis you made.
+<Your decision> should be either Continue or Cancel
+
+The blue arrow is z axis (upward). The red arrow is x axis (forward). The gree arrow is y axis (leftward).
+"""
+NUMERIC_ADJUSTMENT_PROMPT = """
+Your task is to adjust the robot pose to better complete the task: {task}
+
+The robot link {body_link_id} is fixed. You should move exrtemities {extremities} to fit the task and comply symmetry and some commensense (i.e. the height of feet should be the same, when there are only two feet then the line should across center of mass).
+The current positions of the extremities are (the order is same as previous extremites' order):
+{extremities_pos_as_prompt}
+
+The current center of mass is {com}.
+
+First you have to analysis what rule you should comply. Then from the current extremety positions, find out reasonable target positions.
+
+At the end of your reply, you should contain the target position in this format:
+<Your analysis>
+Answer:
+<extremety 1 position>
+<extremety 2 position>
+...
+
+<Your analysis> should contain your analysis about extremities' position and com.
+<extremety i position> should be a list containing x, y and z positions. The order and format of extremities' position should be same as the current positions of the extremities provided.
+"""
+NUMERIC_COMPARISON_PRMPT = """
+Do you think further adjustment is needed? Please respond with one of: yes / no
+If yes, please provide the new target positions in the same format as before.
+Example 1:
+no
+
+Example 2:
+yes
+Reason why the previous answer is not good.
+Answer:
+[0.0, -0.2, -0.4]
+[0.0, 0.2, -0.4]
+[0.2, 0.2, -0.0]
+[-0.15, -0.2, -0.0]
 """
