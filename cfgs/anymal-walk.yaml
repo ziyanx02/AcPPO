@@ -1,0 +1,269 @@
+learning:
+  algorithm:
+    class_name: TDO
+    clip_param: 0.2
+    desired_kl: 0.01
+    entropy_coef: 0.01
+    gamma: 0.99
+    lam: 0.95
+    learning_rate: 0.001
+    max_grad_norm: 1.0
+    num_learning_epochs: 5
+    num_mini_batches: 4
+    schedule: adaptive
+    use_clipped_value_loss: true
+    value_loss_coef: 1.0
+    td_entropy_coef: 0.0
+    return_boosting_coef: 0.0
+    action_noise_threshold: 0.0
+  policy:
+    activation: elu
+    actor_hidden_dims:
+    - 512
+    - 256
+    - 128
+    class_name: ActorCriticTDO
+    critic_hidden_dims:
+    - 512
+    - 256
+    - 128
+    init_noise_std: 1.0
+  temporal_distribution:
+    learning_rate: 0.001
+    class_name: TemporalDistribution
+  PPO: false
+  empirical_normalization: false
+  exp_name: null
+  num_steps_per_env: 24
+  reset_rate: 0.0
+  print_infos: true
+  record_interval: 50
+  save_interval: 100
+  seed: 1
+  wandb_entity: ziyanx02
+  wandb_project: Gait
+environment:
+  PPO: false
+  urdf_path: urdf/anymal_c/urdf/anymal_c.urdf
+  robot_scale: 1.0
+  links_to_keep:
+  - LF_FOOT
+  - RF_FOOT
+  - LH_FOOT
+  - RH_FOOT
+  num_actions: 12
+  num_dofs: 12
+  num_states: 34
+  termination_contact_link_names:
+  - base
+  - LF_HIP
+  - RF_HIP
+  - LH_HIP
+  - RH_HIP
+  - LF_THIGH
+  - RF_THIGH
+  - LH_THIGH
+  - RH_THIGH
+  - LF_SHANK
+  - RF_SHANK
+  - LH_SHANK
+  - RH_SHANK
+  penalized_contact_link_names:
+  - base
+  - LF_HIP
+  - RF_HIP
+  - LH_HIP
+  - RH_HIP
+  - LF_THIGH
+  - RF_THIGH
+  - LH_THIGH
+  - RH_THIGH
+  - LF_SHANK
+  - RF_SHANK
+  - LH_SHANK
+  - RH_SHANK
+  feet_link_names:
+  - LF_FOOT
+  - RF_FOOT
+  - LH_FOOT
+  - RH_FOOT
+  base_link_name:
+  - base
+  PD_stiffness:
+    ? ''
+    : 190.0
+  PD_damping:
+    ? ''
+    : 10.0
+  armature: 0.0
+  dof_damping: 0.0
+  action_scale: 0.25
+  clip_actions: 100.0
+  control_freq: 50
+  decimation: 4
+  delay_action: true
+  dof_names:
+  - LF_HAA
+  - RF_HAA
+  - LH_HAA
+  - RH_HAA
+  - LF_HFE
+  - RF_HFE
+  - LH_HFE
+  - RH_HFE
+  - LF_KFE
+  - RF_KFE
+  - LH_KFE
+  - RH_KFE
+  episode_length_s: 20.0
+  period_length_s: 0.5
+  use_timeout: true
+  reset_after_termination: true
+  termination_if_height_lower_than: 0.0
+  termination_if_pitch_greater_than: 0.4
+  termination_if_roll_greater_than: 0.4
+  base_init_pos:
+  - 0.0
+  - 0.0
+  - 0.7
+  base_init_quat:
+  - 1.0
+  - 0.0
+  - 0.0
+  - 0.0
+  body_init_pos:
+  - 0.0
+  - 0.0
+  - 0.7
+  body_init_quat:
+  - 1.0
+  - 0.0
+  - 0.0
+  - 0.0
+  default_joint_angles:
+    LF_HAA: 0.0
+    RF_HAA: 0.0
+    LH_HAA: 0.0
+    RH_HAA: 0.0
+    LF_HFE: 0.0
+    RF_HFE: 0.0
+    LH_HFE: 0.0
+    RH_HFE: 0.0
+    LF_KFE: 0.0
+    RF_KFE: 0.0
+    LH_KFE: 0.0
+    RH_KFE: 0.0
+  resampling_time_s: 4.0
+  randomize_base_mass: true
+  added_mass_range:
+  - -1.0
+  - 3.0
+  randomize_com_displacement: true
+  com_displacement_range:
+  - -0.01
+  - 0.01
+  randomize_friction: true
+  friction_range:
+  - 0.2
+  - 1.5
+  randomize_kd_scale: true
+  kd_scale_range:
+  - 0.8
+  - 1.2
+  randomize_kp_scale: true
+  kp_scale_range:
+  - 0.8
+  - 1.2
+  randomize_motor_offset: true
+  motor_offset_range:
+  - -0.02
+  - 0.02
+  randomize_motor_strength: false
+  motor_strength_range:
+  - 0.9
+  - 1.1
+  pos_randomization: 0.0
+  rot_randomization: 0.1
+  dof_pos_randomization: 0.3
+  max_push_vel_xy: 1.0
+  push_interval_s: -1
+  use_terrain: false
+  command:
+    lin_vel_x_range:
+    - 0.0
+    - 1.9110000133514404
+    lin_vel_y_range:
+    - 0.0
+    - 0.0
+    ang_vel_range:
+    - 0.0
+    - 0.0
+  gait:
+    base_height_target: 0.63
+    frequency:
+    - 3.0
+    - 3.0
+    - 3.0
+    - 3.0
+    duration:
+    - 0.5
+    - 0.5
+    - 0.5
+    - 0.5
+    offset:
+    - 0.5
+    - 0.0
+    - 0.0
+    - 0.5
+    feet_height_target:
+    - 0.252
+    - 0.252
+    - 0.252
+    - 0.252
+    stationary_position:
+    - - 0.44775
+      - 0.3
+    - - 0.44775
+      - -0.3
+    - - -0.44775
+      - 0.3
+    - - -0.44775
+      - -0.3
+  observation:
+    num_obs: 49
+    num_priv_obs: 64
+    obs_noise:
+      ang_vel: 0.1
+      dof_pos: 0.01
+      dof_vel: 0.5
+      gravity: 0.02
+    obs_scales:
+      ang_vel: 1.0
+      dof_pos: 1.0
+      dof_vel: 0.05
+      lin_vel: 1.0
+  reward:
+    reward_scales:
+      lin_vel: 1.0
+      ang_vel: 0.5
+      alive: 10.0
+      ang_vel_xy: -0.05
+      base_height: -30.0
+      dof_acc: -0.05
+      dof_vel: -0.01
+      dof_pos_diff: -0.1
+      lin_vel_z: -2.0
+      orientation: -5.0
+      contact_force: -5.0
+      contact_vel: -5.0
+      feet_height: -400.0
+      feet_pos: -30.0
+      action_smoothness_1: -0.1
+      action_smoothness_2: -0.1
+      torques: -0.0001
+    soft_dof_pos_limit: 0.9
+    tracking_sigma: 0.25
+reward_tuning:
+  num_iterations: 3
+  num_samples: 4
+  num_logpoints: 10

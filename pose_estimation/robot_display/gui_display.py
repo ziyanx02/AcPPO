@@ -72,6 +72,7 @@ class GUIDisplay:
         if self.control_dofs_pos:
             self.labels.extend(self.robot.dof_name)
             dof_limits = self.robot.dof_limit
+            dof_limits = (torch.clip(dof_limits[0], -np.pi, np.pi), torch.clip(dof_limits[1], -np.pi, np.pi))
             for i in range(len(self.robot.dof_name)):
                 self.limits[self.robot.dof_name[i]] = [dof_limits[0][i].item(), dof_limits[1][i].item()]
                 soft_limits = [

@@ -411,6 +411,7 @@ class LocoEnv:
         )
 
         self.dof_pos_limits = torch.stack(self.robot.get_dofs_limit(self.motor_dofs), dim=1)
+        self.dof_pos_limits = torch.clip(self.dof_pos_limits, -torch.pi * 2, torch.pi * 2)
         self.torque_limits = self.robot.get_dofs_force_range(self.motor_dofs)[1] * pow(self.scale, 5)
         for i in range(self.dof_pos_limits.shape[0]):
             # soft limits
